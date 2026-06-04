@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import { NTree } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useFilesStore } from '@/stores/hermes/files'
@@ -8,6 +8,9 @@ import type { TreeOption } from 'naive-ui'
 
 const { t } = useI18n()
 const filesStore = useFilesStore()
+const props = withDefaults(defineProps<{ rootPath?: string }>(), {
+  rootPath: '',
+})
 
 const treeData = ref<TreeOption[]>([])
 const selectedKeys = ref<string[]>([])
@@ -41,12 +44,17 @@ function handleSelect(keys: string[]) {
 
 function handleRootClick() {
   selectedKeys.value = []
-  filesStore.navigateTo('')
+  filesStore.navigateTo(props.rootPath || '')
 }
 
-onMounted(async () => {
-  treeData.value = await loadChildren('')
-})
+watch(
+  () => props.rootPath,
+  async (root) => {
+    selectedKeys.value = []
+    treeData.value = await loadChildren(root || '')
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
