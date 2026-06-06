@@ -321,6 +321,15 @@ export default {
   drawer: {
     terminal: 'ターミナル',
     files: 'ワークスペース',
+    todo: {
+      tab: 'Todo',
+      title: 'Todo リスト',
+      subtitle: 'このチャットセッションで見つかった現在の Todo 項目です。',
+      total: '合計',
+      lastUpdated: '最終更新 {time}',
+      emptyTitle: 'Todo 項目はまだありません',
+      emptyDescription: 'このセッションで Hermes が todo ツールを使うと、現在のリストがここに表示されます。',
+    },
   },
 
   // チャット

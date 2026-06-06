@@ -321,6 +321,15 @@ export default {
   drawer: {
     terminal: 'Terminal',
     files: 'Workspace',
+    todo: {
+      tab: 'Todo',
+      title: 'Todo list',
+      subtitle: 'Current todo items found in this chat session.',
+      total: 'Total',
+      lastUpdated: 'Last updated {time}',
+      emptyTitle: 'No todo items yet',
+      emptyDescription: 'When Hermes uses the todo tool in this session, the current list will appear here.',
+    },
   },
 
   // Chat

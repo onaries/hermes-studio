@@ -36,7 +36,7 @@ const message = useMessage();
 const { t } = useI18n();
 
 const showDrawer = ref(false);
-const drawerActiveTab = ref<"terminal" | "files">("files");
+const drawerActiveTab = ref<"terminal" | "files" | "todo">("files");
 const showOutline = ref(false);
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
 

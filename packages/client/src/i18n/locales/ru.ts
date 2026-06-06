@@ -243,6 +243,15 @@ export default {
   drawer: {
     terminal: 'Терминал',
     files: 'Рабочая область',
+    todo: {
+      tab: 'Todo',
+      title: 'Список задач',
+      subtitle: 'Текущие задачи, найденные в этой сессии чата.',
+      total: 'Всего',
+      lastUpdated: 'Обновлено {time}',
+      emptyTitle: 'Задач пока нет',
+      emptyDescription: 'Когда Hermes использует инструмент todo в этой сессии, текущий список появится здесь.',
+    },
   },
 
 

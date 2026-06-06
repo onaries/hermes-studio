@@ -3,10 +3,11 @@ import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import TerminalPanel from './TerminalPanel.vue'
 import FilesPanel from './FilesPanel.vue'
+import TodoPanel from './TodoPanel.vue'
 
 interface Props {
   show: boolean
-  activeTab?: 'terminal' | 'files'
+  activeTab?: 'terminal' | 'files' | 'todo'
 }
 
 interface Emits {
@@ -20,7 +21,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>()
 const { t } = useI18n()
 
-const activeTab = ref<'terminal' | 'files'>(props.activeTab)
+const activeTab = ref<'terminal' | 'files' | 'todo'>(props.activeTab)
 
 watch(() => props.activeTab, (newVal) => {
   if (newVal) activeTab.value = newVal
@@ -44,6 +45,12 @@ function handleClose() {
             {{ t('drawer.files') }}
           </button>
           <button
+            :class="['tab-button', { active: activeTab === 'todo' }]"
+            @click="activeTab = 'todo'"
+          >
+            {{ t('drawer.todo.tab') }}
+          </button>
+          <button
             :class="['tab-button', { active: activeTab === 'terminal' }]"
             @click="activeTab = 'terminal'"
           >
@@ -61,6 +68,9 @@ function handleClose() {
       <div class="drawer-content">
         <div v-show="activeTab === 'files'" class="drawer-pane">
           <FilesPanel />
+        </div>
+        <div v-show="activeTab === 'todo'" class="drawer-pane">
+          <TodoPanel />
         </div>
         <div v-show="activeTab === 'terminal'" class="drawer-pane">
           <TerminalPanel :visible="activeTab === 'terminal' && show" />
