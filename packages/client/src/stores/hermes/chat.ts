@@ -9,6 +9,7 @@ import { useProfilesStore } from './profiles'
 import { useSettingsStore } from './settings'
 import { primeCompletionSound, playCompletionSound } from '@/utils/completion-sound'
 import { detectThinkingBoundary } from '@/utils/thinking-parser'
+import { findCurrentTurnAssistant } from '@/utils/live-assistant-target'
 
 // Re-export ContentBlock for convenience
 export type ContentBlock = ContentBlockImport
@@ -1535,7 +1536,7 @@ export const useChatStore = defineStore('chat', () => {
           target.messageTotal = data.messageTotal ?? target.messageCount ?? target.loadedMessageCount
           target.messageCount = target.messageTotal
           target.hasMoreBefore = data.hasMoreBefore ?? target.loadedMessageCount < target.messageTotal
-          const lastAssistant = [...target.messages].reverse().find(m => m.role === 'assistant')
+          const lastAssistant = findCurrentTurnAssistant(target.messages)
           if (data.isWorking && lastAssistant) {
             lastAssistant.isStreaming = true
             activeAssistantMessageId = lastAssistant.id
