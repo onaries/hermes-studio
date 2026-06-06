@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from 'fs'
 import { join, resolve } from 'path'
 import { homedir } from 'os'
 
@@ -27,12 +28,44 @@ import { homedir } from 'os'
  * - HERMES_LAN_DISCOVERY_HTTP_PORTS: HTTP ports to probe during UDP discovery scans. Default: 8648,8748 plus current PORT.
  * - WORKSPACE_BASE: Base directory for workspace browsing. Default: /opt/data/workspace.
  *
+ * `.env` support:
+ * - The Vite client loads `.env` automatically, but the nodemon/ts-node dev server does not.
+ * - Load the repository-root `.env` here without overriding already-exported shell variables.
+ *
  * Limits/logging:
  * - MAX_DOWNLOAD_SIZE: Max file download size. Default: 200MB.
  * - MAX_EDIT_SIZE: Max editable file size. Default: 10MB.
  * - LOG_LEVEL: Server log level. Default: info.
  * - BRIDGE_LOG_LEVEL: Bridge log level. Default: LOG_LEVEL or info.
  */
+
+function parseDotEnvValue(rawValue: string): string {
+  let value = rawValue.trim()
+  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    value = value.slice(1, -1)
+  }
+  return value.replace(/\\n/g, '\n')
+}
+
+function loadRootDotEnv(env: NodeJS.ProcessEnv = process.env): void {
+  const envPath = resolve(process.cwd(), '.env')
+  if (!existsSync(envPath)) return
+
+  const content = readFileSync(envPath, 'utf-8')
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim()
+    if (!line || line.startsWith('#')) continue
+    const normalized = line.startsWith('export ') ? line.slice(7).trim() : line
+    const separator = normalized.indexOf('=')
+    if (separator <= 0) continue
+    const key = normalized.slice(0, separator).trim()
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue
+    if (env[key] !== undefined) continue
+    env[key] = parseDotEnvValue(normalized.slice(separator + 1))
+  }
+}
+
+loadRootDotEnv()
 
 export function getListenHost(env: Record<string, string | undefined> = process.env): string {
   const host = env.BIND_HOST?.trim()

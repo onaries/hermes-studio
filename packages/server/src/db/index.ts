@@ -5,11 +5,16 @@ import { config } from '../config'
 
 const isDev = process.env.NODE_ENV !== 'production'
 const isTest = process.env.VITEST === 'true' || process.env.NODE_ENV === 'test'
+const hasExplicitAppHome = Boolean(
+  process.env.HERMES_WEB_UI_HOME?.trim() || process.env.HERMES_WEBUI_STATE_DIR?.trim(),
+)
 
-// In WSL, always use home directory to avoid cross-filesystem issues
+// Dev runs normally use an isolated repo-local DB. When HERMES_WEB_UI_HOME or
+// HERMES_WEBUI_STATE_DIR is explicitly provided, honor it so a dev server can
+// be pointed at the same Web UI state directory as the user's running instance.
 const DB_DIR = isTest
   ? resolve(process.cwd(), 'packages/server/data/test-runtime')
-  : isDev
+  : isDev && !hasExplicitAppHome
   ? resolve(process.cwd(), 'packages/server/data')
   : config.appHome
 const DB_PATH = resolve(DB_DIR, 'hermes-web-ui.db')
@@ -36,7 +41,7 @@ export function getDb(): DatabaseSync | null {
     mkdirSync(DB_DIR, { recursive: true })
     _db = new DatabaseSync(DB_PATH)
     // Use WAL mode for better concurrency and WSL compatibility
-    if (isDev) {
+    if (isDev && !hasExplicitAppHome) {
       _db.exec('PRAGMA journal_mode=DELETE')
     } else {
       _db.exec('PRAGMA journal_mode=WAL')
