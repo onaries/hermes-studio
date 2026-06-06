@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useFilesStore } from '@/stores/hermes/files'
+import { useChatStore } from '@/stores/hermes/chat'
 import { useI18n } from 'vue-i18n'
 import { NButton } from 'naive-ui'
 import FileTree from '@/components/hermes/files/FileTree.vue'
@@ -15,6 +16,7 @@ import FileRenameModal from '@/components/hermes/files/FileRenameModal.vue'
 import type { FileEntry } from '@/api/hermes/files'
 
 const filesStore = useFilesStore()
+const chatStore = useChatStore()
 const { t } = useI18n()
 
 const contextMenuRef = ref<InstanceType<typeof FileContextMenu> | null>(null)
@@ -23,6 +25,21 @@ const showRenameModal = ref(false)
 const renameMode = ref<'newFile' | 'newFolder' | 'rename'>('newFile')
 const renameEntry = ref<FileEntry | null>(null)
 const showSidebar = ref(false)
+const workspaceRoot = computed(() => {
+  const activeId = chatStore.activeSessionId
+  return chatStore.activeSession?.workspace
+    || chatStore.sessions.find(session => session.id === activeId)?.workspace
+    || ''
+})
+
+watch(
+  workspaceRoot,
+  (root) => {
+    filesStore.setRootPath(root)
+    void filesStore.fetchEntries(root)
+  },
+  { immediate: true },
+)
 
 function handleContextMenu(e: MouseEvent, entry: FileEntry) {
   contextMenuRef.value?.show(e, entry)
@@ -46,9 +63,6 @@ function handleRename(entry: FileEntry) {
   showRenameModal.value = true
 }
 
-onMounted(() => {
-  filesStore.fetchEntries('')
-})
 </script>
 
 <template>
@@ -62,7 +76,7 @@ onMounted(() => {
       class="files-tree-panel"
       :class="{ 'mobile-visible': showSidebar }"
     >
-      <FileTree />
+      <FileTree :root-path="workspaceRoot" />
     </div>
     <div class="files-main-panel">
       <div class="main-toolbar">

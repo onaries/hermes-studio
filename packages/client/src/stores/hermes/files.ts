@@ -115,6 +115,7 @@ function isAffected(targetPath: string, changedPath: string, changedIsDir: boole
 
 export const useFilesStore = defineStore('files', () => {
   const currentPath = ref('')
+  const rootPath = ref('')
   const entries = ref<FileEntry[]>([])
   const loading = ref(false)
   const sortBy = ref<'name' | 'size' | 'modTime'>('name')
@@ -135,9 +136,34 @@ export const useFilesStore = defineStore('files', () => {
   } | null>(null)
 
   const pathSegments = computed(() => {
-    if (!currentPath.value) return []
-    return currentPath.value.split('/').filter(Boolean)
+    const current = currentPath.value.replace(/\\/g, '/')
+    const root = rootPath.value.replace(/\\/g, '/').replace(/\/$/, '')
+    if (!current) return []
+    if (root && (current === root || current.startsWith(`${root}/`))) {
+      return current.slice(root.length).split('/').filter(Boolean)
+    }
+    return current.split('/').filter(Boolean)
   })
+
+  function isAbsoluteFilePath(path: string): boolean {
+    return path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(path)
+  }
+
+  function segmentPath(index: number): string {
+    const segments = pathSegments.value.slice(0, index + 1)
+    const root = rootPath.value.replace(/\\/g, '/').replace(/\/$/, '')
+    if (root) return segments.length ? `${root}/${segments.join('/')}` : root
+    const joined = segments.join('/')
+    return isAbsoluteFilePath(currentPath.value) ? `/${joined}` : joined
+  }
+
+  function navigateRoot() {
+    return fetchEntries(rootPath.value || '')
+  }
+
+  function setRootPath(path: string) {
+    rootPath.value = path || ''
+  }
 
   const sortedEntries = computed(() => {
     const copy = [...entries.value]
@@ -176,9 +202,12 @@ export const useFilesStore = defineStore('files', () => {
 
   function navigateTo(path: string) { return fetchEntries(path) }
   function navigateUp() {
+    if (currentPath.value === rootPath.value) return fetchEntries(rootPath.value || '')
     const parts = currentPath.value.split('/').filter(Boolean)
     parts.pop()
-    return fetchEntries(parts.join('/'))
+    const nextPath = isAbsoluteFilePath(currentPath.value) ? `/${parts.join('/')}` : parts.join('/')
+    if (rootPath.value && !nextPath.startsWith(rootPath.value)) return fetchEntries(rootPath.value)
+    return fetchEntries(nextPath)
   }
 
   async function openEditor(filePath: string) {
@@ -279,9 +308,10 @@ export const useFilesStore = defineStore('files', () => {
   })
 
   return {
-    currentPath, entries, loading, sortBy, sortOrder,
+    currentPath, rootPath, entries, loading, sortBy, sortOrder,
     editingFile, previewFile,
     pathSegments, sortedEntries, hasUnsavedChanges,
+    setRootPath, segmentPath, navigateRoot,
     fetchEntries, navigateTo, navigateUp,
     openEditor, saveEditor, closeEditor,
     openPreview, closePreview,

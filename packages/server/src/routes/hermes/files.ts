@@ -1,4 +1,6 @@
 import Router from '@koa/router'
+import { resolve, normalize, isAbsolute } from 'path'
+import { isPathWithin } from '../../services/hermes/hermes-path'
 import {
   createFileProvider,
   resolveHermesPath,
@@ -10,7 +12,19 @@ function requestedProfile(ctx: any): string | undefined {
   return ctx.state?.profile?.name
 }
 
+function workspaceBase(): string {
+  return resolve(process.env.WORKSPACE_BASE || '/opt/data/workspace')
+}
+
 function resolveRequestPath(ctx: any, relativePath: string): string {
+  if (relativePath && isAbsolute(relativePath)) {
+    const absPath = normalize(resolve(relativePath))
+    const base = workspaceBase()
+    if (!isPathWithin(absPath, base)) {
+      throw Object.assign(new Error(`Workspace path is outside WORKSPACE_BASE (${base})`), { code: 'invalid_path' })
+    }
+    return absPath
+  }
   return resolveHermesPath(relativePath, requestedProfile(ctx))
 }
 
@@ -55,7 +69,13 @@ fileRoutes.get('/api/hermes/files/list', async (ctx) => {
       if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
       return a.name.localeCompare(b.name)
     })
-    ctx.body = { entries: entries.map(entry => withAbsolutePath(ctx, entry)), path: relativePath, absolutePath: absPath }
+    const responseEntries = entries.map(entry => {
+      const path = relativePath && isAbsolute(relativePath)
+        ? `${absPath.replace(/\/$/, '')}/${entry.name}`
+        : entry.path
+      return withAbsolutePath(ctx, { ...entry, path })
+    })
+    ctx.body = { entries: responseEntries, path: relativePath, absolutePath: absPath }
   } catch (err: any) {
     handleError(ctx, err)
   }

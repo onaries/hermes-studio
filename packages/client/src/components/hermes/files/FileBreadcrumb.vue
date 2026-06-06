@@ -8,10 +8,9 @@ const filesStore = useFilesStore()
 
 function handleClick(index: number) {
   if (index < 0) {
-    filesStore.navigateTo('')
+    filesStore.navigateRoot()
   } else {
-    const path = filesStore.pathSegments.slice(0, index + 1).join('/')
-    filesStore.navigateTo(path)
+    filesStore.navigateTo(filesStore.segmentPath(index))
   }
 }
 </script>
