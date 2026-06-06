@@ -39,16 +39,16 @@ function handleClose() {
       <div class="drawer-header">
         <div class="drawer-tabs">
           <button
-            :class="['tab-button', { active: activeTab === 'files' }]"
-            @click="activeTab = 'files'"
-          >
-            {{ t('drawer.files') }}
-          </button>
-          <button
             :class="['tab-button', { active: activeTab === 'todo' }]"
             @click="activeTab = 'todo'"
           >
             {{ t('drawer.todo.tab') }}
+          </button>
+          <button
+            :class="['tab-button', { active: activeTab === 'files' }]"
+            @click="activeTab = 'files'"
+          >
+            {{ t('drawer.files') }}
           </button>
           <button
             :class="['tab-button', { active: activeTab === 'terminal' }]"
