@@ -58,7 +58,11 @@
     "build:desktop:win": "npm run build && npm run desktop:install && npm --prefix packages/desktop run dist -- --win --publish never",
     "build:desktop:linux": "npm run build && npm run desktop:install && npm --prefix packages/desktop run dist -- --linux --publish never",
     "openapi:generate": "node scripts/generate-openapi.mjs",
-    "claude": "claude --dangerously-skip-permissions"
+    "claude": "claude --dangerously-skip-permissions",
+    "external:webui:stop": "scripts/external-web-ui.sh stop",
+    "external:webui:start": "scripts/external-web-ui.sh start",
+    "external:webui:restart": "scripts/external-web-ui.sh restart",
+    "external:webui:status": "scripts/external-web-ui.sh status"
   },
   "files": [
     "bin/",
