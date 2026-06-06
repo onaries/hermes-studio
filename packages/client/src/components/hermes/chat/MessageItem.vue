@@ -21,6 +21,7 @@ import {
 import { useGlobalSpeech } from "@/composables/useSpeech";
 import { useVoiceSettings } from "@/composables/useVoiceSettings";
 import { speedToEdgeRate, hzToEdgePitch } from "@/utils/ttsHelpers";
+import { buildTodoToolSummary } from "@/utils/todo-tool-summary";
 
 const TOOL_PAYLOAD_DISPLAY_LIMIT = 1000;
 const JSON_STRING_DISPLAY_LIMIT = 200;
@@ -535,6 +536,15 @@ const hasAttachments = computed(
   () => (props.message.attachments?.length ?? 0) > 0,
 );
 
+const todoToolSummary = computed(() => buildTodoToolSummary(
+  props.message.toolName,
+  props.message.toolArgs,
+  props.message.toolResult,
+  t,
+));
+const displayToolName = computed(() => todoToolSummary.value ? t('chat.todoToolName') : props.message.toolName);
+const displayToolPreview = computed(() => todoToolSummary.value?.preview || props.message.toolPreview);
+
 const toolArgsPayload = computed(() => formatToolPayload(props.message.toolArgs));
 const toolResultPayload = computed(() => formatToolPayload(props.message.toolResult, true));
 
@@ -794,11 +804,11 @@ onBeforeUnmount(() => {
             d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
           />
         </svg>
-        <span class="tool-name">{{ message.toolName }}</span>
+        <span class="tool-name">{{ displayToolName }}</span>
         <span
-          v-if="message.toolPreview && !toolExpanded"
+          v-if="displayToolPreview && !toolExpanded"
           class="tool-preview"
-          >{{ message.toolPreview }}</span
+          >{{ displayToolPreview }}</span
         >
         <span
           v-if="message.toolStatus === 'running'"
@@ -809,6 +819,15 @@ onBeforeUnmount(() => {
         }}</span>
       </div>
       <div v-if="toolExpanded && hasToolDetails" class="tool-details" @click="handleToolDetailClick">
+        <div v-if="todoToolSummary" class="tool-detail-section">
+          <div class="tool-detail-label">{{ todoToolSummary.title }}</div>
+          <ul class="todo-tool-summary">
+            <li v-for="item in todoToolSummary.items" :key="item.id || item.content">
+              <span class="todo-tool-status">{{ item.statusLabel }}</span>
+              <span class="todo-tool-content">{{ item.content }}</span>
+            </li>
+          </ul>
+        </div>
         <div v-if="formattedToolArgs" class="tool-detail-section" data-copy-source="tool-args">
           <div class="tool-detail-label">{{ t("chat.arguments") }}</div>
           <div class="tool-detail-code-block" v-html="renderedToolArgs"></div>
@@ -1571,6 +1590,37 @@ onBeforeUnmount(() => {
 
 .tool-detail-section {
   margin-bottom: 6px;
+}
+
+.todo-tool-summary {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  color: $text-secondary;
+
+  li {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .todo-tool-status {
+    flex-shrink: 0;
+    color: $text-muted;
+    font-weight: 600;
+  }
+
+  .todo-tool-content {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 .tool-detail-label {
