@@ -536,10 +536,6 @@ const hasAttachments = computed(
   () => (props.message.attachments?.length ?? 0) > 0,
 );
 
-const hasToolDetails = computed(
-  () => !!(props.message.toolArgs || props.message.toolResult),
-);
-
 const todoToolSummary = computed(() => buildTodoToolSummary(
   props.message.toolName,
   props.message.toolArgs,

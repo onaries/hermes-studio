@@ -20,7 +20,7 @@ const TODO_TOOL_NAMES = new Set(['todo', 'functions.todo'])
 const TODO_STATUSES = new Set<TodoToolStatus>(['pending', 'in_progress', 'completed', 'cancelled'])
 const PREVIEW_ITEM_LIMIT = 3
 
-function parseJsonPayload(raw?: string): any | null {
+function parseJsonPayload(raw?: unknown): any | null {
   if (!raw || typeof raw !== 'string') return null
   const trimmed = raw.trim()
   if (!trimmed) return null
@@ -81,8 +81,8 @@ function isTodoToolName(toolName?: string): boolean {
 
 export function buildTodoToolSummary(
   toolName: string | undefined,
-  toolArgs: string | undefined,
-  toolResult: string | undefined,
+  toolArgs: unknown,
+  toolResult: unknown,
   t: Translator,
 ): TodoToolSummary | null {
   if (!isTodoToolName(toolName)) return null
