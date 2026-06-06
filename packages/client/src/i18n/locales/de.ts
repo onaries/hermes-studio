@@ -321,6 +321,15 @@ export default {
   drawer: {
     terminal: 'Konsole',
     files: 'Arbeitsbereich',
+    todo: {
+      tab: 'Todo',
+      title: 'Todo-Liste',
+      subtitle: 'Aktuelle Todo-Einträge aus dieser Chatsitzung.',
+      total: 'Gesamt',
+      lastUpdated: 'Zuletzt aktualisiert {time}',
+      emptyTitle: 'Noch keine Todo-Einträge',
+      emptyDescription: 'Wenn Hermes in dieser Sitzung das todo-Tool verwendet, erscheint die aktuelle Liste hier.',
+    },
   },
 
   // Chat

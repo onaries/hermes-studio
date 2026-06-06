@@ -321,6 +321,15 @@ export default {
   drawer: {
     terminal: '終端機',
     files: '工作區',
+    todo: {
+      tab: '待辦',
+      title: '待辦清單',
+      subtitle: '此聊天工作階段中找到的目前待辦項目。',
+      total: '總數',
+      lastUpdated: '最後更新 {time}',
+      emptyTitle: '尚無待辦項目',
+      emptyDescription: '當 Hermes 在此工作階段使用 todo 工具時，目前清單會顯示在這裡。',
+    },
   },
 
   // 對話

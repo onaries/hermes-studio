@@ -321,6 +321,15 @@ export default {
   drawer: {
     terminal: 'Terminal',
     files: 'Espacio de trabajo',
+    todo: {
+      tab: 'Todo',
+      title: 'Lista de tareas',
+      subtitle: 'Tareas actuales encontradas en esta sesión de chat.',
+      total: 'Total',
+      lastUpdated: 'Última actualización {time}',
+      emptyTitle: 'Aún no hay tareas',
+      emptyDescription: 'Cuando Hermes use la herramienta todo en esta sesión, la lista actual aparecerá aquí.',
+    },
   },
 
   // Chat

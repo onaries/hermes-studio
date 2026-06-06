@@ -321,6 +321,15 @@ export default {
   drawer: {
     terminal: '터미널',
     files: '작업 공간',
+    todo: {
+      tab: 'Todo',
+      title: 'Todo 목록',
+      subtitle: '이 채팅 세션에서 발견된 현재 Todo 항목입니다.',
+      total: '전체',
+      lastUpdated: '마지막 업데이트 {time}',
+      emptyTitle: '아직 Todo 항목이 없습니다',
+      emptyDescription: '이 세션에서 Hermes가 todo 도구를 사용하면 현재 목록이 여기에 표시됩니다.',
+    },
   },
 
   // 채팅
