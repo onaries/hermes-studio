@@ -11,6 +11,7 @@ export interface DisplayConfig {
   inline_diffs?: boolean
   show_cost?: boolean
   skin?: string
+  mobile_enter_to_send?: boolean
 }
 
 export interface AgentConfig {

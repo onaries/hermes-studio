@@ -1017,6 +1017,8 @@ export default {
       inlineDiffsHint: 'コード変更をインラインで表示',
       bellOnComplete: '完了通知音',
       bellOnCompleteHint: 'AI の応答完了時に通知音を再生',
+      mobileEnterToSend: 'モバイルで Enter 送信',
+      mobileEnterToSendHint: 'オフにすると、モバイルキーボードの Enter は改行のみになり、送信ボタンで送信します。',
       theme: 'テーマ',
       themeHint: 'ライト、ダーク、またはシステム設定に従う',
       themeLight: 'ライト',

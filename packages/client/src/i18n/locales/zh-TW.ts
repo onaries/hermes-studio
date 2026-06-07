@@ -1110,6 +1110,8 @@ export default {
       inlineDiffsHint: '程式碼變更以內嵌方式顯示',
       bellOnComplete: '完成提示音',
       bellOnCompleteHint: 'AI 回覆完成時播放提示音',
+      mobileEnterToSend: '行動裝置 Enter 送出',
+      mobileEnterToSendHint: '關閉後，行動裝置鍵盤的 Enter 只會換行，請使用送出按鈕提交。',
       theme: '主題',
       themeHint: '選擇淺色、暗色或跟隨系統',
       themeLight: '淺色',
