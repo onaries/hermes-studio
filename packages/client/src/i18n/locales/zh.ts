@@ -1120,6 +1120,8 @@ export default {
       inlineDiffsHint: '代码变更以内联方式显示',
       bellOnComplete: '完成提示音',
       bellOnCompleteHint: 'AI 回复完成时播放提示音',
+      mobileEnterToSend: '移动端 Enter 发送',
+      mobileEnterToSendHint: '关闭后，移动端键盘的 Enter 只换行，使用发送按钮提交。',
       theme: '主题',
       themeHint: '选择浅色、暗色或跟随系统',
       themeLight: '浅色',

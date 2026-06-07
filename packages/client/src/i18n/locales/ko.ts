@@ -1017,6 +1017,8 @@ export default {
       inlineDiffsHint: '코드 변경사항을 인라인으로 표시',
       bellOnComplete: '완료 알림음',
       bellOnCompleteHint: 'AI 응답 완료 시 알림음 재생',
+      mobileEnterToSend: '모바일에서 Enter로 전송',
+      mobileEnterToSendHint: '끄면 모바일 키보드에서 Enter는 줄바꿈만 하고, 전송은 버튼으로 합니다.',
       theme: '테마',
       themeHint: '라이트, 다크 또는 시스템 설정 따르기',
       themeLight: '라이트',

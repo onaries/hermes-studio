@@ -55,6 +55,9 @@ function handleThemeChange(val: string) {
     <SettingRow :label="t('settings.display.bellOnComplete')" :hint="t('settings.display.bellOnCompleteHint')">
       <NSwitch :value="settingsStore.display.bell_on_complete" @update:value="v => save({ bell_on_complete: v })" />
     </SettingRow>
+    <SettingRow :label="t('settings.display.mobileEnterToSend')" :hint="t('settings.display.mobileEnterToSendHint')">
+      <NSwitch :value="settingsStore.display.mobile_enter_to_send === true" @update:value="v => save({ mobile_enter_to_send: v })" />
+    </SettingRow>
   </section>
 </template>
 

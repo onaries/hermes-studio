@@ -970,6 +970,8 @@ export default {
       inlineDiffsHint: 'Отображать изменения в коде внутри строки',
       bellOnComplete: 'Звук завершения',
       bellOnCompleteHint: 'Воспроизводить звук по окончании ответа AI',
+      mobileEnterToSend: 'Отправлять Enter на мобильных',
+      mobileEnterToSendHint: 'Если выключено, Enter на мобильной клавиатуре добавляет новую строку; отправляйте кнопкой.',
       theme: 'Тема',
       themeHint: 'Выберите светлую, тёмную или системную тему',
       themeLight: 'Светлая',

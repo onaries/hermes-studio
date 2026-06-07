@@ -3,16 +3,19 @@ import type { Attachment } from '@/stores/hermes/chat'
 import { useChatStore } from '@/stores/hermes/chat'
 import { useAppStore } from '@/stores/hermes/app'
 import { useProfilesStore } from '@/stores/hermes/profiles'
+import { useSettingsStore } from '@/stores/hermes/settings'
 import { fetchContextLength } from '@/api/hermes/sessions'
 import { setModelContext } from '@/api/hermes/model-context'
 import { NButton, NTooltip, NSwitch, NModal, NInputNumber, useMessage } from 'naive-ui'
 import { computed, ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToolTraceVisibility } from '@/composables/useToolTraceVisibility'
+import { isMobileLikeInputDevice, shouldSubmitOnEnter } from '@/utils/chat-enter-submit'
 
 const chatStore = useChatStore()
 const appStore = useAppStore()
 const profilesStore = useProfilesStore()
+const settingsStore = useSettingsStore()
 const { t } = useI18n()
 const message = useMessage()
 const { toolTraceVisible, toggleToolTraceVisible } = useToolTraceVisibility()
@@ -451,7 +454,10 @@ function handleKeydown(e: KeyboardEvent) {
     }
   }
 
-  if (e.key !== 'Enter' || e.shiftKey) return
+  if (!shouldSubmitOnEnter(e, {
+    isMobileLike: isMobileLikeInputDevice(),
+    mobileEnterToSend: settingsStore.display.mobile_enter_to_send === true,
+  })) return
   if (isImeEnter(e)) return
 
   e.preventDefault()

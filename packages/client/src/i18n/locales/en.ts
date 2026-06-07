@@ -1128,6 +1128,8 @@ export default {
       inlineDiffsHint: 'Show code changes inline',
       bellOnComplete: 'Completion Sound',
       bellOnCompleteHint: 'Play sound when AI finishes',
+      mobileEnterToSend: 'Send with Enter on mobile',
+      mobileEnterToSendHint: 'When off, Enter inserts a new line on mobile keyboards; use the send button to submit.',
       theme: 'Theme',
       themeHint: 'Choose light, dark, or follow system preference',
       themeLight: 'Light',
