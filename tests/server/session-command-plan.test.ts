@@ -4,6 +4,10 @@ const addMessageMock = vi.fn()
 const createSessionMock = vi.fn()
 const getSessionMock = vi.fn()
 const updateSessionStatsMock = vi.fn()
+const compressionMocks = vi.hoisted(() => ({
+  buildDbHistory: vi.fn(async () => []),
+  buildSnapshotAwareHistory: vi.fn(async (_sessionId: string, _profile: string, history: any[]) => history),
+}))
 
 vi.mock('../../packages/server/src/db/hermes/session-store', () => ({
   addMessage: addMessageMock,
@@ -19,7 +23,8 @@ vi.mock('../../packages/server/src/services/logger', () => ({
 }))
 
 vi.mock('../../packages/server/src/services/hermes/run-chat/compression', () => ({
-  buildDbHistory: vi.fn(async () => []),
+  buildDbHistory: compressionMocks.buildDbHistory,
+  buildSnapshotAwareHistory: compressionMocks.buildSnapshotAwareHistory,
   estimateSnapshotAwareHistoryUsage: vi.fn(),
   forceCompressBridgeHistory: vi.fn(),
   getOrCreateSession: vi.fn((_map: Map<string, any>, sessionId: string) => _map.get(sessionId)),
@@ -29,6 +34,10 @@ vi.mock('../../packages/server/src/services/hermes/run-chat/compression', () => 
 vi.mock('../../packages/server/src/services/hermes/run-chat/usage', () => ({
   calcAndUpdateUsage: vi.fn(),
   contextTokensWithCachedOverhead: vi.fn(),
+  estimateUsageTokensFromMessages: vi.fn((messages: any[]) => ({
+    inputTokens: messages.filter(message => message.role === 'user').reduce((sum, message) => sum + Math.ceil(String(message.content || '').length / 4), 0),
+    outputTokens: messages.filter(message => message.role !== 'user').reduce((sum, message) => sum + Math.ceil(String(message.content || '').length / 4), 0),
+  })),
   updateMessageContextTokenUsage: vi.fn(),
 }))
 
@@ -78,6 +87,8 @@ function makeContext(state: any, commandResult: Record<string, unknown> = {
 describe('plan session command', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    compressionMocks.buildDbHistory.mockResolvedValue([])
+    compressionMocks.buildSnapshotAwareHistory.mockImplementation(async (_sessionId: string, _profile: string, history: any[]) => history)
     getSessionMock.mockReturnValue({ id: 'session-1', profile: 'default', source: 'cli' })
   })
 
@@ -351,6 +362,39 @@ describe('plan session command', () => {
       action: 'btw',
       delta: 'side answer',
     }))
+  })
+
+  it('trims /btw history before starting the temporary side-question run', async () => {
+    const state = { messages: [], isWorking: false, events: [], queue: [] }
+    const { bridge, runQueuedItem, sessionMap, socket, nsp } = makeContext(state)
+    const longHistory = Array.from({ length: 80 }, (_, index) => ({
+      role: index % 2 === 0 ? 'user' : 'assistant',
+      content: `message ${index} ${'x'.repeat(2000)}`,
+      tool_calls: [{ id: `call-${index}`, type: 'function', function: { name: 'tool', arguments: '{}' } }],
+    }))
+    ;(compressionMocks.buildDbHistory as any).mockResolvedValue(longHistory)
+    compressionMocks.buildSnapshotAwareHistory.mockImplementation(async (_sessionId: string, _profile: string, history: any[]) => history)
+    const { handleSessionCommand, parseSessionCommand } = await import('../../packages/server/src/services/hermes/run-chat/session-command')
+    const command = parseSessionCommand('/btw summarize docs')!
+
+    await handleSessionCommand('session-1', command, {
+      nsp: nsp as any,
+      socket: socket as any,
+      sessionMap,
+      bridge: bridge as any,
+      profile: 'default',
+      model: 'gpt-test',
+      provider: 'openai',
+      runQueuedItem,
+    })
+    await new Promise(resolve => setTimeout(resolve, 200))
+
+    expect(bridge.chat).toHaveBeenCalled()
+    const historyArg = bridge.chat.mock.calls[0][2]
+    expect(historyArg.length).toBeLessThanOrEqual(32)
+    expect(historyArg.length).toBeLessThan(longHistory.length)
+    expect(historyArg.every((message: any) => message.role === 'user' || message.role === 'assistant')).toBe(true)
+    expect(historyArg.every((message: any) => !('tool_calls' in message))).toBe(true)
   })
 
   it('rejects /background without a prompt', async () => {
