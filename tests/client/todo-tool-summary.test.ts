@@ -32,8 +32,7 @@ describe('todo tool summary', () => {
     )
 
     expect(summary?.title).toBe('Todo updated')
-    expect(summary?.preview).toContain('Completed: Inspect tool rendering')
-    expect(summary?.preview).toContain('In progress: Implement todo summary')
+    expect(summary?.preview).toBe('Completed: Inspect tool rendering · In progress: Implement todo summary')
     expect(summary?.items).toHaveLength(2)
   })
 
@@ -51,19 +50,20 @@ describe('todo tool summary', () => {
     )
 
     expect(summary?.title).toBe('Todo list')
-    expect(summary?.preview).toContain('Pending: First task')
-    expect(summary?.preview).toContain('Completed: Second task')
+    expect(summary?.preview).not.toContain('Pending: First task')
+    expect(summary?.preview).toBe('Completed: Second task')
   })
 
-  it('truncates long preview lists but keeps full items for expansion', () => {
+  it('truncates long active/completed preview lists but keeps full items for expansion', () => {
     const summary = buildTodoToolSummary(
       'todo',
       JSON.stringify({
         todos: [
-          { id: 'a', content: 'A', status: 'pending' },
-          { id: 'b', content: 'B', status: 'pending' },
-          { id: 'c', content: 'C', status: 'pending' },
-          { id: 'd', content: 'D', status: 'pending' },
+          { id: 'a', content: 'A', status: 'completed' },
+          { id: 'b', content: 'B', status: 'in_progress' },
+          { id: 'c', content: 'C', status: 'completed' },
+          { id: 'd', content: 'D', status: 'completed' },
+          { id: 'e', content: 'E', status: 'pending' },
         ],
       }),
       undefined,
@@ -71,7 +71,25 @@ describe('todo tool summary', () => {
     )
 
     expect(summary?.preview).toContain('+1 more')
-    expect(summary?.items).toHaveLength(4)
+    expect(summary?.preview).not.toContain('Pending')
+    expect(summary?.items).toHaveLength(5)
+  })
+
+  it('keeps todo preview empty when there are only pending/cancelled items', () => {
+    const summary = buildTodoToolSummary(
+      'todo',
+      JSON.stringify({
+        todos: [
+          { id: 'a', content: 'Waiting task', status: 'pending' },
+          { id: 'b', content: 'Cancelled task', status: 'cancelled' },
+        ],
+      }),
+      undefined,
+      t,
+    )
+
+    expect(summary?.preview).toBe('')
+    expect(summary?.items).toHaveLength(2)
   })
 
   it('ignores non-todo tools', () => {
