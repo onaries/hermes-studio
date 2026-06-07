@@ -544,7 +544,7 @@ const todoToolSummary = computed(() => buildTodoToolSummary(
   t,
 ));
 const displayToolName = computed(() => todoToolSummary.value ? t('chat.todoToolName') : props.message.toolName);
-const displayToolPreview = computed(() => todoToolSummary.value?.preview || buildToolInlineSummary(
+const displayToolPreview = computed(() => todoToolSummary.value ? todoToolSummary.value.preview : buildToolInlineSummary(
   props.message.toolName,
   props.message.toolArgs,
   props.message.toolResult,

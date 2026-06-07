@@ -19,6 +19,7 @@ type Translator = (key: string, params?: Record<string, unknown>) => string
 const TODO_TOOL_NAMES = new Set(['todo', 'functions.todo'])
 const TODO_STATUSES = new Set<TodoToolStatus>(['pending', 'in_progress', 'completed', 'cancelled'])
 const PREVIEW_ITEM_LIMIT = 3
+const PREVIEW_STATUSES = new Set<TodoToolStatus>(['in_progress', 'completed'])
 
 function parseJsonPayload(raw?: unknown): any | null {
   if (!raw || typeof raw !== 'string') return null
@@ -94,8 +95,9 @@ export function buildTodoToolSummary(
   const items = changedItems.length > 0 ? changedItems : resultItems
   if (items.length === 0) return null
 
-  const visibleItems = items.slice(0, PREVIEW_ITEM_LIMIT)
-  const remainingCount = Math.max(0, items.length - visibleItems.length)
+  const previewSourceItems = items.filter(item => PREVIEW_STATUSES.has(item.status))
+  const visibleItems = previewSourceItems.slice(0, PREVIEW_ITEM_LIMIT)
+  const remainingCount = Math.max(0, previewSourceItems.length - visibleItems.length)
   const previewItems = visibleItems.map(item => `${item.statusLabel}: ${item.content}`)
   if (remainingCount > 0) {
     previewItems.push(t('chat.todoMoreItems', { count: remainingCount }))
@@ -107,7 +109,7 @@ export function buildTodoToolSummary(
 
   return {
     title,
-    preview: `${title} · ${previewItems.join(' · ')}`,
+    preview: previewItems.join(' · '),
     items,
     remainingCount,
   }

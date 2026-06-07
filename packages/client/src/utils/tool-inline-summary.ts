@@ -133,14 +133,14 @@ function genericArgsSummary(t: Translator, args: unknown): string[] {
 function toolSpecificArgsSummary(t: Translator, toolName: string, args: unknown): string[] {
   if (!isRecord(args)) return []
   const name = toolName.toLowerCase()
-  if (name.includes('web_search')) return [keyValue(t, 'query', firstString(args, ['query']))].filter(Boolean) as string[]
+  if (name.includes('web_search')) return [rawValue(firstString(args, ['query']))].filter(Boolean) as string[]
   if (name.includes('web_extract')) return [countLabel(t, 'urls', arrayCount(args.urls)), keyValue(t, 'url', firstString(args, ['url']))].filter(Boolean) as string[]
   if (name.includes('skill_view')) return [rawValue(firstString(args, ['name']))].filter(Boolean) as string[]
   if (name.includes('read_file')) return [rawValue(firstString(args, ['path']))].filter(Boolean) as string[]
   if (name.includes('search_files')) return [keyValue(t, 'pattern', firstString(args, ['pattern'])), keyValue(t, 'path', firstString(args, ['path']))].filter(Boolean) as string[]
   if (name.includes('terminal')) return [rawValue(firstString(args, ['command']))].filter(Boolean) as string[]
   if (name.includes('execute_code')) return [keyValue(t, 'code', firstString(args, ['code']))].filter(Boolean) as string[]
-  if (name.includes('patch')) return [keyValue(t, 'path', firstString(args, ['path'])), keyValue(t, 'action', firstString(args, ['mode']))].filter(Boolean) as string[]
+  if (name.includes('patch')) return [rawValue(firstString(args, ['path']))].filter(Boolean) as string[]
   if (name.includes('write_file')) return [rawValue(firstString(args, ['path']))].filter(Boolean) as string[]
   if (name.includes('delegate_task')) {
     return [keyValue(t, 'goal', firstString(args, ['goal'])), countLabel(t, 'tasks', arrayCount(args.tasks))].filter(Boolean) as string[]
@@ -162,7 +162,7 @@ function compactParts(parts: string[]): string {
 
 function usesArgsOnlyInlineSummary(toolName: string | undefined): boolean {
   const name = (toolName || '').toLowerCase()
-  return ['skill_view', 'read_file', 'write_file', 'terminal'].some(tool => name.includes(tool))
+  return ['web_search', 'skill_view', 'read_file', 'write_file', 'patch', 'terminal'].some(tool => name.includes(tool))
 }
 
 export function buildToolInlineSummary(

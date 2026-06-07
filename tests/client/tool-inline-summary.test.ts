@@ -36,7 +36,7 @@ const t = (key: string, params?: Record<string, unknown>) => {
 }
 
 describe('buildToolInlineSummary', () => {
-  it('shows a concise web search query and result count', () => {
+  it('shows web search queries without labels or result summaries', () => {
     const summary = buildToolInlineSummary(
       'web_search',
       { query: 'Hermes Studio updater signing' },
@@ -45,9 +45,7 @@ describe('buildToolInlineSummary', () => {
       t,
     )
 
-    expect(summary).toContain('Query: Hermes Studio updater signing')
-    expect(summary).toContain('2 results')
-    expect(summary).toContain('Top: Electron code signing guide')
+    expect(summary).toBe('Hermes Studio updater signing')
   })
 
   it('summarizes terminal commands as the command only', () => {
@@ -62,7 +60,7 @@ describe('buildToolInlineSummary', () => {
     expect(summary).toBe('npm run harness:check')
   })
 
-  it('shows read/write file paths without labels', () => {
+  it('shows read/write/patch file paths without labels', () => {
     expect(buildToolInlineSummary(
       'read_file',
       { path: '/Users/safemotion/project/package.json' },
@@ -78,6 +76,14 @@ describe('buildToolInlineSummary', () => {
       undefined,
       t,
     )).toBe('/Users/safemotion/project/README.md')
+
+    expect(buildToolInlineSummary(
+      'patch',
+      { mode: 'replace', path: '/Users/safemotion/project/src/App.vue' },
+      { success: true },
+      undefined,
+      t,
+    )).toBe('/Users/safemotion/project/src/App.vue')
   })
 
   it('shows skill_view skill names', () => {
