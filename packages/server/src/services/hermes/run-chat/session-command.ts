@@ -3,9 +3,9 @@ import { addMessage, clearSessionMessages, createSession, getSession, renameSess
 import { logger } from '../../logger'
 import type { AgentBridgeClient } from '../agent-bridge'
 import { flushBridgePendingToDb } from './bridge-message'
-import { buildDbHistory, estimateSnapshotAwareHistoryUsage, forceCompressBridgeHistory, getOrCreateSession, replaceState } from './compression'
+import { buildDbHistory, buildSnapshotAwareHistory, estimateSnapshotAwareHistoryUsage, forceCompressBridgeHistory, getOrCreateSession, replaceState } from './compression'
 import { handleAbort } from './abort'
-import { calcAndUpdateUsage, contextTokensWithCachedOverhead, updateMessageContextTokenUsage } from './usage'
+import { calcAndUpdateUsage, contextTokensWithCachedOverhead, estimateUsageTokensFromMessages, updateMessageContextTokenUsage } from './usage'
 import { contentBlocksToString } from './content-blocks'
 import type { ContentBlock, QueuedRun, SessionState } from './types'
 
@@ -719,6 +719,68 @@ function ensureCommandSession(sessionId: string, ctx: SessionCommandContext) {
   })
 }
 
+const BTW_HISTORY_TOKEN_BUDGET = 12_000
+const BTW_HISTORY_MAX_MESSAGES = 32
+const BTW_HISTORY_MESSAGE_CHAR_BUDGET = 12_000
+
+function envPositiveInt(name: string, fallback: number): number {
+  const value = Number(process.env[name])
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback
+}
+
+function messageContentToText(content: unknown): string {
+  if (typeof content === 'string') return content
+  if (!content) return ''
+  if (Array.isArray(content)) {
+    return content.map((block: any) => {
+      if (typeof block?.text === 'string') return block.text
+      if (typeof block?.type === 'string') return `[${block.type}]`
+      return String(block || '')
+    }).join('\n')
+  }
+  return String(content)
+}
+
+function truncateMiddle(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text
+  const keep = Math.max(0, Math.floor((maxChars - 32) / 2))
+  return `${text.slice(0, keep)}\n…[truncated for /btw side question]…\n${text.slice(-keep)}`
+}
+
+function trimBtwHistory(history: any[]): any[] {
+  const tokenBudget = envPositiveInt('HERMES_WEBUI_BTW_HISTORY_TOKEN_BUDGET', BTW_HISTORY_TOKEN_BUDGET)
+  const maxMessages = envPositiveInt('HERMES_WEBUI_BTW_HISTORY_MAX_MESSAGES', BTW_HISTORY_MAX_MESSAGES)
+  const messageCharBudget = envPositiveInt('HERMES_WEBUI_BTW_HISTORY_MESSAGE_CHAR_BUDGET', BTW_HISTORY_MESSAGE_CHAR_BUDGET)
+  const sanitized = history
+    .filter((message: any) => message?.role === 'user' || message?.role === 'assistant')
+    .map((message: any) => ({
+      role: message.role,
+      content: truncateMiddle(messageContentToText(message.content), messageCharBudget),
+    }))
+    .filter((message: any) => String(message.content || '').trim())
+
+  const selected: any[] = []
+  for (let index = sanitized.length - 1; index >= 0; index -= 1) {
+    const candidate = sanitized[index]
+    const next = [candidate, ...selected]
+    const usage = estimateUsageTokensFromMessages(next)
+    if (selected.length >= maxMessages || usage.inputTokens + usage.outputTokens > tokenBudget) {
+      if (selected.length > 0) break
+    }
+    selected.unshift(candidate)
+  }
+  return selected
+}
+
+async function buildBtwHistory(parentSessionId: string, ctx: SessionCommandContext): Promise<any[]> {
+  const dbHistory = await buildDbHistory(parentSessionId)
+  const snapshotAware = await buildSnapshotAwareHistory(parentSessionId, ctx.profile, dbHistory, {
+    model: ctx.model,
+    provider: ctx.provider,
+  })
+  return trimBtwHistory(snapshotAware)
+}
+
 async function runBtwSideQuestion(
   parentSessionId: string,
   temporarySessionId: string,
@@ -737,7 +799,7 @@ async function runBtwSideQuestion(
   })
 
   try {
-    const history = await buildDbHistory(parentSessionId)
+    const history = await buildBtwHistory(parentSessionId, ctx)
     const started = await ctx.bridge.chat(
       temporarySessionId,
       prompt,
