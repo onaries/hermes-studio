@@ -65,6 +65,11 @@ function keyValue(t: Translator, key: string, value: string): string | null {
   return label(t, key, { value: clean })
 }
 
+function rawValue(value: string): string | null {
+  const clean = truncate(value)
+  return clean || null
+}
+
 function countLabel(t: Translator, key: string, count: number | null): string | null {
   if (count === null) return null
   return label(t, key, { count })
@@ -130,12 +135,13 @@ function toolSpecificArgsSummary(t: Translator, toolName: string, args: unknown)
   const name = toolName.toLowerCase()
   if (name.includes('web_search')) return [keyValue(t, 'query', firstString(args, ['query']))].filter(Boolean) as string[]
   if (name.includes('web_extract')) return [countLabel(t, 'urls', arrayCount(args.urls)), keyValue(t, 'url', firstString(args, ['url']))].filter(Boolean) as string[]
-  if (name.includes('read_file')) return [keyValue(t, 'path', firstString(args, ['path']))].filter(Boolean) as string[]
+  if (name.includes('skill_view')) return [rawValue(firstString(args, ['name']))].filter(Boolean) as string[]
+  if (name.includes('read_file')) return [rawValue(firstString(args, ['path']))].filter(Boolean) as string[]
   if (name.includes('search_files')) return [keyValue(t, 'pattern', firstString(args, ['pattern'])), keyValue(t, 'path', firstString(args, ['path']))].filter(Boolean) as string[]
-  if (name.includes('terminal')) return [keyValue(t, 'command', firstString(args, ['command']))].filter(Boolean) as string[]
+  if (name.includes('terminal')) return [rawValue(firstString(args, ['command']))].filter(Boolean) as string[]
   if (name.includes('execute_code')) return [keyValue(t, 'code', firstString(args, ['code']))].filter(Boolean) as string[]
   if (name.includes('patch')) return [keyValue(t, 'path', firstString(args, ['path'])), keyValue(t, 'action', firstString(args, ['mode']))].filter(Boolean) as string[]
-  if (name.includes('write_file')) return [keyValue(t, 'path', firstString(args, ['path']))].filter(Boolean) as string[]
+  if (name.includes('write_file')) return [rawValue(firstString(args, ['path']))].filter(Boolean) as string[]
   if (name.includes('delegate_task')) {
     return [keyValue(t, 'goal', firstString(args, ['goal'])), countLabel(t, 'tasks', arrayCount(args.tasks))].filter(Boolean) as string[]
   }
@@ -154,6 +160,11 @@ function compactParts(parts: string[]): string {
   return `${joined.slice(0, MAX_SUMMARY_LENGTH - 1).trimEnd()}…`
 }
 
+function usesArgsOnlyInlineSummary(toolName: string | undefined): boolean {
+  const name = (toolName || '').toLowerCase()
+  return ['skill_view', 'read_file', 'write_file', 'terminal'].some(tool => name.includes(tool))
+}
+
 export function buildToolInlineSummary(
   toolName: string | undefined,
   toolArgs: unknown,
@@ -163,13 +174,16 @@ export function buildToolInlineSummary(
 ): string {
   const args = parsePayload(toolArgs)
   const result = parsePayload(toolResult)
+  const specificParts = toolSpecificArgsSummary(t, toolName || '', args)
   const parts = [
-    ...toolSpecificArgsSummary(t, toolName || '', args),
-    ...genericArgsSummary(t, args),
-    resultCountSummary(t, result),
-    resultStatus(t, result),
-    firstResultTitle(isRecord(result) ? result : {}) ? keyValue(t, 'topResult', firstResultTitle(result as Record<string, unknown>)) : null,
-    outputSummary(t, result),
+    ...specificParts,
+    ...(usesArgsOnlyInlineSummary(toolName) && specificParts.length ? [] : [
+      ...genericArgsSummary(t, args),
+      resultCountSummary(t, result),
+      resultStatus(t, result),
+      firstResultTitle(isRecord(result) ? result : {}) ? keyValue(t, 'topResult', firstResultTitle(result as Record<string, unknown>)) : null,
+      outputSummary(t, result),
+    ]),
   ].filter((part): part is string => Boolean(part))
 
   const deduped = [...new Set(parts)]

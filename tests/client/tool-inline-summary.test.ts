@@ -50,7 +50,7 @@ describe('buildToolInlineSummary', () => {
     expect(summary).toContain('Top: Electron code signing guide')
   })
 
-  it('summarizes terminal commands with exit code and first output line', () => {
+  it('summarizes terminal commands as the command only', () => {
     const summary = buildToolInlineSummary(
       'terminal',
       { command: 'npm run harness:check' },
@@ -59,9 +59,37 @@ describe('buildToolInlineSummary', () => {
       t,
     )
 
-    expect(summary).toContain('Command: npm run harness:check')
-    expect(summary).toContain('Exit 0')
-    expect(summary).toContain('Output: Harness check passed')
+    expect(summary).toBe('npm run harness:check')
+  })
+
+  it('shows read/write file paths without labels', () => {
+    expect(buildToolInlineSummary(
+      'read_file',
+      { path: '/Users/safemotion/project/package.json' },
+      { content: '{"name":"demo"}' },
+      undefined,
+      t,
+    )).toBe('/Users/safemotion/project/package.json')
+
+    expect(buildToolInlineSummary(
+      'write_file',
+      { path: '/Users/safemotion/project/README.md' },
+      { bytes_written: 42 },
+      undefined,
+      t,
+    )).toBe('/Users/safemotion/project/README.md')
+  })
+
+  it('shows skill_view skill names', () => {
+    const summary = buildToolInlineSummary(
+      'skill_view',
+      { name: 'hermes-webui-maintenance' },
+      { success: true, content: 'long skill content' },
+      undefined,
+      t,
+    )
+
+    expect(summary).toBe('hermes-webui-maintenance')
   })
 
   it('falls back to existing preview without exposing raw JSON braces', () => {
