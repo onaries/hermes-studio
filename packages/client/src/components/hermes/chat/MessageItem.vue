@@ -22,6 +22,7 @@ import { useGlobalSpeech } from "@/composables/useSpeech";
 import { useVoiceSettings } from "@/composables/useVoiceSettings";
 import { speedToEdgeRate, hzToEdgePitch } from "@/utils/ttsHelpers";
 import { buildTodoToolSummary } from "@/utils/todo-tool-summary";
+import { buildToolInlineSummary } from "@/utils/tool-inline-summary";
 
 const TOOL_PAYLOAD_DISPLAY_LIMIT = 1000;
 const JSON_STRING_DISPLAY_LIMIT = 200;
@@ -543,7 +544,13 @@ const todoToolSummary = computed(() => buildTodoToolSummary(
   t,
 ));
 const displayToolName = computed(() => todoToolSummary.value ? t('chat.todoToolName') : props.message.toolName);
-const displayToolPreview = computed(() => todoToolSummary.value?.preview || props.message.toolPreview);
+const displayToolPreview = computed(() => todoToolSummary.value?.preview || buildToolInlineSummary(
+  props.message.toolName,
+  props.message.toolArgs,
+  props.message.toolResult,
+  props.message.toolPreview,
+  t,
+));
 
 const toolArgsPayload = computed(() => formatToolPayload(props.message.toolArgs));
 const toolResultPayload = computed(() => formatToolPayload(props.message.toolResult, true));
