@@ -1019,21 +1019,29 @@ export const useChatStore = defineStore('chat', () => {
 
     if (action === 'background') {
       const backgroundSessionId = String((evt as any).backgroundSessionId || '').trim()
-      if (backgroundSessionId && !sessions.value.some(s => s.id === backgroundSessionId)) {
+      if (backgroundSessionId) {
         const prompt = String((evt as any).prompt || '').replace(/\s+/g, ' ').trim()
         const now = Date.now()
-        sessions.value.unshift({
-          id: backgroundSessionId,
-          profile: target?.profile || getProfileName(),
-          title: prompt ? `Background: ${prompt.slice(0, 80)}` : 'Background task',
-          source: 'cli',
-          messages: [],
-          createdAt: now,
-          updatedAt: now,
-          model: target?.model,
-          provider: target?.provider,
-        })
+        if (!sessions.value.some(s => s.id === backgroundSessionId)) {
+          sessions.value.unshift({
+            id: backgroundSessionId,
+            profile: target?.profile || getProfileName(),
+            title: prompt ? `Background: ${prompt.slice(0, 80)}` : 'Background task',
+            source: 'cli',
+            messages: prompt ? [{
+              id: `${backgroundSessionId}-prompt`,
+              role: 'user',
+              content: prompt,
+              timestamp: now,
+            }] : [],
+            createdAt: now,
+            updatedAt: now,
+            model: target?.model,
+            provider: target?.provider,
+          })
+        }
         serverWorking.value.add(backgroundSessionId)
+        resumeServerWorkingRun(backgroundSessionId, true)
       }
     }
 
