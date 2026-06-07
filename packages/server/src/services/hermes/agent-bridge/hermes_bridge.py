@@ -1708,6 +1708,7 @@ class AgentPool:
         model: str | None = None,
         provider: str | None = None,
         source: str | None = None,
+        persist: bool = True,
     ) -> RunRecord:
         session = self.get_or_create(session_id, profile=profile, model=model, provider=provider)
         with session.lock:
@@ -1726,14 +1727,14 @@ class AgentPool:
 
         thread = threading.Thread(
             target=self._run_chat,
-            args=(session, record, message, storage_message, instructions, conversation_history, profile, force_compress, source),
+            args=(session, record, message, storage_message, instructions, conversation_history, profile, force_compress, source, persist),
             daemon=True,
             name=f"hermes-bridge-run-{run_id[:8]}",
         )
         thread.start()
         return record
 
-    def _run_chat(self, session: AgentSession, record: RunRecord, message: Any, storage_message: Any | None = None, instructions: str | None = None, conversation_history: list[dict[str, Any]] | None = None, profile: str | None = None, force_compress: bool = False, source: str | None = None) -> None:
+    def _run_chat(self, session: AgentSession, record: RunRecord, message: Any, storage_message: Any | None = None, instructions: str | None = None, conversation_history: list[dict[str, Any]] | None = None, profile: str | None = None, force_compress: bool = False, source: str | None = None, persist: bool = True) -> None:
         with _profile_env(profile):
             _refresh_approval_allowlist()
             _install_execute_code_approval_memory_patch()
@@ -1775,8 +1776,11 @@ class AgentPool:
                     registered_gateway_approval_session = session.session_id
                 except Exception:
                     pass
-                self._prepersist_user_message(session, message, storage_message, conversation_history, profile, source)
-                db_count_after_prepersist = self._session_db_message_count(session.session_id, profile)
+                if persist:
+                    self._prepersist_user_message(session, message, storage_message, conversation_history, profile, source)
+                    db_count_after_prepersist = self._session_db_message_count(session.session_id, profile)
+                else:
+                    db_count_after_prepersist = None
                 if force_compress:
                     compress = getattr(session.agent, "_compress_context", None)
                     if callable(compress):
@@ -1803,13 +1807,14 @@ class AgentPool:
                     **kwargs,
                 )
                 result = _jsonable(result if isinstance(result, dict) else {"value": result})
-                self._sync_result_tail_to_session_db(
-                    session,
-                    result,
-                    conversation_history,
-                    profile,
-                    db_count_after_prepersist,
-                )
+                if persist:
+                    self._sync_result_tail_to_session_db(
+                        session,
+                        result,
+                        conversation_history,
+                        profile,
+                        db_count_after_prepersist,
+                    )
                 final_response = str(
                     result.get("final_response")
                     or result.get("response")
@@ -1817,7 +1822,7 @@ class AgentPool:
                     or "".join(record.deltas)
                     or ""
                 ).strip()
-                title_db = self._db.get_for_profile(profile)
+                title_db = self._db.get_for_profile(profile) if persist else None
                 if title_db is not None and final_response and not result.get("failed") and not result.get("partial"):
                     try:
                         from agent.title_generator import maybe_auto_title
@@ -2431,6 +2436,7 @@ class BridgeServer:
                 model,
                 provider,
                 source,
+                req.get("persist", True) is not False,
             )
             if req.get("wait"):
                 timeout = float(req.get("timeout", 0) or 0)

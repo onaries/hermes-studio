@@ -152,7 +152,7 @@ describe('chat store session.command fanout', () => {
     chatApi.sessionCommandHandlers[0]({
       event: 'session.command',
       session_id: 'session-1',
-      command: 'btw',
+      command: 'background',
       action: 'background',
       message: 'Background task started in session bg_test.',
       backgroundSessionId: 'bg_test',
@@ -176,6 +176,58 @@ describe('chat store session.command fanout', () => {
       commandAction: 'background',
     }))
     expect(store.sessions[0].messages.some(message => message.role === 'command' && message.commandAction === 'background')).toBe(false)
+  })
+
+  it('renders /btw as an ephemeral assistant bubble without creating a background session', () => {
+    const store = useChatStore()
+    const session = makeSession()
+    store.sessions = [session]
+    store.activeSessionId = 'session-1'
+    store.activeSession = session
+
+    chatApi.sessionCommandHandlers[0]({
+      event: 'session.command',
+      session_id: 'session-1',
+      command: 'btw',
+      action: 'btw',
+      sideQuestionId: 'btw_test',
+      prompt: 'quick check',
+      started: true,
+      terminal: false,
+    })
+    chatApi.sessionCommandHandlers[0]({
+      event: 'session.command',
+      session_id: 'session-1',
+      command: 'btw',
+      action: 'btw',
+      sideQuestionId: 'btw_test',
+      prompt: 'quick check',
+      delta: 'answer',
+      terminal: false,
+    })
+    chatApi.sessionCommandHandlers[0]({
+      event: 'session.command',
+      session_id: 'session-1',
+      command: 'btw',
+      action: 'btw',
+      sideQuestionId: 'btw_test',
+      prompt: 'quick check',
+      output: 'answer',
+      done: true,
+      terminal: true,
+    })
+
+    expect(store.sessions.some(item => item.id.startsWith('bg_'))).toBe(false)
+    expect(chatApi.registerSessionHandlers).not.toHaveBeenCalled()
+    expect(store.messages).toEqual([
+      expect.objectContaining({
+        id: 'btw-btw_test',
+        role: 'assistant',
+        content: 'BTW: quick check\n\nanswer',
+        isStreaming: false,
+        commandAction: 'btw',
+      }),
+    ])
   })
 
   it('updates session title from the global generated-title event', () => {

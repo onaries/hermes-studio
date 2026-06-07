@@ -362,6 +362,7 @@ export default {
       abort: 'Stop the active bridge run',
       queue: 'Queue a message behind the active run',
       background: 'Run a prompt in a separate background session',
+      btw: 'Ask a side question without saving it to history',
       plan: 'Write a markdown implementation plan',
       goal: 'Set a standing goal that continues across turns',
       goalStatus: 'Show the active goal status',

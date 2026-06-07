@@ -44,6 +44,7 @@ export interface AgentBridgeRequestOptions {
 export interface AgentBridgeChatOptions {
   force_compress?: boolean
   storage_message?: AgentBridgeMessage
+  persist?: boolean
   model?: string
   provider?: string
   source?: string
@@ -411,6 +412,7 @@ export class AgentBridgeClient {
       session_id: sessionId,
       message,
       ...(options.storage_message !== undefined ? { storage_message: options.storage_message } : {}),
+      ...(options.persist === false ? { persist: false } : {}),
       ...(conversationHistory ? { conversation_history: conversationHistory } : {}),
       ...(instructions ? { instructions } : {}),
       ...(profile ? { profile } : {}),

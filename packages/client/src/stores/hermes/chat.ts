@@ -1045,6 +1045,46 @@ export const useChatStore = defineStore('chat', () => {
       }
     }
 
+    if (action === 'btw') {
+      const sideQuestionId = String((evt as any).sideQuestionId || '').trim() || uid()
+      const prompt = String((evt as any).prompt || '').trim()
+      const delta = typeof (evt as any).delta === 'string' ? String((evt as any).delta) : ''
+      const output = typeof (evt as any).output === 'string' ? String((evt as any).output) : ''
+      const error = typeof (evt as any).error === 'string' ? String((evt as any).error) : ''
+      const messageId = `btw-${sideQuestionId}`
+      const msgs = getSessionMsgs(sid)
+      const existing = msgs.find(m => m.id === messageId)
+      const prefix = prompt ? `BTW: ${prompt}\n\n` : 'BTW\n\n'
+      if (!existing) {
+        addMessage(sid, {
+          id: messageId,
+          role: error ? 'system' : 'assistant',
+          content: error ? `Side question failed: ${error}` : prefix + (output || delta),
+          timestamp: Date.now(),
+          isStreaming: !((evt as any).done || error),
+          systemType: error ? 'error' : undefined,
+          commandAction: 'btw',
+          commandData: { ...(evt as any) },
+        })
+      } else if (error) {
+        updateMessage(sid, existing.id, {
+          role: 'system',
+          content: `Side question failed: ${error}`,
+          isStreaming: false,
+          systemType: 'error',
+          commandData: { ...(evt as any) },
+        })
+      } else {
+        const current = existing.content.startsWith(prefix) ? existing.content : prefix
+        updateMessage(sid, existing.id, {
+          content: output ? prefix + output : current + delta,
+          isStreaming: !((evt as any).done),
+          commandData: { ...(evt as any) },
+        })
+      }
+      return
+    }
+
     if (action === 'destroy') {
       streamStates.value.delete(sid)
       serverWorking.value.delete(sid)
@@ -2668,7 +2708,7 @@ export const useChatStore = defineStore('chat', () => {
   function handleGlobalSessionCommand(evt: RunEvent) {
     const sid = evt.session_id
     if (!sid || activeSessionId.value !== sid || !activeSession.value) return
-    const shouldAttachToStartedRun = (evt as any).started === true && (evt as any).terminal === false
+    const shouldAttachToStartedRun = (evt as any).started === true && (evt as any).terminal === false && (evt as any).action !== 'btw'
     handleSessionCommandEvent(evt)
     if (shouldAttachToStartedRun) {
       serverWorking.value.add(sid)

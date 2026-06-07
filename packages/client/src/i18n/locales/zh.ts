@@ -362,6 +362,7 @@ export default {
       abort: '停止当前 Bridge 运行',
       queue: '把消息加入当前运行后的队列',
       background: '在单独的后台会话中运行提示',
+      btw: '提出不会保存到历史记录的侧边问题',
       plan: '生成一份 Markdown 实施计划',
       goal: '设置一个跨轮次持续推进的目标',
       goalStatus: '查看当前目标状态',
