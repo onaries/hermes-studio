@@ -1,4 +1,4 @@
-import { startRunViaSocket, resumeSession, registerSessionHandlers, unregisterSessionHandlers, getChatRunSocket, respondToolApproval, onPeerUserMessage, onSessionCommand, onSessionTitleUpdated, respondClarify, type RunEvent, type ResumeSessionPayload, type ContentBlock as ContentBlockImport } from '@/api/hermes/chat'
+import { startRunViaSocket, resumeSession, registerSessionHandlers, unregisterSessionHandlers, getChatRunSocket, connectChatRun, respondToolApproval, onPeerUserMessage, onSessionCommand, onSessionTitleUpdated, respondClarify, type RunEvent, type ResumeSessionPayload, type ContentBlock as ContentBlockImport } from '@/api/hermes/chat'
 import { deleteSession as deleteSessionApi, fetchSessionMessagesPage, fetchSessions, setSessionModel, type HermesMessage, type SessionSummary } from '@/api/hermes/sessions'
 import { getActiveProfileName } from '@/api/client'
 import { getDownloadUrl } from '@/api/hermes/download'
@@ -1052,9 +1052,10 @@ export const useChatStore = defineStore('chat', () => {
 
     const message = String((evt as any).message || '')
     if (message) {
+      const isBackgroundCommand = action === 'background'
       addMessage(sid, {
         id: uid(),
-        role: 'command',
+        role: isBackgroundCommand ? 'system' : 'command',
         content: message,
         timestamp: Date.now(),
         systemType: (evt as any).ok === false ? 'error' : 'command',
@@ -1412,6 +1413,7 @@ export const useChatStore = defineStore('chat', () => {
     const isBridgeCompressCommand = isBridgeSlashCommand && /^\/compress(?:\s|$)/i.test(content.trim())
     const isBridgePlanCommand = isBridgeSlashCommand && /^\/plan(?:\s|$)/i.test(content.trim())
     const isBridgeGoalCommand = isBridgeSlashCommand && /^\/goal(?:\s|$)/i.test(content.trim())
+    const isBridgeBackgroundCommand = isBridgeSlashCommand && /^\/(?:btw|bg|background)(?:\s|$)/i.test(content.trim())
     const wasLiveBeforeSend = isSessionLive(sid)
     const shouldQueue = wasLiveBeforeSend && (!isBridgeSlashCommand || isBridgePlanCommand)
 
@@ -1425,7 +1427,11 @@ export const useChatStore = defineStore('chat', () => {
       systemType: isBridgeSlashCommand ? 'command' : undefined,
     }
 
-    if (shouldQueue) {
+    if (isBridgeBackgroundCommand) {
+      // Background commands are out-of-band: do not append a foreground
+      // command turn or mark the current session idle/running, otherwise the
+      // active assistant turn loses its live target.
+    } else if (shouldQueue) {
       enqueueUserMessage(sid, userMsg)
     } else {
       addMessage(sid, userMsg)
@@ -1478,8 +1484,8 @@ export const useChatStore = defineStore('chat', () => {
         input,
         session_id: sid,
         profile: activeSession.value?.profile || useProfilesStore().activeProfileName || undefined,
-        model: shouldSendInitialSessionConfig ? sessionModel || undefined : undefined,
-        provider: shouldSendInitialSessionConfig ? sessionProvider || undefined : undefined,
+        model: (shouldSendInitialSessionConfig || isBridgeBackgroundCommand) ? sessionModel || undefined : undefined,
+        provider: (shouldSendInitialSessionConfig || isBridgeBackgroundCommand) ? sessionProvider || undefined : undefined,
         model_groups: appStore.modelGroups.map(group => ({
           provider: group.provider,
           models: group.models,
@@ -1487,8 +1493,14 @@ export const useChatStore = defineStore('chat', () => {
         queue_id: userMsg.id,
         source: 'cli' as const,
       }
-      if (shouldSendInitialSessionConfig && activeSession.value) {
+      if (shouldSendInitialSessionConfig && activeSession.value && !isBridgeBackgroundCommand) {
         activeSession.value.messageCount = Math.max(activeSession.value.messageCount || 0, 1)
+      }
+
+      if (isBridgeBackgroundCommand) {
+        connectChatRun(runPayload.profile).emit('run', runPayload)
+        runSubmitted = true
+        return
       }
 
       // Helper to clean up this session's stream state

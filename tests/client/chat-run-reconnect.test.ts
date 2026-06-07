@@ -158,6 +158,32 @@ describe('chat-run socket reconnect handling', () => {
     expect(socket.emit).toHaveBeenCalledWith('run', body)
   })
 
+  it('does not close an active foreground handler for background command status', async () => {
+    const { startRunViaSocket } = await import('../../packages/client/src/api/hermes/chat')
+    const onEvent = vi.fn()
+    const onDone = vi.fn()
+
+    startRunViaSocket(
+      { session_id: 'session-1', input: 'foreground task', profile: 'default', source: 'cli' },
+      onEvent,
+      onDone,
+      vi.fn(),
+    )
+
+    const socket = socketState.sockets[0]
+    socket.__trigger('session.command', {
+      event: 'session.command',
+      session_id: 'session-1',
+      action: 'background',
+      terminal: true,
+      message: 'Background task started in session bg_test.',
+    })
+
+    expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ action: 'background' }))
+    expect(onDone).not.toHaveBeenCalled()
+    expect(socket.__listenerCount('disconnect')).toBe(1)
+  })
+
   it('fans session.command events to run-local and global handlers', async () => {
     const { onSessionCommand, startRunViaSocket } = await import('../../packages/client/src/api/hermes/chat')
     const onEvent = vi.fn()
