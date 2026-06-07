@@ -360,6 +360,7 @@ export default {
       status: 'Mostrar status da sessão e fila',
       abort: 'Parar a execução ativa do Bridge',
       queue: 'Enfileirar uma mensagem após a execução ativa',
+      background: 'Executar um prompt em uma sessão em segundo plano separada',
       plan: 'Escrever um plano de implementação em Markdown',
       goal: 'Set a standing goal that continues across turns',
       goalStatus: 'Show the active goal status',

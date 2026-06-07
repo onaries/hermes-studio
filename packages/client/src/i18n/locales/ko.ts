@@ -360,6 +360,7 @@ export default {
       status: '세션 상태와 대기열 표시',
       abort: '활성 Bridge 실행 중지',
       queue: '활성 실행 뒤에 메시지 대기열 추가',
+      background: '별도 백그라운드 세션에서 프롬프트 실행',
       plan: 'Markdown 구현 계획 작성',
       goal: 'Set a standing goal that continues across turns',
       goalStatus: 'Show the active goal status',

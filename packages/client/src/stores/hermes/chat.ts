@@ -1017,6 +1017,26 @@ export const useChatStore = defineStore('chat', () => {
       if ((evt as any).contextTokens != null) target.contextTokens = (evt as any).contextTokens
     }
 
+    if (action === 'background') {
+      const backgroundSessionId = String((evt as any).backgroundSessionId || '').trim()
+      if (backgroundSessionId && !sessions.value.some(s => s.id === backgroundSessionId)) {
+        const prompt = String((evt as any).prompt || '').replace(/\s+/g, ' ').trim()
+        const now = Date.now()
+        sessions.value.unshift({
+          id: backgroundSessionId,
+          profile: target?.profile || getProfileName(),
+          title: prompt ? `Background: ${prompt.slice(0, 80)}` : 'Background task',
+          source: 'cli',
+          messages: [],
+          createdAt: now,
+          updatedAt: now,
+          model: target?.model,
+          provider: target?.provider,
+        })
+        serverWorking.value.add(backgroundSessionId)
+      }
+    }
+
     if (action === 'destroy') {
       streamStates.value.delete(sid)
       serverWorking.value.delete(sid)

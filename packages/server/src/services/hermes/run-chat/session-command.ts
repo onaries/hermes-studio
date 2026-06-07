@@ -14,6 +14,7 @@ type CommandName =
   | 'status'
   | 'abort'
   | 'queue'
+  | 'background'
   | 'plan'
   | 'goal'
   | 'subgoal'
@@ -49,6 +50,9 @@ const COMMAND_ALIASES: Record<string, CommandName> = {
   status: 'status',
   abort: 'abort',
   queue: 'queue',
+  background: 'background',
+  bg: 'background',
+  btw: 'background',
   plan: 'plan',
   goal: 'goal',
   subgoal: 'subgoal',
@@ -194,6 +198,39 @@ export async function handleSessionCommand(
         message: `Queued message. Queue length: ${state.queue.length}.`,
         queueLength: state.queue.length,
       })
+      return
+    }
+
+    case 'background': {
+      if (!command.args) {
+        emitCommand({ ok: false, action: 'background', terminal: !state.isWorking, message: 'Usage: /btw <prompt>' })
+        return
+      }
+      const backgroundSessionId = `bg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+      const queueId = ctx.queueId || `queue_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+      const next: QueuedRun = {
+        queue_id: queueId,
+        input: command.args,
+        displayInput: command.args,
+        displayRole: 'user',
+        storageMessage: command.args,
+        model: ctx.model,
+        provider: ctx.provider,
+        model_groups: ctx.model_groups,
+        instructions: ctx.instructions,
+        profile: ctx.profile,
+        source: 'cli',
+        originSocketId: ctx.socket.id,
+      }
+      emitCommand({
+        action: 'background',
+        terminal: true,
+        started: true,
+        message: `Background task started in session ${backgroundSessionId}.`,
+        backgroundSessionId,
+        prompt: command.args,
+      })
+      ctx.runQueuedItem(ctx.socket, backgroundSessionId, next, ctx.profile)
       return
     }
 
