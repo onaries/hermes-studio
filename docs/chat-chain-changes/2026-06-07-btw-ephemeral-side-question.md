@@ -1,6 +1,6 @@
 ---
 date: 2026-06-07
-pr: pending
+pr: 16
 feature: Web UI /btw ephemeral side question
 impact: Separates /btw from /background. /background and /bg still start separate background sessions, while /btw now runs an ephemeral side question with the current session context and renders the answer in-memory without saving a command turn or creating a visible background session.
 ---
