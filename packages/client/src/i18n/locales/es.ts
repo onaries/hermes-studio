@@ -361,6 +361,7 @@ export default {
       abort: 'Detener la ejecución activa de Bridge',
       queue: 'Poner un mensaje en cola tras la ejecución activa',
       background: 'Ejecutar un prompt en una sesión en segundo plano separada',
+      btw: 'Hacer una pregunta lateral sin guardarla en el historial',
       plan: 'Escribir un plan de implementación en Markdown',
       goal: 'Set a standing goal that continues across turns',
       goalStatus: 'Show the active goal status',

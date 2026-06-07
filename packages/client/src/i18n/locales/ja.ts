@@ -361,6 +361,7 @@ export default {
       abort: '実行中の Bridge を停止',
       queue: '実行中の処理の後ろにメッセージをキュー追加',
       background: '別のバックグラウンドセッションでプロンプトを実行',
+      btw: '履歴に保存せずサイド質問する',
       plan: 'Markdown の実装計画を作成',
       goal: 'Set a standing goal that continues across turns',
       goalStatus: 'Show the active goal status',

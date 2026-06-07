@@ -361,6 +361,7 @@ export default {
       abort: '停止目前 Bridge 執行',
       queue: '將訊息加入目前執行後的佇列',
       background: '在單獨的背景工作階段中執行提示',
+      btw: '提出不會儲存到歷史記錄的側邊問題',
       plan: '產生一份 Markdown 實作計畫',
       goal: '設定一個跨輪次持續推進的目標',
       goalStatus: '查看目前目標狀態',

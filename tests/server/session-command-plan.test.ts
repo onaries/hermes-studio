@@ -19,7 +19,7 @@ vi.mock('../../packages/server/src/services/logger', () => ({
 }))
 
 vi.mock('../../packages/server/src/services/hermes/run-chat/compression', () => ({
-  buildDbHistory: vi.fn(),
+  buildDbHistory: vi.fn(async () => []),
   estimateSnapshotAwareHistoryUsage: vi.fn(),
   forceCompressBridgeHistory: vi.fn(),
   getOrCreateSession: vi.fn((_map: Map<string, any>, sessionId: string) => _map.get(sessionId)),
@@ -57,8 +57,13 @@ function makeContext(state: any, commandResult: Record<string, unknown> = {
   }
   const sessionMap = new Map([['session-1', state]])
   const runQueuedItem = vi.fn()
-  const bridge = {
+  const bridge: any = {
     command: vi.fn(async () => commandResult),
+    chat: vi.fn(async () => ({ ok: true, run_id: 'btw-run-id', session_id: 'tmp-btw', status: 'running' })),
+    streamOutput: vi.fn(async function* () {
+      yield { ok: true, run_id: 'btw-run-id', session_id: 'tmp-btw', status: 'complete', delta: 'side answer', cursor: 11, output: 'side answer', done: true, events: [], event_cursor: 0 }
+    }),
+    destroy: vi.fn(async () => ({ ok: true })),
     mcpReload: vi.fn(async () => ({ ok: true, message: 'MCP servers reloaded' })),
     status: vi.fn(async () => ({
       exists: true,
@@ -305,9 +310,9 @@ describe('plan session command', () => {
     }))
   })
 
-  it('starts /btw prompts in a separate background session', async () => {
+  it('runs /btw prompts as ephemeral side questions in the current session context', async () => {
     const state = { messages: [], isWorking: false, events: [], queue: [] }
-    const { namespaceEmit, runQueuedItem, sessionMap, socket, nsp } = makeContext(state)
+    const { bridge, namespaceEmit, runQueuedItem, sessionMap, socket, nsp } = makeContext(state)
     const { handleSessionCommand, parseSessionCommand } = await import('../../packages/server/src/services/hermes/run-chat/session-command')
     const command = parseSessionCommand('/btw summarize docs')!
 
@@ -315,34 +320,37 @@ describe('plan session command', () => {
       nsp: nsp as any,
       socket: socket as any,
       sessionMap,
-      bridge: {} as any,
+      bridge: bridge as any,
       profile: 'default',
       model: 'gpt-test',
       provider: 'openai',
       queueId: 'btw-queue-id',
       runQueuedItem,
     })
+    await new Promise(resolve => setTimeout(resolve, 0))
 
-    expect(command.name).toBe('background')
+    expect(command.name).toBe('btw')
     expect(addMessageMock).not.toHaveBeenCalled()
+    expect(runQueuedItem).not.toHaveBeenCalled()
     expect(namespaceEmit).toHaveBeenCalledWith('session.command', expect.objectContaining({
       command: 'btw',
-      action: 'background',
+      action: 'btw',
       started: true,
-      terminal: true,
-      backgroundSessionId: expect.stringMatching(/^bg_/),
+      terminal: false,
+      ephemeral: true,
+      sideQuestionId: expect.stringMatching(/^btw_/),
       prompt: 'summarize docs',
     }))
-    expect(runQueuedItem).toHaveBeenCalledWith(socket, expect.stringMatching(/^bg_/), expect.objectContaining({
-      queue_id: 'btw-queue-id',
-      input: 'summarize docs',
-      displayInput: 'summarize docs',
-      displayRole: 'user',
-      storageMessage: 'summarize docs',
+    expect(bridge.chat).toHaveBeenCalledWith(expect.stringMatching(/^session-1__btw_/), 'summarize docs', expect.anything(), undefined, 'default', expect.objectContaining({
       model: 'gpt-test',
       provider: 'openai',
-      source: 'cli',
-    }), 'default')
+      persist: false,
+    }))
+    expect(namespaceEmit).toHaveBeenCalledWith('session.command', expect.objectContaining({
+      command: 'btw',
+      action: 'btw',
+      delta: 'side answer',
+    }))
   })
 
   it('rejects /background without a prompt', async () => {
@@ -365,7 +373,7 @@ describe('plan session command', () => {
       command: 'background',
       ok: false,
       action: 'background',
-      message: 'Usage: /btw <prompt>',
+      message: 'Usage: /background <prompt>',
     }))
   })
 

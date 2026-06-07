@@ -15,6 +15,7 @@ type CommandName =
   | 'abort'
   | 'queue'
   | 'background'
+  | 'btw'
   | 'plan'
   | 'goal'
   | 'subgoal'
@@ -52,7 +53,7 @@ const COMMAND_ALIASES: Record<string, CommandName> = {
   queue: 'queue',
   background: 'background',
   bg: 'background',
-  btw: 'background',
+  btw: 'btw',
   plan: 'plan',
   goal: 'goal',
   subgoal: 'subgoal',
@@ -89,13 +90,13 @@ export async function handleSessionCommand(
   const state = getOrCreateSession(ctx.sessionMap, sessionId)
   ctx.socket.join(`session:${sessionId}`)
   ensureCommandSession(sessionId, ctx)
-  if (command.name !== 'plan' && command.name !== 'background') {
+  if (command.name !== 'plan' && command.name !== 'background' && command.name !== 'btw') {
     persistCommandMessage(sessionId, state, `/${command.rawName}${command.args ? ` ${command.args}` : ''}`)
   }
 
   const emitCommand = (payload: Record<string, unknown>) => {
     const message = typeof payload.message === 'string' ? payload.message : ''
-    if (message && command.name !== 'background') persistCommandMessage(sessionId, state, message)
+    if (message && command.name !== 'background' && command.name !== 'btw') persistCommandMessage(sessionId, state, message)
     emitToSession(ctx.nsp, ctx.socket, sessionId, 'session.command', {
       event: 'session.command',
       session_id: sessionId,
@@ -203,7 +204,7 @@ export async function handleSessionCommand(
 
     case 'background': {
       if (!command.args) {
-        emitCommand({ ok: false, action: 'background', terminal: !state.isWorking, message: 'Usage: /btw <prompt>' })
+        emitCommand({ ok: false, action: 'background', terminal: !state.isWorking, message: 'Usage: /background <prompt>' })
         return
       }
       const backgroundSessionId = `bg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
@@ -231,6 +232,26 @@ export async function handleSessionCommand(
         prompt: command.args,
       })
       ctx.runQueuedItem(ctx.socket, backgroundSessionId, next, ctx.profile)
+      return
+    }
+
+    case 'btw': {
+      if (!command.args) {
+        emitCommand({ ok: false, action: 'btw', terminal: !state.isWorking, message: 'Usage: /btw <question>' })
+        return
+      }
+      const sideQuestionId = `btw_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+      const temporarySessionId = `${sessionId}__${sideQuestionId}`
+      emitCommand({
+        action: 'btw',
+        terminal: false,
+        started: true,
+        ephemeral: true,
+        sideQuestionId,
+        prompt: command.args,
+        message: `Side question: ${command.args}`,
+      })
+      void runBtwSideQuestion(sessionId, temporarySessionId, sideQuestionId, command.args, ctx)
       return
     }
 
@@ -696,6 +717,67 @@ function ensureCommandSession(sessionId: string, ctx: SessionCommandContext) {
     model: ctx.model,
     title: 'Bridge command',
   })
+}
+
+async function runBtwSideQuestion(
+  parentSessionId: string,
+  temporarySessionId: string,
+  sideQuestionId: string,
+  prompt: string,
+  ctx: SessionCommandContext,
+) {
+  const emit = (payload: Record<string, unknown>) => emitToSession(ctx.nsp, ctx.socket, parentSessionId, 'session.command', {
+    event: 'session.command',
+    command: 'btw',
+    action: 'btw',
+    ephemeral: true,
+    sideQuestionId,
+    prompt,
+    ...payload,
+  })
+
+  try {
+    const history = await buildDbHistory(parentSessionId)
+    const started = await ctx.bridge.chat(
+      temporarySessionId,
+      prompt,
+      history,
+      ctx.instructions,
+      ctx.profile,
+      {
+        model: ctx.model,
+        provider: ctx.provider,
+        source: 'cli',
+        persist: false,
+      },
+    )
+    emit({ terminal: false, runId: started.run_id })
+    for await (const chunk of ctx.bridge.streamOutput(started.run_id, { intervalMs: 100 })) {
+      if (chunk.delta) emit({ terminal: false, delta: chunk.delta })
+      if (chunk.done) {
+        emit({
+          terminal: true,
+          done: true,
+          output: chunk.output || '',
+          status: chunk.status,
+          error: chunk.error || undefined,
+        })
+      }
+    }
+  } catch (err) {
+    emit({
+      ok: false,
+      terminal: true,
+      done: true,
+      error: err instanceof Error ? err.message : String(err),
+      message: `Side question failed: ${err instanceof Error ? err.message : String(err)}`,
+    })
+  } finally {
+    ctx.sessionMap.delete(temporarySessionId)
+    try {
+      await ctx.bridge.destroy(temporarySessionId, ctx.profile)
+    } catch {}
+  }
 }
 
 function persistCommandMessage(sessionId: string, state: SessionState, content: string) {
