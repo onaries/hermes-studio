@@ -160,6 +160,16 @@ describe('chat store session.command fanout', () => {
       terminal: true,
     })
 
+    expect(store.sessions[0].messages).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: 'summarize docs',
+      }),
+    ])
+    expect(chatApi.registerSessionHandlers).toHaveBeenCalledWith('bg_test', expect.objectContaining({
+      onRunStarted: expect.any(Function),
+      onMessageDelta: expect.any(Function),
+    }))
     expect(store.messages.at(-1)).toEqual(expect.objectContaining({
       role: 'system',
       content: 'Background task started in session bg_test.',
