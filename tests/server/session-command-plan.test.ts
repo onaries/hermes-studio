@@ -305,6 +305,74 @@ describe('plan session command', () => {
     }))
   })
 
+  it('starts /btw prompts in a separate background session', async () => {
+    const state = { messages: [], isWorking: false, events: [], queue: [] }
+    const { namespaceEmit, runQueuedItem, sessionMap, socket, nsp } = makeContext(state)
+    const { handleSessionCommand, parseSessionCommand } = await import('../../packages/server/src/services/hermes/run-chat/session-command')
+    const command = parseSessionCommand('/btw summarize docs')!
+
+    await handleSessionCommand('session-1', command, {
+      nsp: nsp as any,
+      socket: socket as any,
+      sessionMap,
+      bridge: {} as any,
+      profile: 'default',
+      model: 'gpt-test',
+      provider: 'openai',
+      queueId: 'btw-queue-id',
+      runQueuedItem,
+    })
+
+    expect(command.name).toBe('background')
+    expect(addMessageMock).toHaveBeenCalledWith(expect.objectContaining({
+      session_id: 'session-1',
+      role: 'command',
+      content: '/btw summarize docs',
+    }))
+    expect(namespaceEmit).toHaveBeenCalledWith('session.command', expect.objectContaining({
+      command: 'btw',
+      action: 'background',
+      started: true,
+      terminal: true,
+      backgroundSessionId: expect.stringMatching(/^bg_/),
+      prompt: 'summarize docs',
+    }))
+    expect(runQueuedItem).toHaveBeenCalledWith(socket, expect.stringMatching(/^bg_/), expect.objectContaining({
+      queue_id: 'btw-queue-id',
+      input: 'summarize docs',
+      displayInput: 'summarize docs',
+      displayRole: 'user',
+      storageMessage: 'summarize docs',
+      model: 'gpt-test',
+      provider: 'openai',
+      source: 'cli',
+    }), 'default')
+  })
+
+  it('rejects /background without a prompt', async () => {
+    const state = { messages: [], isWorking: false, events: [], queue: [] }
+    const { namespaceEmit, runQueuedItem, sessionMap, socket, nsp } = makeContext(state)
+    const { handleSessionCommand, parseSessionCommand } = await import('../../packages/server/src/services/hermes/run-chat/session-command')
+    const command = parseSessionCommand('/background')!
+
+    await handleSessionCommand('session-1', command, {
+      nsp: nsp as any,
+      socket: socket as any,
+      sessionMap,
+      bridge: {} as any,
+      profile: 'default',
+      runQueuedItem,
+    })
+
+    expect(runQueuedItem).not.toHaveBeenCalled()
+    expect(namespaceEmit).toHaveBeenCalledWith('session.command', expect.objectContaining({
+      command: 'background',
+      ok: false,
+      action: 'background',
+      message: 'Usage: /btw <prompt>',
+    }))
+  })
+
   it('rejects MCP reload while the session is running', async () => {
     const state = { messages: [], isWorking: true, events: [], queue: [] }
     const { bridge, namespaceEmit, runQueuedItem, sessionMap, socket, nsp } = makeContext(state)
