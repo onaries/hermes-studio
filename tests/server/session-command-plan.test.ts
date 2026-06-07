@@ -324,11 +324,7 @@ describe('plan session command', () => {
     })
 
     expect(command.name).toBe('background')
-    expect(addMessageMock).toHaveBeenCalledWith(expect.objectContaining({
-      session_id: 'session-1',
-      role: 'command',
-      content: '/btw summarize docs',
-    }))
+    expect(addMessageMock).not.toHaveBeenCalled()
     expect(namespaceEmit).toHaveBeenCalledWith('session.command', expect.objectContaining({
       command: 'btw',
       action: 'background',

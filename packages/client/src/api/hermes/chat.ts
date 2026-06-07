@@ -873,6 +873,7 @@ export function startRunViaSocket(
     onSessionCommand: (evt: RunEvent) => {
       if (closed) return
       onEvent(evt)
+      if ((evt as any).action === 'background') return
       if ((evt as any).terminal === false) return
       closed = true
       removeTerminalSocketListeners()

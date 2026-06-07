@@ -89,13 +89,13 @@ export async function handleSessionCommand(
   const state = getOrCreateSession(ctx.sessionMap, sessionId)
   ctx.socket.join(`session:${sessionId}`)
   ensureCommandSession(sessionId, ctx)
-  if (command.name !== 'plan') {
+  if (command.name !== 'plan' && command.name !== 'background') {
     persistCommandMessage(sessionId, state, `/${command.rawName}${command.args ? ` ${command.args}` : ''}`)
   }
 
   const emitCommand = (payload: Record<string, unknown>) => {
     const message = typeof payload.message === 'string' ? payload.message : ''
-    if (message) persistCommandMessage(sessionId, state, message)
+    if (message && command.name !== 'background') persistCommandMessage(sessionId, state, message)
     emitToSession(ctx.nsp, ctx.socket, sessionId, 'session.command', {
       event: 'session.command',
       session_id: sessionId,

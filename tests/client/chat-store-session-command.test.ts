@@ -6,6 +6,7 @@ const chatApi = vi.hoisted(() => ({
   registerSessionHandlers: vi.fn(),
   unregisterSessionHandlers: vi.fn(),
   getChatRunSocket: vi.fn(() => ({ emit: vi.fn() })),
+  connectChatRun: vi.fn(() => ({ emit: vi.fn() })),
   sessionCommandHandlers: [] as Array<(event: any) => void>,
   peerUserMessageHandlers: [] as Array<(event: any) => void>,
   sessionTitleUpdatedHandlers: [] as Array<(event: any) => void>,
@@ -17,6 +18,7 @@ vi.mock('@/api/hermes/chat', () => ({
   registerSessionHandlers: chatApi.registerSessionHandlers,
   unregisterSessionHandlers: chatApi.unregisterSessionHandlers,
   getChatRunSocket: chatApi.getChatRunSocket,
+  connectChatRun: chatApi.connectChatRun,
   respondToolApproval: vi.fn(),
   respondClarify: vi.fn(),
   onPeerUserMessage: vi.fn((handler: (event: any) => void) => {
@@ -134,6 +136,36 @@ describe('chat store session.command fanout', () => {
         commandAction: 'clear',
       }),
     ])
+  })
+
+  it('renders background command status as system so current assistant targeting survives', () => {
+    const store = useChatStore()
+    const session = makeSession()
+    session.messages = [
+      { id: 'user-1', role: 'user', content: 'foreground task', timestamp: 1 },
+      { id: 'assistant-1', role: 'assistant', content: 'working...', timestamp: 2, isStreaming: true },
+    ]
+    store.sessions = [session]
+    store.activeSessionId = 'session-1'
+    store.activeSession = session
+
+    chatApi.sessionCommandHandlers[0]({
+      event: 'session.command',
+      session_id: 'session-1',
+      command: 'btw',
+      action: 'background',
+      message: 'Background task started in session bg_test.',
+      backgroundSessionId: 'bg_test',
+      prompt: 'summarize docs',
+      terminal: true,
+    })
+
+    expect(store.messages.at(-1)).toEqual(expect.objectContaining({
+      role: 'system',
+      content: 'Background task started in session bg_test.',
+      commandAction: 'background',
+    }))
+    expect(store.sessions[0].messages.some(message => message.role === 'command' && message.commandAction === 'background')).toBe(false)
   })
 
   it('updates session title from the global generated-title event', () => {
