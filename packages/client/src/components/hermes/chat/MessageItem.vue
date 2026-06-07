@@ -1541,16 +1541,13 @@ onBeforeUnmount(() => {
 
   .tool-name {
     font-family: $font-code;
-    flex: 0 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    flex: 0 0 auto;
     white-space: nowrap;
   }
 
   .tool-preview {
     display: block;
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
