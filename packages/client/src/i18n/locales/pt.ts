@@ -506,6 +506,8 @@ export default {
     thinkingChars: '{count} caracteres',
     copyBubble: 'Copiar mensagem',
     copiedBubble: 'Mensagem copiada',
+    btwLabel: 'Pergunta lateral',
+    btwDismiss: 'Fechar pergunta lateral (Esc)',
     copyFailed: 'Falha ao copiar',
     playSpeech: 'Reproduzir voz',
     pauseSpeech: 'Pausar',

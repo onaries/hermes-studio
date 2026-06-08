@@ -1780,6 +1780,18 @@ class AgentPool:
                     self._prepersist_user_message(session, message, storage_message, conversation_history, profile, source)
                     db_count_after_prepersist = self._session_db_message_count(session.session_id, profile)
                 else:
+                    # Ephemeral bridge runs such as `/btw` should behave like a
+                    # transient side bubble, not a fresh full chat session. The
+                    # agent may stash one-time startup notices (for example the
+                    # Codex gpt-5.5 auto-compaction threshold notice) during
+                    # AIAgent initialization before the bridge disables its own
+                    # compression layer. Suppress those for non-persistent runs
+                    # so side questions only stream the actual answer.
+                    try:
+                        session.agent._compression_warning = None
+                        session.agent._compression_threshold_autoraised = None
+                    except Exception:
+                        pass
                     db_count_after_prepersist = None
                 if force_compress:
                     compress = getattr(session.agent, "_compress_context", None)

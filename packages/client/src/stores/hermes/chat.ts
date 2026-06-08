@@ -609,6 +609,8 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function switchSession(sessionId: string, focusId?: string | null) {
+    const previousSessionId = activeSessionId.value
+    if (previousSessionId && previousSessionId !== sessionId) clearBtwMessages(previousSessionId)
     clearThinkingObservationFor(sessionId)
     activeSessionId.value = sessionId
     focusMessageId.value = focusId ?? null
@@ -661,11 +663,13 @@ export const useChatStore = defineStore('chat', () => {
           if (data.outputTokens != null) target.outputTokens = data.outputTokens
           if ((data as any).contextTokens != null) target.contextTokens = (data as any).contextTokens
           if (data.messages?.length) {
-            target.messages = mapHermesMessages(data.messages as any[])
+            target.messages = mapHermesMessages(data.messages as any[]).filter(m => m.commandAction !== 'btw')
             target.loadedMessageCount = data.messageLoadedCount ?? data.messages.length
             target.messageTotal = data.messageTotal ?? target.messageCount ?? target.loadedMessageCount
             target.messageCount = target.messageTotal
             target.hasMoreBefore = data.hasMoreBefore ?? target.loadedMessageCount < target.messageTotal
+          } else {
+            clearBtwMessages(sessionId)
           }
           if (!target.title) {
             const firstUser = target.messages.find(m => m.role === 'user')
@@ -858,6 +862,31 @@ export const useChatStore = defineStore('chat', () => {
     if (s) s.messages.push(msg)
   }
 
+  function addMessageAfter(sessionId: string, afterId: string, msg: Message) {
+    const s = sessions.value.find(s => s.id === sessionId)
+    if (!s) return
+    const afterIndex = s.messages.findIndex(m => m.id === afterId)
+    if (afterIndex === -1) {
+      s.messages.push(msg)
+      return
+    }
+    s.messages.splice(afterIndex + 1, 0, msg)
+  }
+
+  function moveMessageAfter(sessionId: string, id: string, afterId: string) {
+    const s = sessions.value.find(s => s.id === sessionId)
+    if (!s) return
+    const currentIndex = s.messages.findIndex(m => m.id === id)
+    if (currentIndex === -1) return
+    const [msg] = s.messages.splice(currentIndex, 1)
+    const afterIndex = s.messages.findIndex(m => m.id === afterId)
+    if (afterIndex === -1) {
+      s.messages.push(msg)
+      return
+    }
+    s.messages.splice(afterIndex + 1, 0, msg)
+  }
+
   function addOrUpdateSession(session: Session) {
     const existingIndex = sessions.value.findIndex(s => s.id === session.id)
     if (existingIndex !== -1) {
@@ -876,6 +905,30 @@ export const useChatStore = defineStore('chat', () => {
     if (idx !== -1) {
       s.messages[idx] = { ...s.messages[idx], ...update }
     }
+  }
+
+  function removeMessage(sessionId: string, id: string) {
+    const s = sessions.value.find(s => s.id === sessionId)
+    if (!s) return
+    s.messages = s.messages.filter(m => m.id !== id)
+  }
+
+  function clearBtwMessages(sessionId: string) {
+    const s = sessions.value.find(s => s.id === sessionId)
+    if (!s) return
+    s.messages = s.messages.filter(m => !String(m.commandAction || '').startsWith('btw'))
+  }
+
+  function dismissBtwMessage(messageId: string, sessionId = activeSessionId.value, sideQuestionId?: string | null) {
+    if (!sessionId) return
+    const s = sessions.value.find(s => s.id === sessionId)
+    if (!s) return
+    const groupId = sideQuestionId || s.messages.find(m => m.id === messageId)?.commandData?.sideQuestionId
+    if (groupId) {
+      s.messages = s.messages.filter(m => m.commandData?.sideQuestionId !== groupId)
+      return
+    }
+    removeMessage(sessionId, messageId)
   }
 
   function clearAgentEventMessages(sessionId: string) {
@@ -981,7 +1034,7 @@ export const useChatStore = defineStore('chat', () => {
     const target = sessions.value.find(s => s.id === sid)
     const action = (evt as any).action as string | undefined
     const command = String((evt as any).command || '').toLowerCase()
-    if ((evt as any).started === true && (evt as any).terminal === false) {
+    if (action !== 'btw' && (evt as any).started === true && (evt as any).terminal === false) {
       serverWorking.value.add(sid)
     }
 
@@ -1051,36 +1104,73 @@ export const useChatStore = defineStore('chat', () => {
       const delta = typeof (evt as any).delta === 'string' ? String((evt as any).delta) : ''
       const output = typeof (evt as any).output === 'string' ? String((evt as any).output) : ''
       const error = typeof (evt as any).error === 'string' ? String((evt as any).error) : ''
-      const messageId = `btw-${sideQuestionId}`
+      const promptMessageId = `btw-${sideQuestionId}`
+      const resultMessageId = `btw-result-${sideQuestionId}`
       const msgs = getSessionMsgs(sid)
-      const existing = msgs.find(m => m.id === messageId)
-      const prefix = prompt ? `BTW: ${prompt}\n\n` : 'BTW\n\n'
-      if (!existing) {
+      const existingPrompt = msgs.find(m => m.id === promptMessageId)
+      const existingResult = msgs.find(m => m.id === resultMessageId)
+      if (!existingPrompt) {
         addMessage(sid, {
-          id: messageId,
-          role: error ? 'system' : 'assistant',
-          content: error ? `Side question failed: ${error}` : prefix + (output || delta),
+          id: promptMessageId,
+          role: 'assistant',
+          content: '',
           timestamp: Date.now(),
           isStreaming: !((evt as any).done || error),
-          systemType: error ? 'error' : undefined,
           commandAction: 'btw',
           commandData: { ...(evt as any) },
         })
-      } else if (error) {
-        updateMessage(sid, existing.id, {
-          role: 'system',
-          content: `Side question failed: ${error}`,
-          isStreaming: false,
-          systemType: 'error',
-          commandData: { ...(evt as any) },
-        })
       } else {
-        const current = existing.content.startsWith(prefix) ? existing.content : prefix
-        updateMessage(sid, existing.id, {
-          content: output ? prefix + output : current + delta,
-          isStreaming: !((evt as any).done),
-          commandData: { ...(evt as any) },
+        updateMessage(sid, existingPrompt.id, {
+          isStreaming: !((evt as any).done || error),
+          commandData: { ...(evt as any), prompt: prompt || existingPrompt.commandData?.prompt },
         })
+      }
+
+      if (error) {
+        if (!existingResult) {
+          addMessageAfter(sid, promptMessageId, {
+            id: resultMessageId,
+            role: 'system',
+            content: `Side question failed: ${error}`,
+            timestamp: Date.now(),
+            isStreaming: false,
+            systemType: 'error',
+            commandAction: 'btw_result',
+            commandData: { ...(evt as any), prompt: prompt || existingPrompt?.commandData?.prompt },
+          })
+        } else {
+          updateMessage(sid, existingResult.id, {
+            role: 'system',
+            content: `Side question failed: ${error}`,
+            isStreaming: false,
+            systemType: 'error',
+            commandData: { ...(evt as any), prompt: prompt || existingPrompt?.commandData?.prompt },
+          })
+          moveMessageAfter(sid, existingResult.id, promptMessageId)
+        }
+      } else if (output || delta || (evt as any).done) {
+        if (!existingResult) {
+          addMessageAfter(sid, promptMessageId, {
+            id: resultMessageId,
+            role: 'assistant',
+            content: output || delta,
+            timestamp: Date.now(),
+            isStreaming: !((evt as any).done),
+            commandAction: 'btw_result',
+            commandData: { ...(evt as any), prompt: prompt || existingPrompt?.commandData?.prompt },
+          })
+        } else {
+          updateMessage(sid, existingResult.id, {
+            content: output || existingResult.content + delta,
+            isStreaming: !((evt as any).done),
+            commandData: { ...(evt as any), prompt: prompt || existingPrompt?.commandData?.prompt },
+          })
+          moveMessageAfter(sid, existingResult.id, promptMessageId)
+        }
+      }
+
+      if ((evt as any).done || error) {
+        updateMessage(sid, promptMessageId, { isStreaming: false })
       }
       return
     }
@@ -1457,18 +1547,20 @@ export const useChatStore = defineStore('chat', () => {
     const shouldSendInitialSessionConfig = activeSession.value
       ? activeSession.value.messageCount == null || activeSession.value.messageCount === 0
       : false
-    const isBridgeSlashCommand = content.trim().startsWith('/')
-    const isBridgeCompressCommand = isBridgeSlashCommand && /^\/compress(?:\s|$)/i.test(content.trim())
-    const isBridgePlanCommand = isBridgeSlashCommand && /^\/plan(?:\s|$)/i.test(content.trim())
-    const isBridgeGoalCommand = isBridgeSlashCommand && /^\/goal(?:\s|$)/i.test(content.trim())
-    const isBridgeBackgroundCommand = isBridgeSlashCommand && /^\/(?:btw|bg|background)(?:\s|$)/i.test(content.trim())
+    const trimmedContent = content.trim()
     const wasLiveBeforeSend = isSessionLive(sid)
+    const bridgeCommandContent = trimmedContent
+    const isBridgeSlashCommand = bridgeCommandContent.startsWith('/')
+    const isBridgeCompressCommand = isBridgeSlashCommand && /^\/compress(?:\s|$)/i.test(bridgeCommandContent)
+    const isBridgePlanCommand = isBridgeSlashCommand && /^\/plan(?:\s|$)/i.test(bridgeCommandContent)
+    const isBridgeGoalCommand = isBridgeSlashCommand && /^\/goal(?:\s|$)/i.test(bridgeCommandContent)
+    const isBridgeBackgroundCommand = isBridgeSlashCommand && /^\/(?:btw|bg|background)(?:\s|$)/i.test(bridgeCommandContent)
     const shouldQueue = wasLiveBeforeSend && (!isBridgeSlashCommand || isBridgePlanCommand)
 
     const userMsg: Message = {
       id: uid(),
       role: isBridgeSlashCommand ? 'command' : 'user',
-      content: content.trim(),
+      content: bridgeCommandContent,
       timestamp: Date.now(),
       attachments: attachments && attachments.length > 0 ? attachments : undefined,
       queued: shouldQueue,
@@ -1518,10 +1610,10 @@ export const useChatStore = defineStore('chat', () => {
         }
 
         // Build content blocks with uploaded file paths
-        input = await buildContentBlocks(content, attachments, uploaded)
+        input = await buildContentBlocks(bridgeCommandContent, attachments, uploaded)
       } else {
         // No attachments: use plain text format
-        input = content.trim()
+        input = bridgeCommandContent
       }
 
       const appStore = useAppStore()
@@ -2869,6 +2961,7 @@ export const useChatStore = defineStore('chat', () => {
     deleteSession,
     sendMessage,
     stopStreaming,
+    dismissBtwMessage,
     respondApproval,
     respondToClarify,
     loadSessions,

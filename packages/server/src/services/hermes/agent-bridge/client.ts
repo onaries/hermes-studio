@@ -50,6 +50,7 @@ export interface AgentBridgeChatOptions {
   source?: string
   wait?: boolean
   timeout?: number
+  workerKey?: string
 }
 
 export type AgentBridgeMessage =
@@ -421,6 +422,7 @@ export class AgentBridgeClient {
       ...(options.source ? { source: options.source } : {}),
       ...(options.wait ? { wait: true } : {}),
       ...(options.timeout ? { timeout: options.timeout } : {}),
+      ...(options.workerKey ? { worker_key: options.workerKey } : {}),
       ...(options.force_compress ? { force_compress: true } : {}),
     })
   }

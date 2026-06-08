@@ -428,6 +428,8 @@ export default {
     thinkingChars: '{count} зн.',
     copyBubble: 'Копировать сообщение',
     copiedBubble: 'Скопировано',
+    btwLabel: 'Побочный вопрос',
+    btwDismiss: 'Закрыть побочный вопрос (Esc)',
     copyFailed: 'Ошибка копирования',
     playSpeech: 'Воспроизвести речь',
     pauseSpeech: 'Пауза',

@@ -496,6 +496,8 @@ export default {
     thinkingChars: '{count} Zeichen',
     copyBubble: 'Nachricht kopieren',
     copiedBubble: 'Nachricht kopiert',
+    btwLabel: 'Nebenfrage',
+    btwDismiss: 'Nebenfrage schließen (Esc)',
     copyFailed: 'Kopieren fehlgeschlagen',
     playSpeech: 'Sprache abspielen',
     pauseSpeech: 'Pausieren',

@@ -242,6 +242,7 @@ export async function handleSessionCommand(
       }
       const sideQuestionId = `btw_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
       const temporarySessionId = `${sessionId}__${sideQuestionId}`
+      const workerKey = `btw_${sideQuestionId}`
       emitCommand({
         action: 'btw',
         terminal: false,
@@ -251,7 +252,7 @@ export async function handleSessionCommand(
         prompt: command.args,
         message: `Side question: ${command.args}`,
       })
-      void runBtwSideQuestion(sessionId, temporarySessionId, sideQuestionId, command.args, ctx)
+      void runBtwSideQuestion(sessionId, temporarySessionId, sideQuestionId, command.args, ctx, workerKey)
       return
     }
 
@@ -722,6 +723,23 @@ function ensureCommandSession(sessionId: string, ctx: SessionCommandContext) {
 const BTW_HISTORY_TOKEN_BUDGET = 12_000
 const BTW_HISTORY_MAX_MESSAGES = 32
 const BTW_HISTORY_MESSAGE_CHAR_BUDGET = 12_000
+const BTW_SIDE_QUESTION_INSTRUCTIONS = [
+  'You are answering a temporary /btw side question inside an active chat.',
+  'Use the provided conversation history only as optional context for resolving references in the side question.',
+  'Answer only the side question itself. Do not continue, summarize, or report progress on the foreground task unless the side question explicitly asks about it.',
+  'Do not mention details from the parent conversation unless they are required to answer the side question.',
+  'Keep the answer concise.',
+].join('\n')
+
+function formatBtwSidePrompt(prompt: string): string {
+  return [
+    'Temporary /btw side question. Answer ONLY the question between <side_question> tags.',
+    'Ignore any ongoing foreground task in the surrounding conversation. Do not continue or summarize that foreground task.',
+    '<side_question>',
+    prompt,
+    '</side_question>',
+  ].join('\n')
+}
 
 function envPositiveInt(name: string, fallback: number): number {
   const value = Number(process.env[name])
@@ -772,8 +790,16 @@ function trimBtwHistory(history: any[]): any[] {
   return selected
 }
 
+function dropActiveForegroundTail(history: any[], parentSessionId: string, ctx: SessionCommandContext): any[] {
+  const state = ctx.sessionMap.get(parentSessionId)
+  if (!state?.isWorking) return history
+  const lastUserIndex = history.findLastIndex((message: any) => message?.role === 'user' || message?.role === 'command')
+  if (lastUserIndex < 0) return history
+  return history.slice(0, lastUserIndex)
+}
+
 async function buildBtwHistory(parentSessionId: string, ctx: SessionCommandContext): Promise<any[]> {
-  const dbHistory = await buildDbHistory(parentSessionId)
+  const dbHistory = dropActiveForegroundTail(await buildDbHistory(parentSessionId), parentSessionId, ctx)
   const snapshotAware = await buildSnapshotAwareHistory(parentSessionId, ctx.profile, dbHistory, {
     model: ctx.model,
     provider: ctx.provider,
@@ -787,6 +813,7 @@ async function runBtwSideQuestion(
   sideQuestionId: string,
   prompt: string,
   ctx: SessionCommandContext,
+  workerKey: string,
 ) {
   const emit = (payload: Record<string, unknown>) => emitToSession(ctx.nsp, ctx.socket, parentSessionId, 'session.command', {
     event: 'session.command',
@@ -800,17 +827,19 @@ async function runBtwSideQuestion(
 
   try {
     const history = await buildBtwHistory(parentSessionId, ctx)
+    const sideInstructions = [ctx.instructions, BTW_SIDE_QUESTION_INSTRUCTIONS].filter(Boolean).join('\n\n')
     const started = await ctx.bridge.chat(
       temporarySessionId,
-      prompt,
+      formatBtwSidePrompt(prompt),
       history,
-      ctx.instructions,
+      sideInstructions,
       ctx.profile,
       {
         model: ctx.model,
         provider: ctx.provider,
         source: 'cli',
         persist: false,
+        workerKey,
       },
     )
     emit({ terminal: false, runId: started.run_id })
@@ -837,7 +866,7 @@ async function runBtwSideQuestion(
   } finally {
     ctx.sessionMap.delete(temporarySessionId)
     try {
-      await ctx.bridge.destroy(temporarySessionId, ctx.profile)
+      await ctx.bridge.destroy(temporarySessionId, ctx.profile, workerKey)
     } catch {}
   }
 }

@@ -506,6 +506,8 @@ export default {
     thinkingChars: '{count}자',
     copyBubble: '메시지 복사',
     copiedBubble: '복사됨',
+    btwLabel: '사이드 질문',
+    btwDismiss: '사이드 질문 닫기(Esc)',
     copyFailed: '복사 실패',
     playSpeech: '음성 재생',
     pauseSpeech: '일시정지',

@@ -189,6 +189,34 @@ const speech = useGlobalSpeech();
 const voiceSettings = useVoiceSettings();
 const assistantProfileName = computed(() => chatStore.activeSession?.profile || profilesStore.activeProfileName || "default");
 const assistantProfileAvatar = computed(() => profilesStore.profiles.find(profile => profile.name === assistantProfileName.value)?.avatar);
+const isBtwMessage = computed(() => props.message.commandAction === "btw");
+const isBtwResultMessage = computed(() => props.message.commandAction === "btw_result");
+const isBtwEphemeralMessage = computed(() => isBtwMessage.value || isBtwResultMessage.value);
+const btwPrompt = computed(() => {
+  const prompt = props.message.commandData?.prompt;
+  return typeof prompt === "string" ? prompt.trim() : "";
+});
+const canDismissBtw = computed(() => isBtwEphemeralMessage.value && !props.message.isStreaming);
+const btwSideQuestionId = computed(() => {
+  const sideQuestionId = props.message.commandData?.sideQuestionId;
+  return typeof sideQuestionId === "string" ? sideQuestionId : null;
+});
+const isLatestBtwGroup = computed(() => {
+  if (!isBtwEphemeralMessage.value) return false;
+  const latest = [...chatStore.messages].reverse().find(message => String(message.commandAction || '').startsWith("btw"));
+  const latestGroupId = typeof latest?.commandData?.sideQuestionId === "string" ? latest.commandData.sideQuestionId : null;
+  return latestGroupId !== null && latestGroupId === btwSideQuestionId.value;
+});
+const isLatestBtwMessage = computed(() => {
+  const latest = [...chatStore.messages].reverse().find(message => String(message.commandAction || '').startsWith("btw"));
+  return latest?.id === props.message.id;
+});
+
+function dismissBtw() {
+  if (!isBtwEphemeralMessage.value) return;
+  const sideQuestionId = props.message.commandData?.sideQuestionId;
+  chatStore.dismissBtwMessage(props.message.id, undefined, typeof sideQuestionId === "string" ? sideQuestionId : undefined);
+}
 
 // Copy entire bubble content
 const copyableContent = computed(() => {
@@ -701,6 +729,7 @@ function handleAutoplayTtsError(err: unknown) {
 }
 
 onMounted(() => {
+  window.addEventListener('keydown', handleBtwEscape)
   autoPlayHandler = (e: Event) => {
     const customEvent = e as CustomEvent<{ messageId: string; content: string }>
     if (customEvent.detail.messageId === props.message.id && canPlaySpeech.value) {
@@ -763,6 +792,7 @@ onMounted(() => {
 
 // 组件卸载时停止播放并清理事件监听
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleBtwEscape)
   if (autoPlayHandler) {
     window.removeEventListener('auto-play-speech', autoPlayHandler)
   }
@@ -770,12 +800,17 @@ onBeforeUnmount(() => {
     speech.stop();
   }
 });
+
+function handleBtwEscape(event: KeyboardEvent) {
+  if (event.key !== 'Escape' || !canDismissBtw.value || !isLatestBtwMessage.value) return
+  dismissBtw()
+}
 </script>
 
 <template>
   <div
     class="message"
-    :class="[message.role, { highlight }]"
+    :class="[message.role, { highlight, btw: isBtwMessage, 'btw-result': isBtwResultMessage, 'btw-sticky': isLatestBtwGroup }]"
     :id="`message-${message.id}`"
   >
     <template v-if="message.role === 'tool'">
@@ -848,7 +883,7 @@ onBeforeUnmount(() => {
     <template v-else>
       <div class="msg-body">
         <ProfileAvatar
-          v-if="message.role === 'assistant'"
+          v-if="message.role === 'assistant' && !isBtwMessage"
           class="msg-avatar"
           :name="assistantProfileName"
           :avatar="assistantProfileAvatar"
@@ -862,9 +897,28 @@ onBeforeUnmount(() => {
               'agent-error': isAgentError,
               command: isCommandMessage,
               'command-error': isCommandError,
+              btw: isBtwMessage,
               'speech-playing': isPlayingThisMessage && !isPausedThisMessage,
             }"
           >
+            <div v-if="isBtwMessage" class="btw-header">
+              <div class="btw-title-wrap">
+                <span class="btw-kicker">{{ t('chat.btwLabel') }}</span>
+                <span v-if="btwPrompt" class="btw-prompt">{{ btwPrompt }}</span>
+              </div>
+              <button
+                v-if="canDismissBtw"
+                class="btw-dismiss"
+                type="button"
+                :title="t('chat.btwDismiss')"
+                @click="dismissBtw"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
             <div v-if="hasAttachments" class="msg-attachments">
               <div
                 v-for="att in message.attachments"
@@ -992,7 +1046,13 @@ onBeforeUnmount(() => {
 
             <!-- Render assistant message content -->
             <MarkdownRenderer
-              v-if="message.role === 'assistant' && message.content && !parsedThinking.body"
+              v-if="isBtwMessage && message.content"
+              class="btw-body"
+              :content="message.content"
+              :heading-id-prefix="effectiveHeadingIdPrefix"
+            />
+            <MarkdownRenderer
+              v-if="message.role === 'assistant' && !isBtwMessage && message.content && !parsedThinking.body"
               :content="message.content"
               :heading-id-prefix="effectiveHeadingIdPrefix"
             />
@@ -1025,6 +1085,18 @@ onBeforeUnmount(() => {
             </span>
           </div>
           <div class="message-meta">
+            <button
+              v-if="canDismissBtw && isBtwResultMessage"
+              class="btw-dismiss result-dismiss"
+              type="button"
+              :title="t('chat.btwDismiss')"
+              @click="dismissBtw"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
             <button
               v-if="canPlaySpeech"
               class="speech-bubble-btn"
@@ -1123,6 +1195,47 @@ onBeforeUnmount(() => {
     }
   }
 
+  &.btw {
+    align-items: center;
+
+    .msg-body {
+      max-width: min(760px, 86%);
+      width: min(760px, 86%);
+    }
+
+    .msg-content {
+      width: 100%;
+    }
+
+    .message-bubble.btw {
+      width: 100%;
+      border: 1px solid rgba(var(--accent-primary-rgb), 0.24);
+      background:
+        linear-gradient(135deg, rgba(var(--accent-primary-rgb), 0.10), rgba(var(--accent-primary-rgb), 0.03)),
+        $msg-assistant-bg;
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.12);
+      padding: 12px 14px;
+    }
+  }
+
+  &.btw-sticky {
+    position: sticky;
+    z-index: 8;
+    pointer-events: auto;
+
+    .message-bubble {
+      backdrop-filter: blur(16px);
+    }
+  }
+
+  &.btw-sticky.btw {
+    bottom: clamp(140px, 18vh, 220px);
+  }
+
+  &.btw-sticky.btw-result {
+    bottom: 16px;
+  }
+
   &.tool {
     align-items: flex-start;
   }
@@ -1139,6 +1252,67 @@ onBeforeUnmount(() => {
     .message-bubble {
       box-shadow: 0 0 0 1px rgba(var(--accent-primary-rgb), 0.45);
     }
+  }
+}
+
+.btw-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid $border-light;
+}
+
+.btw-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.btw-kicker {
+  width: fit-content;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background-color: rgba(var(--accent-primary-rgb), 0.12);
+  color: $accent-primary;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.btw-prompt {
+  color: $text-secondary;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.btw-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  color: $text-secondary;
+  background-color: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    color: $text-primary;
+    background-color: rgba(var(--text-primary-rgb), 0.08);
+  }
+}
+
+.btw-body {
+  :deep(.markdown-body) {
+    font-size: 14px;
   }
 }
 

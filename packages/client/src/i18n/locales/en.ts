@@ -536,6 +536,8 @@ export default {
     thinkingChars: '{count} chars',
     copyBubble: 'Copy message',
     copiedBubble: 'Message copied',
+    btwLabel: 'Side question',
+    btwDismiss: 'Dismiss side question (Esc)',
     copyFailed: 'Copy failed',
     playSpeech: 'Play voice',
     pauseSpeech: 'Pause',

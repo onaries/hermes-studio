@@ -506,6 +506,8 @@ export default {
     thinkingChars: '{count} 文字',
     copyBubble: 'メッセージをコピー',
     copiedBubble: 'コピーしました',
+    btwLabel: 'サイド質問',
+    btwDismiss: 'サイド質問を閉じる（Esc）',
     copyFailed: 'コピーに失敗しました',
     playSpeech: '音声を読み上げ',
     pauseSpeech: '一時停止',

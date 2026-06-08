@@ -536,6 +536,8 @@ export default {
     thinkingChars: '{count} 字',
     copyBubble: '复制消息',
     copiedBubble: '已复制',
+    btwLabel: '临时提问',
+    btwDismiss: '关闭临时提问（Esc）',
     copyFailed: '复制失败',
     playSpeech: '播放语音',
     pauseSpeech: '暂停',
