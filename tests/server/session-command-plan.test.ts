@@ -352,11 +352,19 @@ describe('plan session command', () => {
       sideQuestionId: expect.stringMatching(/^btw_/),
       prompt: 'summarize docs',
     }))
-    expect(bridge.chat).toHaveBeenCalledWith(expect.stringMatching(/^session-1__btw_/), 'summarize docs', expect.anything(), undefined, 'default', expect.objectContaining({
-      model: 'gpt-test',
-      provider: 'openai',
-      persist: false,
-    }))
+    expect(bridge.chat).toHaveBeenCalledWith(
+      expect.stringMatching(/^session-1__btw_/),
+      expect.stringContaining('<side_question>\nsummarize docs\n</side_question>'),
+      expect.anything(),
+      expect.stringContaining('Answer only the side question itself'),
+      'default',
+      expect.objectContaining({
+        model: 'gpt-test',
+        provider: 'openai',
+        persist: false,
+        workerKey: expect.stringMatching(/^btw_btw_/),
+      }),
+    )
     expect(namespaceEmit).toHaveBeenCalledWith('session.command', expect.objectContaining({
       command: 'btw',
       action: 'btw',
@@ -395,6 +403,40 @@ describe('plan session command', () => {
     expect(historyArg.length).toBeLessThan(longHistory.length)
     expect(historyArg.every((message: any) => message.role === 'user' || message.role === 'assistant')).toBe(true)
     expect(historyArg.every((message: any) => !('tool_calls' in message))).toBe(true)
+  })
+
+  it('drops the active foreground turn from /btw context history', async () => {
+    const state = { messages: [], isWorking: true, events: [], queue: [] }
+    const { bridge, runQueuedItem, sessionMap, socket, nsp } = makeContext(state)
+    const history = [
+      { role: 'user', content: 'older question' },
+      { role: 'assistant', content: 'older answer' },
+      { role: 'user', content: 'current foreground task about KISA streaming' },
+      { role: 'assistant', content: 'current foreground answer details' },
+    ]
+    ;(compressionMocks.buildDbHistory as any).mockResolvedValue(history)
+    compressionMocks.buildSnapshotAwareHistory.mockImplementation(async (_sessionId: string, _profile: string, inputHistory: any[]) => inputHistory)
+    const { handleSessionCommand, parseSessionCommand } = await import('../../packages/server/src/services/hermes/run-chat/session-command')
+    const command = parseSessionCommand('/btw 너는 누구야')!
+
+    await handleSessionCommand('session-1', command, {
+      nsp: nsp as any,
+      socket: socket as any,
+      sessionMap,
+      bridge: bridge as any,
+      profile: 'default',
+      runQueuedItem,
+    })
+    await new Promise(resolve => setTimeout(resolve, 200))
+
+    expect(bridge.chat).toHaveBeenCalled()
+    const historyArg = bridge.chat.mock.calls[0][2]
+    expect(historyArg).toEqual([
+      expect.objectContaining({ role: 'user', content: 'older question' }),
+      expect.objectContaining({ role: 'assistant', content: 'older answer' }),
+    ])
+    expect(JSON.stringify(historyArg)).not.toContain('KISA streaming')
+    expect(JSON.stringify(historyArg)).not.toContain('current foreground answer details')
   })
 
   it('rejects /background without a prompt', async () => {

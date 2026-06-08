@@ -520,6 +520,8 @@ export default {
     thinkingChars: '{count} 字',
     copyBubble: '複製訊息',
     copiedBubble: '已複製',
+    btwLabel: '臨時提問',
+    btwDismiss: '關閉臨時提問（Esc）',
     copyFailed: '複製失敗',
     playSpeech: '播放語音',
     pauseSpeech: '暫停',

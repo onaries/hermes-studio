@@ -3,10 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
 const chatApi = vi.hoisted(() => ({
+  resumeSession: vi.fn(),
   registerSessionHandlers: vi.fn(),
   unregisterSessionHandlers: vi.fn(),
   getChatRunSocket: vi.fn(() => ({ emit: vi.fn() })),
-  connectChatRun: vi.fn(() => ({ emit: vi.fn() })),
+  connectEmit: vi.fn(),
+  connectChatRun: vi.fn(() => ({ emit: chatApi.connectEmit })),
   sessionCommandHandlers: [] as Array<(event: any) => void>,
   peerUserMessageHandlers: [] as Array<(event: any) => void>,
   sessionTitleUpdatedHandlers: [] as Array<(event: any) => void>,
@@ -14,7 +16,7 @@ const chatApi = vi.hoisted(() => ({
 
 vi.mock('@/api/hermes/chat', () => ({
   startRunViaSocket: vi.fn(),
-  resumeSession: vi.fn(),
+  resumeSession: chatApi.resumeSession,
   registerSessionHandlers: chatApi.registerSessionHandlers,
   unregisterSessionHandlers: chatApi.unregisterSessionHandlers,
   getChatRunSocket: chatApi.getChatRunSocket,
@@ -48,6 +50,15 @@ vi.mock('@/api/hermes/sessions', () => ({
 
 vi.mock('@/api/hermes/download', () => ({
   getDownloadUrl: (_path: string, name: string) => `/download/${name}`,
+}))
+
+vi.mock('@/stores/hermes/app', () => ({
+  useAppStore: () => ({
+    waitForModelsForRun: vi.fn(async () => undefined),
+    selectedModel: 'gpt-test',
+    selectedProvider: 'openai',
+    modelGroups: [],
+  }),
 }))
 
 vi.mock('@/utils/completion-sound', () => ({
@@ -178,7 +189,7 @@ describe('chat store session.command fanout', () => {
     expect(store.sessions[0].messages.some(message => message.role === 'command' && message.commandAction === 'background')).toBe(false)
   })
 
-  it('renders /btw as an ephemeral assistant bubble without creating a background session', () => {
+  it('renders /btw as a prompt bubble plus a separate ephemeral result', () => {
     const store = useChatStore()
     const session = makeSession()
     store.sessions = [session]
@@ -195,6 +206,7 @@ describe('chat store session.command fanout', () => {
       started: true,
       terminal: false,
     })
+    session.messages.push({ id: 'foreground-assistant', role: 'assistant', content: 'foreground still running', timestamp: 2, isStreaming: true })
     chatApi.sessionCommandHandlers[0]({
       event: 'session.command',
       session_id: 'session-1',
@@ -219,15 +231,103 @@ describe('chat store session.command fanout', () => {
 
     expect(store.sessions.some(item => item.id.startsWith('bg_'))).toBe(false)
     expect(chatApi.registerSessionHandlers).not.toHaveBeenCalled()
+    expect(store.isStreaming).toBe(false)
     expect(store.messages).toEqual([
       expect.objectContaining({
         id: 'btw-btw_test',
         role: 'assistant',
-        content: 'BTW: quick check\n\nanswer',
+        content: '',
         isStreaming: false,
         commandAction: 'btw',
+        commandData: expect.objectContaining({ prompt: 'quick check' }),
+      }),
+      expect.objectContaining({
+        id: 'btw-result-btw_test',
+        role: 'assistant',
+        content: 'answer',
+        isStreaming: false,
+        commandAction: 'btw_result',
+        commandData: expect.objectContaining({ prompt: 'quick check' }),
+      }),
+      expect.objectContaining({
+        id: 'foreground-assistant',
+        role: 'assistant',
+        content: 'foreground still running',
       }),
     ])
+  })
+
+  it('dismisses ephemeral /btw bubbles and drops them when leaving the session', async () => {
+    const store = useChatStore()
+    const session = makeSession()
+    const otherSession: Session = { ...makeSession(), id: 'session-2', title: 'other' }
+    store.sessions = [session, otherSession]
+    store.activeSessionId = 'session-1'
+    store.activeSession = session
+    chatApi.resumeSession.mockImplementation((sessionId: string, callback: (data: any) => void) => {
+      callback({ session_id: sessionId, messages: [], isWorking: false })
+    })
+
+    chatApi.sessionCommandHandlers[0]({
+      event: 'session.command',
+      session_id: 'session-1',
+      command: 'btw',
+      action: 'btw',
+      sideQuestionId: 'btw_test',
+      prompt: 'quick check',
+      output: 'answer',
+      done: true,
+      terminal: true,
+    })
+
+    expect(store.messages).toHaveLength(2)
+    store.dismissBtwMessage('btw-result-btw_test')
+    expect(store.messages).toHaveLength(0)
+
+    chatApi.sessionCommandHandlers[0]({
+      event: 'session.command',
+      session_id: 'session-1',
+      command: 'btw',
+      action: 'btw',
+      sideQuestionId: 'btw_again',
+      output: 'temporary answer',
+      done: true,
+      terminal: true,
+    })
+    expect(session.messages.some(message => String(message.commandAction || '').startsWith('btw'))).toBe(true)
+
+    await store.switchSession('session-2')
+    expect(session.messages.some(message => String(message.commandAction || '').startsWith('btw'))).toBe(false)
+    await store.switchSession('session-1')
+    expect(store.messages.some(message => String(message.commandAction || '').startsWith('btw'))).toBe(false)
+  })
+
+  it('sends /btw out-of-band while the foreground session is active', async () => {
+    const store = useChatStore()
+    const session = makeSession()
+    store.sessions = [session]
+    store.activeSessionId = 'session-1'
+    store.activeSession = session
+    chatApi.sessionCommandHandlers[0]({
+      event: 'session.command',
+      session_id: 'session-1',
+      command: 'goal',
+      action: 'resume',
+      started: true,
+      terminal: false,
+    })
+    session.messages = []
+
+    await store.sendMessage('/btw another check')
+
+    expect(chatApi.connectEmit).toHaveBeenCalledTimes(1)
+    expect(chatApi.connectEmit).toHaveBeenNthCalledWith(1, 'run', expect.objectContaining({
+      session_id: 'session-1',
+      input: '/btw another check',
+      source: 'cli',
+    }))
+    expect(store.messages).toEqual([])
+    expect(store.isStreaming).toBe(true)
   })
 
   it('updates session title from the global generated-title event', () => {
