@@ -1,4 +1,4 @@
-import { startRunViaSocket, resumeSession, registerSessionHandlers, unregisterSessionHandlers, getChatRunSocket, connectChatRun, respondToolApproval, onPeerUserMessage, onSessionCommand, onSessionTitleUpdated, respondClarify, type RunEvent, type ResumeSessionPayload, type ContentBlock as ContentBlockImport } from '@/api/hermes/chat'
+import { startRunViaSocket, resumeSession, registerSessionHandlers, unregisterSessionHandlers, getChatRunSocket, connectChatRun, respondToolApproval, onPeerUserMessage, onSessionCommand, onSessionTitleUpdated, respondClarify, type RunEvent, type ResumeSessionPayload, type StartRunRequest, type ContentBlock as ContentBlockImport } from '@/api/hermes/chat'
 import { deleteSession as deleteSessionApi, fetchSessionMessagesPage, fetchSessions, setSessionModel, type HermesMessage, type SessionSummary } from '@/api/hermes/sessions'
 import { getActiveProfileName } from '@/api/client'
 import { getDownloadUrl } from '@/api/hermes/download'
@@ -9,7 +9,6 @@ import { useProfilesStore } from './profiles'
 import { useSettingsStore } from './settings'
 import { primeCompletionSound, playCompletionSound } from '@/utils/completion-sound'
 import { detectThinkingBoundary } from '@/utils/thinking-parser'
-import { findCurrentTurnAssistant } from '@/utils/live-assistant-target'
 
 // Re-export ContentBlock for convenience
 export type ContentBlock = ContentBlockImport
@@ -74,11 +73,19 @@ export interface Session {
   profile?: string
   title: string
   source?: string
+  agent?: string
+  agentSessionId?: string
+  agentNativeSessionId?: string
+  codingAgentId?: 'claude-code' | 'codex'
+  codingAgentMode?: 'global' | 'scoped'
   messages: Message[]
   createdAt: number
   updatedAt: number
   model?: string
   provider?: string
+  baseUrl?: string
+  apiKey?: string
+  apiMode?: 'chat_completions' | 'codex_responses' | 'anthropic_messages'
   messageCount?: number
   messageTotal?: number
   loadedMessageCount?: number
@@ -246,7 +253,8 @@ function selectResumedInFlightAssistant(messages: Message[], activeRunMarker?: s
   const finishReason = readFinishReason(lastMessage)
   const runMarker = readRunMarker(lastMessage)
   const hasMatchingRunMarker = !!activeRunMarker && !!runMarker && runMarker === activeRunMarker
-  return finishReason === null || hasMatchingRunMarker ? lastMessage : null
+  const hasExplicitInFlightMarker = finishReason === null && typeof runMarker === 'string' && runMarker.trim() !== ''
+  return hasMatchingRunMarker || hasExplicitInFlightMarker ? lastMessage : null
 }
 
 function getReplayRunMarker(events?: Array<{ event: string; data: RunEvent }>): string | null {
@@ -274,7 +282,7 @@ function resolveResumedAssistantState(
   const activeAssistant = options.previousActiveAssistantMessageId
     ? messages.find(m => m.role === 'assistant' && m.id === options.previousActiveAssistantMessageId) || null
     : null
-  const selectedActiveAssistant = activeAssistant || selectResumedInFlightAssistant(messages, options.activeRunMarker) || findCurrentTurnAssistant(messages) || null
+  const selectedActiveAssistant = activeAssistant || selectResumedInFlightAssistant(messages, options.activeRunMarker)
   const reasoningAssistant = options.previousReasoningAssistantMessageId
     ? messages.find(m => m.role === 'assistant' && m.id === options.previousReasoningAssistantMessageId) || null
     : null
@@ -392,11 +400,20 @@ function mapHermesMessages(msgs: HermesMessage[]): Message[] {
 }
 
 function mapHermesSession(s: SessionSummary): Session {
+  const codingAgentMode = s.source === 'coding_agent'
+    ? (s.agent_mode === 'global' || s.agent_mode === 'scoped'
+        ? s.agent_mode
+        : s.provider === 'global' ? 'global' : 'scoped')
+    : undefined
   return {
     id: s.id,
     profile: s.profile || 'default',
     title: s.title || '',
     source: s.source || undefined,
+    agent: s.agent || undefined,
+    agentSessionId: s.agent_session_id || undefined,
+    agentNativeSessionId: s.agent_native_session_id || undefined,
+    codingAgentMode,
     messages: [],
     createdAt: Math.round(s.started_at * 1000),
     updatedAt: Math.round((s.last_active || s.ended_at || s.started_at) * 1000),
@@ -658,17 +675,39 @@ export const useChatStore = defineStore('chat', () => {
   }
 
 
-  function createSession(options: { profile?: string; model?: string; provider?: string } = {}): Session {
+  function createSession(options: {
+    profile?: string
+    model?: string
+    provider?: string
+    source?: 'api_server' | 'cli' | 'coding_agent'
+    agent?: 'hermes' | 'claude' | 'codex'
+    codingAgentId?: 'claude-code' | 'codex'
+    codingAgentMode?: 'global' | 'scoped'
+    workspace?: string | null
+    baseUrl?: string
+    apiKey?: string
+    apiMode?: 'chat_completions' | 'codex_responses' | 'anthropic_messages'
+  } = {}): Session {
+    const source = options.source || 'cli'
+    const codingAgentId = options.codingAgentId || (options.agent === 'codex' ? 'codex' : options.agent === 'claude' ? 'claude-code' : undefined)
+    const codingAgentMode = source === 'coding_agent' ? (options.codingAgentMode || 'scoped') : undefined
     const session: Session = {
       id: uid(),
       profile: options.profile || useProfilesStore().activeProfileName || 'default',
       title: '',
-      source: 'cli',
+      source,
+      agent: options.agent || (source === 'coding_agent' ? (codingAgentId === 'codex' ? 'codex' : 'claude') : 'hermes'),
+      codingAgentId,
+      codingAgentMode,
       messages: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
       model: options.model || undefined,
       provider: options.provider || '',
+      workspace: options.workspace || null,
+      baseUrl: options.baseUrl,
+      apiKey: options.apiKey,
+      apiMode: options.apiMode,
     }
     sessions.value.unshift(session)
     return session
@@ -690,6 +729,7 @@ export const useChatStore = defineStore('chat', () => {
       id: `${ts}_${hex}`,
       title: '',
       source: 'cli',
+      agent: 'hermes',
       messages: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -902,12 +942,34 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  function newChat(options: { profile?: string; model?: string; provider?: string } = {}): Session {
+  function newChat(options: {
+    profile?: string
+    model?: string
+    provider?: string
+    source?: 'api_server' | 'cli' | 'coding_agent'
+    agent?: 'hermes' | 'claude' | 'codex'
+    codingAgentId?: 'claude-code' | 'codex'
+    codingAgentMode?: 'global' | 'scoped'
+    workspace?: string | null
+    baseUrl?: string
+    apiKey?: string
+    apiMode?: 'chat_completions' | 'codex_responses' | 'anthropic_messages'
+  } = {}): Session {
     const appStore = useAppStore()
+    const source = options.source || 'cli'
+    const isGlobalCodingAgent = source === 'coding_agent' && options.codingAgentMode === 'global'
     const session = createSession({
       profile: options.profile,
-      model: options.model || appStore.selectedModel || undefined,
-      provider: options.provider || appStore.selectedProvider || '',
+      model: isGlobalCodingAgent ? undefined : options.model || appStore.selectedModel || undefined,
+      provider: isGlobalCodingAgent ? '' : options.provider || appStore.selectedProvider || '',
+      source,
+      agent: options.agent,
+      codingAgentId: options.codingAgentId,
+      codingAgentMode: options.codingAgentMode,
+      workspace: options.workspace,
+      baseUrl: options.baseUrl,
+      apiKey: options.apiKey,
+      apiMode: options.apiMode,
     })
     void switchSession(session.id)
     return session
@@ -930,9 +992,10 @@ export const useChatStore = defineStore('chat', () => {
     return true
   }
 
-  async function deleteSession(sessionId: string) {
+  async function deleteSession(sessionId: string): Promise<boolean> {
     const target = sessions.value.find(s => s.id === sessionId)
-    await deleteSessionApi(sessionId, target?.profile)
+    const ok = await deleteSessionApi(sessionId, target?.profile)
+    if (!ok) return false
     sessions.value = sessions.value.filter(s => s.id !== sessionId)
     if (activeSessionId.value === sessionId) {
       if (sessions.value.length > 0) {
@@ -942,6 +1005,7 @@ export const useChatStore = defineStore('chat', () => {
         switchSession(session.id)
       }
     }
+    return true
   }
 
   function getSessionMsgs(sessionId: string): Message[] {
@@ -1021,6 +1085,15 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
     removeMessage(sessionId, messageId)
+  }
+
+  function settleRunningTools(sessionId: string, status: 'done' | 'error') {
+    const msgs = getSessionMsgs(sessionId)
+    msgs.forEach((m, i) => {
+      if (m.role === 'tool' && m.toolStatus === 'running') {
+        msgs[i] = { ...m, toolStatus: status }
+      }
+    })
   }
 
   function clearAgentEventMessages(sessionId: string) {
@@ -1298,6 +1371,7 @@ export const useChatStore = defineStore('chat', () => {
   function handleAgentEvent(evt: RunEvent) {
     const sid = evt.session_id
     if (!sid) return
+    if ((evt as any).source === 'coding_agent' && (evt as any).kind === 'status') return
     const text = String((evt as any).text || (evt as any).message || '').trim()
     if (!text) return
 
@@ -1319,7 +1393,6 @@ export const useChatStore = defineStore('chat', () => {
       role: 'system',
       content: text,
       timestamp: Date.now(),
-      systemType: 'command',
       commandAction: 'agent.event',
       commandData,
     })
@@ -1640,9 +1713,10 @@ export const useChatStore = defineStore('chat', () => {
       ? activeSession.value.messageCount == null || activeSession.value.messageCount === 0
       : false
     const trimmedContent = content.trim()
+    const isCodingAgentSession = activeSession.value?.source === 'coding_agent'
     const wasLiveBeforeSend = isSessionLive(sid)
     const bridgeCommandContent = trimmedContent
-    const isBridgeSlashCommand = bridgeCommandContent.startsWith('/')
+    const isBridgeSlashCommand = !isCodingAgentSession && bridgeCommandContent.startsWith('/')
     const isBridgeCompressCommand = isBridgeSlashCommand && /^\/compress(?:\s|$)/i.test(bridgeCommandContent)
     const isBridgePlanCommand = isBridgeSlashCommand && /^\/plan(?:\s|$)/i.test(bridgeCommandContent)
     const isBridgeGoalCommand = isBridgeSlashCommand && /^\/goal(?:\s|$)/i.test(bridgeCommandContent)
@@ -1668,7 +1742,7 @@ export const useChatStore = defineStore('chat', () => {
     } else {
       addMessage(sid, userMsg)
       updateSessionTitle(sid)
-      serverWorking.value.add(sid)
+      if (!isCodingAgentSession) serverWorking.value.add(sid)
     }
 
     let runSubmitted = false
@@ -1712,18 +1786,43 @@ export const useChatStore = defineStore('chat', () => {
       await appStore.waitForModelsForRun()
       const sessionModel = activeSession.value?.model || appStore.selectedModel
       const sessionProvider = activeSession.value?.provider || appStore.selectedProvider
-      const runPayload = {
+      const sessionProfile = activeSession.value?.profile || useProfilesStore().activeProfileName || undefined
+      const profileModelGroups = sessionProfile
+        ? appStore.profileModelGroups.find(entry => entry.profile === sessionProfile)?.groups
+        : undefined
+      const runModelGroups = profileModelGroups?.length ? profileModelGroups : appStore.modelGroups
+      const providerGroup = runModelGroups.find(group => group.provider === sessionProvider)
+      const sessionSource: StartRunRequest['source'] = activeSession.value?.source === 'coding_agent' ? 'coding_agent' : 'cli'
+      const codingAgentId: 'claude-code' | 'codex' =
+        activeSession.value?.codingAgentId ||
+        (activeSession.value?.agent === 'codex' ? 'codex' : 'claude-code')
+      const codingAgentMode = activeSession.value?.codingAgentMode || 'scoped'
+      const runPayload: StartRunRequest = {
         input,
         session_id: sid,
-        profile: activeSession.value?.profile || useProfilesStore().activeProfileName || undefined,
-        model: (shouldSendInitialSessionConfig || isBridgeBackgroundCommand) ? sessionModel || undefined : undefined,
-        provider: (shouldSendInitialSessionConfig || isBridgeBackgroundCommand) ? sessionProvider || undefined : undefined,
-        model_groups: appStore.modelGroups.map(group => ({
+        profile: sessionProfile,
+        model: sessionSource === 'coding_agent'
+          ? (codingAgentMode === 'global' ? undefined : sessionModel || undefined)
+          : (shouldSendInitialSessionConfig || isBridgeBackgroundCommand) ? sessionModel || undefined : undefined,
+        provider: sessionSource === 'coding_agent'
+          ? (codingAgentMode === 'global' ? undefined : sessionProvider || undefined)
+          : (shouldSendInitialSessionConfig || isBridgeBackgroundCommand) ? sessionProvider || undefined : undefined,
+        model_groups: runModelGroups.map(group => ({
           provider: group.provider,
           models: group.models,
         })),
         queue_id: userMsg.id,
-        source: 'cli' as const,
+        workspace: activeSession.value?.workspace || undefined,
+        source: sessionSource,
+        ...(sessionSource === 'coding_agent'
+          ? {
+              coding_agent_id: codingAgentId,
+              mode: codingAgentMode,
+              baseUrl: codingAgentMode === 'global' ? undefined : activeSession.value?.baseUrl || providerGroup?.base_url || undefined,
+              apiKey: codingAgentMode === 'global' ? undefined : activeSession.value?.apiKey || providerGroup?.api_key || undefined,
+              apiMode: codingAgentMode === 'global' ? undefined : activeSession.value?.apiMode || providerGroup?.api_mode || undefined,
+            }
+          : {}),
       }
       if (shouldSendInitialSessionConfig && activeSession.value && !isBridgeBackgroundCommand) {
         activeSession.value.messageCount = Math.max(activeSession.value.messageCount || 0, 1)
@@ -1915,6 +2014,7 @@ export const useChatStore = defineStore('chat', () => {
           if (eventRunMarker) activeRunMarker = eventRunMarker
           switch (evt.event) {
             case 'run.started':
+              serverWorking.value.add(sid)
               clearAgentEventMessages(sid)
               setAbortState(null)
               setCompressionState(sid, null)
@@ -2206,6 +2306,7 @@ export const useChatStore = defineStore('chat', () => {
               if (lastMsg?.isStreaming) {
                 updateMessage(sid, lastMsg.id, { isStreaming: false })
               }
+              settleRunningTools(sid, 'done')
               // Server-computed usage (local countTokens, snapshot-aware)
               if ((evt as any).inputTokens != null) {
                 const target = sessions.value.find(s => s.id === sid)
@@ -2342,12 +2443,7 @@ export const useChatStore = defineStore('chat', () => {
                 }
               }
               addAgentErrorMessage(sid, evt.error)
-              const msgs = getSessionMsgs(sid)
-              msgs.forEach((m, i) => {
-                if (m.role === 'tool' && m.toolStatus === 'running') {
-                  msgs[i] = { ...m, toolStatus: 'error' }
-                }
-              })
+              settleRunningTools(sid, 'error')
               if ((evt as any).queue_remaining > 0) {
                 queueLengths.value.set(sid, (evt as any).queue_remaining)
               } else {
@@ -2403,7 +2499,10 @@ export const useChatStore = defineStore('chat', () => {
       )
       runSubmitted = true
 
-      if (!isBridgeSlashCommand || isBridgeCompressCommand || isBridgePlanCommand || isBridgeGoalCommand) {
+      if (isCodingAgentSession) {
+        serverWorking.value.add(sid)
+        streamStates.value.set(sid, ctrl)
+      } else if (!isBridgeSlashCommand || isBridgeCompressCommand || isBridgePlanCommand || isBridgeGoalCommand) {
         streamStates.value.set(sid, ctrl)
       }
     } catch (err: any) {
@@ -2509,6 +2608,7 @@ export const useChatStore = defineStore('chat', () => {
         }
 
         case 'run.started':
+          serverWorking.value.add(sid)
           clearAgentEventMessages(sid)
           setAbortState(null)
           setCompressionState(sid, null)
@@ -2775,6 +2875,7 @@ export const useChatStore = defineStore('chat', () => {
           if (lastMsg?.isStreaming) {
             updateMessage(sid, lastMsg.id, { isStreaming: false })
           }
+          settleRunningTools(sid, 'done')
           // Server-computed usage (local countTokens, snapshot-aware)
           if ((evt as any).inputTokens != null) {
             const target = sessions.value.find(s => s.id === sid)
@@ -2900,12 +3001,7 @@ export const useChatStore = defineStore('chat', () => {
             queueLengths.value.delete(sid)
           }
           addAgentErrorMessage(sid, evt.error)
-          const msgs = getSessionMsgs(sid)
-          msgs.forEach((m, i) => {
-            if (m.role === 'tool' && m.toolStatus === 'running') {
-              msgs[i] = { ...m, toolStatus: 'error' }
-            }
-          })
+          settleRunningTools(sid, 'error')
           if (!hasQueue) {
             cleanup()
           }
@@ -3034,6 +3130,16 @@ export const useChatStore = defineStore('chat', () => {
     if (ctrl) {
       setAbortState({ aborting: true, synced: null })
       ctrl.abort()
+      const msgs = getSessionMsgs(sid)
+      const lastMsg = msgs[msgs.length - 1]
+      if (lastMsg?.isStreaming) {
+        updateMessage(sid, lastMsg.id, { isStreaming: false })
+      }
+      return
+    }
+    if (serverWorking.value.has(sid)) {
+      setAbortState({ aborting: true, synced: null })
+      getChatRunSocket()?.emit('abort', { session_id: sid })
       const msgs = getSessionMsgs(sid)
       const lastMsg = msgs[msgs.length - 1]
       if (lastMsg?.isStreaming) {
