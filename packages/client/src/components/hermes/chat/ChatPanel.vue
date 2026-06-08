@@ -65,7 +65,14 @@ const showSessions = ref(
     !window.matchMedia("(max-width: 768px)").matches,
 );
 let mobileQuery: MediaQueryList | null = null;
+let approvalCountdownTimer: number | null = null;
 const isMobile = ref(false);
+const approvalNow = ref(Date.now());
+const browserNotificationPermission = ref<NotificationPermission | 'unsupported'>(
+  typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported",
+);
+const notifiedApprovalIds = new Set<string>();
+const notifiedClarifyIds = new Set<string>();
 
 function sessionHref(sessionId: string) {
   return router.resolve({
@@ -98,17 +105,79 @@ function handleMobileChange(e: MediaQueryListEvent | MediaQueryList) {
   }
 }
 
+function syncBrowserNotificationPermission() {
+  browserNotificationPermission.value =
+    typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported";
+}
+
+async function requestBrowserNotifications() {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    browserNotificationPermission.value = "unsupported";
+    message.warning(t("chat.browserNotificationsUnsupported"));
+    return false;
+  }
+
+  if (Notification.permission === "granted") {
+    browserNotificationPermission.value = "granted";
+    message.success(t("chat.browserNotificationsEnabled"));
+    return true;
+  }
+
+  const permission = await Notification.requestPermission();
+  browserNotificationPermission.value = permission;
+  if (permission === "granted") {
+    message.success(t("chat.browserNotificationsEnabled"));
+    return true;
+  }
+  return false;
+}
+
+async function showBrowserNotification(title: string, body: string, tag: string) {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+
+  if (Notification.permission === "default") {
+    await requestBrowserNotifications();
+  } else {
+    syncBrowserNotificationPermission();
+  }
+
+  if (Notification.permission !== "granted") return;
+
+  const notification = new Notification(title, {
+    body,
+    tag,
+    requireInteraction: true,
+  });
+  notification.onclick = () => {
+    window.focus();
+    notification.close();
+  };
+}
+
+function buildNotificationBody(primary: string, fallback: string) {
+  const text = primary.trim() || fallback;
+  return text.length > 180 ? `${text.slice(0, 177)}...` : text;
+}
+
 onMounted(() => {
+  syncBrowserNotificationPermission();
   mobileQuery = window.matchMedia("(max-width: 768px)");
   handleMobileChange(mobileQuery);
   mobileQuery.addEventListener("change", handleMobileChange);
   if (profilesStore.profiles.length === 0) {
     void profilesStore.fetchProfiles();
   }
+  approvalCountdownTimer = window.setInterval(() => {
+    approvalNow.value = Date.now();
+  }, 1000);
 });
 
 onUnmounted(() => {
   mobileQuery?.removeEventListener("change", handleMobileChange);
+  if (approvalCountdownTimer !== null) {
+    window.clearInterval(approvalCountdownTimer);
+    approvalCountdownTimer = null;
+  }
 });
 const showRenameModal = ref(false);
 const renameValue = ref("");
@@ -175,12 +244,67 @@ const headerTitle = computed(() =>
 
 const activeApproval = computed(() => chatStore.activePendingApproval);
 const visibleApproval = computed(() => activeApproval.value);
+const approvalRemainingMs = computed(() => {
+  const approval = visibleApproval.value;
+  if (!approval) return 0;
+  return Math.max(0, approval.requestedAt + approval.timeoutMs - approvalNow.value);
+});
+const approvalCountdownText = computed(() => {
+  if (!visibleApproval.value) return "";
+  const seconds = Math.ceil(approvalRemainingMs.value / 1000);
+  if (seconds <= 0) return t("chat.approvalExpired");
+  const minutesPart = Math.floor(seconds / 60);
+  const secondsPart = seconds % 60;
+  const time = `${minutesPart}:${String(secondsPart).padStart(2, "0")}`;
+  return t("chat.approvalExpiresIn", { time });
+});
 
 const activeClarify = computed(() => chatStore.activePendingClarify);
 const visibleClarify = computed(() => activeClarify.value);
+const clarifyRemainingMs = computed(() => {
+  const clarify = visibleClarify.value;
+  if (!clarify) return 0;
+  return Math.max(0, clarify.requestedAt + clarify.timeoutMs - approvalNow.value);
+});
+const clarifyCountdownText = computed(() => {
+  if (!visibleClarify.value) return "";
+  const seconds = Math.ceil(clarifyRemainingMs.value / 1000);
+  if (seconds <= 0) return t("chat.clarifyExpired");
+  const minutesPart = Math.floor(seconds / 60);
+  const secondsPart = seconds % 60;
+  const time = `${minutesPart}:${String(secondsPart).padStart(2, "0")}`;
+  return t("chat.clarifyExpiresIn", { time });
+});
 const clarifyResponse = ref('');
 
+watch(
+  visibleApproval,
+  (approval) => {
+    if (!approval || notifiedApprovalIds.has(approval.approvalId)) return;
+    notifiedApprovalIds.add(approval.approvalId);
+    void showBrowserNotification(
+      t("chat.approvalNotificationTitle"),
+      buildNotificationBody(approval.command || approval.description, t("chat.approvalNotificationBody")),
+      `hermes-approval-${approval.approvalId}`,
+    );
+  },
+);
+
+watch(
+  visibleClarify,
+  (clarify) => {
+    if (!clarify || notifiedClarifyIds.has(clarify.clarifyId)) return;
+    notifiedClarifyIds.add(clarify.clarifyId);
+    void showBrowserNotification(
+      t("chat.clarifyNotificationTitle"),
+      buildNotificationBody(clarify.question, t("chat.clarifyNotificationBody")),
+      `hermes-clarify-${clarify.clarifyId}`,
+    );
+  },
+);
+
 function handleClarify(response?: string) {
+  if (clarifyRemainingMs.value <= 0) return;
   const finalResponse = response !== undefined ? response : clarifyResponse.value.trim();
   chatStore.respondToClarify(finalResponse);
   clarifyResponse.value = '';
@@ -437,15 +561,21 @@ async function confirmNewChat() {
     apiKey: source === "coding_agent" && !isGlobalCodingAgent ? group?.api_key || newChatApiKey.value.trim() || undefined : undefined,
     apiMode: source === "coding_agent" && !isGlobalCodingAgent ? newChatApiMode.value : undefined,
   });
-  await router.push({
+  showNewChatModal.value = false;
+  void router.push({
     name: "hermes.session",
     params: { sessionId: session.id },
   });
-  showNewChatModal.value = false;
 }
 
 function handleApproval(choice: "once" | "session" | "always" | "deny") {
   chatStore.respondApproval(choice);
+}
+
+function sessionPendingInteraction(sessionId: string): "approval" | "clarify" | null {
+  if (chatStore.pendingApprovals.has(sessionId)) return "approval";
+  if (chatStore.pendingClarifies.has(sessionId)) return "clarify";
+  return null;
 }
 
 function sessionProfile(sessionId: string): string | null {
@@ -1030,6 +1160,7 @@ async function handleSessionModelCustomSubmit() {
               chatStore.sessions.length > 1
             "
             :streaming="chatStore.isSessionLive(s.id)"
+            :pending-interaction="sessionPendingInteraction(s.id)"
             :selectable="isBatchMode"
             :selected="isSessionSelected(s)"
             :show-profile="true"
@@ -1052,6 +1183,7 @@ async function handleSessionModelCustomSubmit() {
             chatStore.sessions.length > 1
           "
           :streaming="chatStore.isSessionLive(s.id)"
+          :pending-interaction="sessionPendingInteraction(s.id)"
           :selectable="isBatchMode"
           :selected="isSessionSelected(s)"
           :show-profile="true"
@@ -1417,128 +1549,172 @@ async function handleSessionModelCustomSubmit() {
         <div class="chat-content-wrapper">
           <div class="chat-main-content">
             <MessageList ref="messageListRef" />
+            <div v-if="visibleApproval || visibleClarify" class="pending-interaction-stack">
+              <div v-if="visibleApproval" class="approval-bar">
+                <div class="approval-icon" aria-hidden="true">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+              </div>
+              <div class="approval-content">
+                <div class="approval-main">
+                  <div class="approval-kicker">{{ t("chat.approvalKicker") }}</div>
+                  <div class="approval-title-row">
+                    <div class="approval-title">{{ t("chat.approvalTitle") }}</div>
+                    <div
+                      class="approval-countdown"
+                      :class="{ 'approval-countdown-expired': approvalRemainingMs <= 0 }"
+                    >
+                      {{ approvalCountdownText }}
+                    </div>
+                  </div>
+                  <div class="approval-desc">{{ visibleApproval.description }}</div>
+                  <code class="approval-command">{{ visibleApproval.command }}</code>
+                </div>
+                <div class="approval-actions">
+                  <NButton
+                    v-if="visibleApproval.choices.includes('once')"
+                    size="small"
+                    type="primary"
+                    :disabled="approvalRemainingMs <= 0"
+                    @click="handleApproval('once')"
+                  >
+                    {{ t("chat.approvalAllowOnce") }}
+                  </NButton>
+                  <NButton
+                    v-if="visibleApproval.choices.includes('session')"
+                    size="small"
+                    secondary
+                    :disabled="approvalRemainingMs <= 0"
+                    @click="handleApproval('session')"
+                  >
+                    {{ t("chat.approvalAllowSession") }}
+                  </NButton>
+                  <NButton
+                    v-if="visibleApproval.choices.includes('always')"
+                    size="small"
+                    secondary
+                    :disabled="approvalRemainingMs <= 0"
+                    @click="handleApproval('always')"
+                  >
+                    {{ t("chat.approvalAlways") }}
+                  </NButton>
+                  <NButton
+                    v-if="visibleApproval.choices.includes('deny')"
+                    size="small"
+                    type="error"
+                    secondary
+                    :disabled="approvalRemainingMs <= 0"
+                    @click="handleApproval('deny')"
+                  >
+                    {{ t("chat.approvalDeny") }}
+                  </NButton>
+                  <NButton
+                    v-if="browserNotificationPermission === 'default'"
+                    size="small"
+                    tertiary
+                    @click="requestBrowserNotifications"
+                  >
+                    {{ t("chat.browserNotificationsEnable") }}
+                  </NButton>
+                </div>
+              </div>
+            </div>
+            <div v-if="visibleClarify" class="clarify-bar">
+              <div class="clarify-icon" aria-hidden="true">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </div>
+              <div class="clarify-content">
+                <div class="clarify-main">
+                  <div class="clarify-kicker">{{ t('chat.clarifyKicker') }}</div>
+                  <div class="clarify-title">{{ t('chat.clarifyTitle') }}</div>
+                  <div class="clarify-countdown" :class="{ expired: clarifyRemainingMs <= 0 }">
+                    {{ clarifyCountdownText }}
+                  </div>
+                  <div class="clarify-desc">{{ visibleClarify.question }}</div>
+                </div>
+                <div v-if="visibleClarify.choices && visibleClarify.choices.length" class="clarify-actions">
+                  <NButton
+                    v-for="choice in visibleClarify.choices"
+                    :key="choice"
+                    size="small"
+                    type="primary"
+                    :disabled="clarifyRemainingMs <= 0"
+                    @click="handleClarify(choice)"
+                  >
+                    {{ choice }}
+                  </NButton>
+                  <NButton
+                    size="small"
+                    type="error"
+                    secondary
+                    :disabled="clarifyRemainingMs <= 0"
+                    @click="handleClarify('')"
+                  >
+                    {{ t('chat.clarifyDismiss') }}
+                  </NButton>
+                  <NButton
+                    v-if="browserNotificationPermission === 'default'"
+                    size="small"
+                    tertiary
+                    @click="requestBrowserNotifications"
+                  >
+                    {{ t('chat.browserNotificationsEnable') }}
+                  </NButton>
+                </div>
+                <div v-else class="clarify-actions clarify-actions-open">
+                  <div class="clarify-input-row">
+                    <NInput
+                      v-model:value="clarifyResponse"
+                      size="small"
+                      :disabled="clarifyRemainingMs <= 0"
+                      :placeholder="t('chat.clarifyPlaceholder')"
+                    />
+                    <NButton size="small" type="primary" :disabled="clarifyRemainingMs <= 0" @click="handleClarify()">
+                      {{ t('chat.clarifySubmit') }}
+                    </NButton>
+                    <NButton
+                      v-if="browserNotificationPermission === 'default'"
+                      size="small"
+                      tertiary
+                      @click="requestBrowserNotifications"
+                    >
+                      {{ t('chat.browserNotificationsEnable') }}
+                    </NButton>
+                  </div>
+                </div>
+              </div>
+              </div>
+            </div>
           </div>
           <OutlinePanel
             v-if="showOutline"
             :messages="chatStore.messages"
             @navigate="handleOutlineNavigate"
           />
-        </div>
-        <div v-if="visibleApproval" class="approval-bar">
-          <div class="approval-icon" aria-hidden="true">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-              <path d="m9 12 2 2 4-4" />
-            </svg>
-          </div>
-          <div class="approval-content">
-            <div class="approval-main">
-              <div class="approval-kicker">{{ t("chat.approvalKicker") }}</div>
-              <div class="approval-title">{{ t("chat.approvalTitle") }}</div>
-              <div class="approval-desc">{{ visibleApproval.description }}</div>
-              <code class="approval-command">{{ visibleApproval.command }}</code>
-            </div>
-            <div class="approval-actions">
-              <NButton
-                v-if="visibleApproval.choices.includes('once')"
-                size="small"
-                type="primary"
-                @click="handleApproval('once')"
-              >
-                {{ t("chat.approvalAllowOnce") }}
-              </NButton>
-              <NButton
-                v-if="visibleApproval.choices.includes('session')"
-                size="small"
-                secondary
-                @click="handleApproval('session')"
-              >
-                {{ t("chat.approvalAllowSession") }}
-              </NButton>
-              <NButton
-                v-if="visibleApproval.choices.includes('always')"
-                size="small"
-                secondary
-                @click="handleApproval('always')"
-              >
-                {{ t("chat.approvalAlways") }}
-              </NButton>
-              <NButton
-                v-if="visibleApproval.choices.includes('deny')"
-                size="small"
-                type="error"
-                secondary
-                @click="handleApproval('deny')"
-              >
-                {{ t("chat.approvalDeny") }}
-              </NButton>
-            </div>
-          </div>
-        </div>
-        <div v-if="visibleClarify" class="clarify-bar">
-          <div class="clarify-icon" aria-hidden="true">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-          </div>
-          <div class="clarify-content">
-            <div class="clarify-main">
-              <div class="clarify-kicker">{{ t('chat.clarifyKicker') }}</div>
-              <div class="clarify-title">{{ t('chat.clarifyTitle') }}</div>
-              <div class="clarify-desc">{{ visibleClarify.question }}</div>
-            </div>
-            <div v-if="visibleClarify.choices && visibleClarify.choices.length" class="clarify-actions">
-              <NButton
-                v-for="choice in visibleClarify.choices"
-                :key="choice"
-                size="small"
-                type="primary"
-                @click="handleClarify(choice)"
-              >
-                {{ choice }}
-              </NButton>
-              <NButton
-                size="small"
-                type="error"
-                secondary
-                @click="handleClarify('')"
-              >
-                {{ t('chat.clarifyDismiss') }}
-              </NButton>
-            </div>
-            <div v-else class="clarify-actions clarify-actions-open">
-              <div class="clarify-input-row">
-                <NInput
-                  v-model:value="clarifyResponse"
-                  size="small"
-                  :placeholder="t('chat.clarifyPlaceholder')"
-                />
-                <NButton size="small" type="primary" @click="handleClarify()">
-                  {{ t('chat.clarifySubmit') }}
-                </NButton>
-              </div>
-            </div>
-          </div>
         </div>
         <ChatInput />
       </template>
@@ -2143,6 +2319,7 @@ async function handleSessionModelCustomSubmit() {
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
+  position: relative;
 }
 
 .chat-content-wrapper {
@@ -2158,6 +2335,7 @@ async function handleSessionModelCustomSubmit() {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  position: relative;
 }
 
 .chat-header {
@@ -2277,16 +2455,43 @@ async function handleSessionModelCustomSubmit() {
   }
 }
 
+.pending-interaction-stack {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  z-index: 140;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: calc(100% - 48px);
+  max-width: 960px;
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.pending-interaction-stack > * {
+  pointer-events: auto;
+}
+
 .approval-bar {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  margin: 0 16px 12px;
-  padding: 12px;
-  border: 1px solid $border-color;
-  border-radius: 8px;
+  gap: 12px;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 12px 14px;
+  border: 1px solid rgba(var(--text-muted-rgb), 0.22);
+  border-left: 3px solid rgba(var(--warning-rgb), 0.68);
+  border-radius: $radius-md;
   background: $bg-card;
-  box-shadow: none;
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(18px) saturate(1.18);
+  -webkit-backdrop-filter: blur(18px) saturate(1.18);
 }
 
 .approval-icon {
@@ -2295,10 +2500,11 @@ async function handleSessionModelCustomSubmit() {
   flex: 0 0 32px;
   width: 32px;
   height: 32px;
-  color: var(--accent-primary);
-  background: rgba(var(--accent-primary-rgb), 0.12);
-  border: 1px solid rgba(var(--accent-primary-rgb), 0.2);
+  color: $warning;
+  background: rgba(var(--warning-rgb), 0.14);
+  border: 1px solid rgba(var(--warning-rgb), 0.24);
   border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(var(--warning-rgb), 0.1);
 }
 
 .approval-content {
@@ -2327,6 +2533,32 @@ async function handleSessionModelCustomSubmit() {
   color: $text-primary;
 }
 
+.approval-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.approval-countdown {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border: 1px solid rgba(var(--warning-rgb), 0.34);
+  border-radius: 999px;
+  background: rgba(var(--warning-rgb), 0.14);
+  color: $warning;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.approval-countdown-expired {
+  border-color: rgba(var(--error-rgb), 0.32);
+  background: rgba(var(--error-rgb), 0.1);
+  color: var(--error);
+}
+
 .approval-desc {
   margin-top: 4px;
   font-size: 12px;
@@ -2345,8 +2577,8 @@ async function handleSessionModelCustomSubmit() {
   font-size: 11px;
   line-height: 1.45;
   color: $text-primary;
-  background: $bg-secondary;
-  border: 1px solid $border-color;
+  background: rgba(var(--text-muted-rgb), 0.08);
+  border: 1px solid rgba(var(--text-muted-rgb), 0.18);
   border-radius: 6px;
   padding: 8px 10px;
 }
@@ -2358,20 +2590,27 @@ async function handleSessionModelCustomSubmit() {
   gap: 8px;
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px solid $border-color;
+  border-top: 1px solid rgba(var(--text-muted-rgb), 0.16);
 }
 
 
 .clarify-bar {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  margin: 0 16px 12px;
-  padding: 12px;
-  border: 1px solid $border-color;
-  border-radius: 8px;
+  gap: 12px;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 12px 14px;
+  border: 1px solid rgba(var(--text-muted-rgb), 0.2);
+  border-left: 3px solid rgba(var(--accent-primary-rgb), 0.42);
+  border-radius: $radius-md;
   background: $bg-card;
-  box-shadow: none;
+  background: color-mix(in srgb, var(--bg-card) 70%, transparent);
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(18px) saturate(1.18);
+  -webkit-backdrop-filter: blur(18px) saturate(1.18);
 }
 
 .clarify-icon {
@@ -2381,9 +2620,10 @@ async function handleSessionModelCustomSubmit() {
   width: 32px;
   height: 32px;
   color: var(--accent-primary);
-  background: rgba(var(--accent-primary-rgb), 0.12);
-  border: 1px solid rgba(var(--accent-primary-rgb), 0.2);
+  background: rgba(var(--accent-primary-rgb), 0.14);
+  border: 1px solid rgba(var(--accent-primary-rgb), 0.24);
   border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-primary-rgb), 0.1);
 }
 
 .clarify-content {
@@ -2412,6 +2652,24 @@ async function handleSessionModelCustomSubmit() {
   color: $text-primary;
 }
 
+.clarify-countdown {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(var(--accent-primary-rgb), 0.12);
+  color: var(--accent-primary);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.clarify-countdown.expired {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--error-color, #ef4444);
+}
+
 .clarify-desc {
   margin-top: 4px;
   font-size: 12px;
@@ -2425,7 +2683,7 @@ async function handleSessionModelCustomSubmit() {
   gap: 8px;
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px solid $border-color;
+  border-top: 1px solid rgba(var(--text-muted-rgb), 0.16);
 }
 
 .clarify-input-row {
@@ -2451,8 +2709,14 @@ async function handleSessionModelCustomSubmit() {
   width: 100%;
 }
 @media (max-width: 768px) {
+  .pending-interaction-stack {
+    width: calc(100% - 20px);
+    bottom: 10px;
+    max-height: calc(100% - 20px);
+  }
+
   .approval-bar {
-    margin: 0 10px 10px;
+    margin: 0;
     padding: 10px;
   }
 
@@ -2472,7 +2736,7 @@ async function handleSessionModelCustomSubmit() {
   }
 
   .clarify-bar {
-    margin: 0 10px 10px;
+    margin: 0;
     padding: 10px;
   }
 

@@ -175,6 +175,11 @@ export async function mockHermesApi(page: Page, options: MockHermesApiOptions = 
       return
     }
 
+    if (pathname === '/api/hermes/workspace/folders') {
+      await route.fulfill(jsonResponse({ folders: [] }))
+      return
+    }
+
     if (pathname === '/api/hermes/files/list') {
       await route.fulfill(jsonResponse({ entries: [], path: '' }))
       return
@@ -195,6 +200,20 @@ export async function mockHermesApi(page: Page, options: MockHermesApiOptions = 
         default: 'test-model',
         default_provider: 'test-provider',
         groups: [sampleModelGroup],
+        profiles: [
+          {
+            profile: 'default',
+            default: 'test-model',
+            default_provider: 'test-provider',
+            groups: [sampleModelGroup],
+          },
+          {
+            profile: 'research',
+            default: 'test-model',
+            default_provider: 'test-provider',
+            groups: [sampleModelGroup],
+          },
+        ],
         allProviders: [sampleModelGroup],
         model_aliases: {},
         model_visibility: {},

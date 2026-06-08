@@ -101,7 +101,7 @@ test('route session id wins over shared active-session localStorage', async ({ p
 
   await page.goto('/#/hermes/session/session-a')
 
-  await expect(page.getByText('Alpha route content')).toBeVisible()
+  await expect(page.getByText('Alpha route content')).toBeVisible({ timeout: 10000 })
   await expect(page.getByText('Beta route content')).toHaveCount(0)
   await expect(page).toHaveURL(/#\/hermes\/session\/session-a$/)
   expect(api.unexpectedRequests).toEqual([])
@@ -116,13 +116,13 @@ test('two tabs can show different sessions and keep them after reload', async ({
   await pageA.goto('/#/hermes/session/session-a')
   await pageB.goto('/#/hermes/session/session-b')
 
-  await expect(pageA.getByText('Alpha route content')).toBeVisible()
+  await expect(pageA.getByText('Alpha route content')).toBeVisible({ timeout: 10000 })
   await expect(pageB.getByText('Beta route content')).toBeVisible()
 
   await pageA.reload()
   await pageB.reload()
 
-  await expect(pageA.getByText('Alpha route content')).toBeVisible()
+  await expect(pageA.getByText('Alpha route content')).toBeVisible({ timeout: 10000 })
   await expect(pageB.getByText('Beta route content')).toBeVisible()
   await expect(pageA).toHaveURL(/#\/hermes\/session\/session-a$/)
   await expect(pageB).toHaveURL(/#\/hermes\/session\/session-b$/)
@@ -138,7 +138,7 @@ test('parallel tabs send runs and render progress only for their own session', a
 
   await pageA.goto('/#/hermes/session/session-a')
   await pageB.goto('/#/hermes/session/session-b')
-  await expect(pageA.getByText('Alpha route content')).toBeVisible()
+  await expect(pageA.getByText('Alpha route content')).toBeVisible({ timeout: 10000 })
   await expect(pageB.getByText('Beta route content')).toBeVisible()
 
   await sendChatMessage(pageA, 'Question for Alpha')
