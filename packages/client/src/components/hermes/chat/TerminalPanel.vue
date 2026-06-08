@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onUnmounted, computed, watch } from "vue";
+import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -95,6 +95,10 @@ const selectedTheme = ref(localStorage.getItem(STORAGE_KEY_THEME) || "default");
 const connectionError = ref<string | null>(null);
 const isConnecting = ref(false);
 const showSidebar = ref(false);
+const mobileShortcutBottomOffset = ref(0);
+const mobileShortcutHidden = ref(false);
+const ctrlLatchActive = ref(false);
+const shiftLatchActive = ref(false);
 
 let ws: WebSocket | null = null;
 const termMap = new Map<string, { term: Terminal; fitAddon: FitAddon; opened: boolean }>();
@@ -127,6 +131,25 @@ const themeOptions = computed(() =>
 const terminalBg = computed(
   () => TERMINAL_THEMES[selectedTheme.value]?.theme.background ?? "#1a1a2e",
 );
+
+const mobileShortcutKeyRows = [
+  [
+    { label: "Ctrl", toggle: "ctrl" },
+    { label: "Shift", toggle: "shift" },
+    { label: "Tab", data: "\t" },
+    { label: "Esc", data: "\x1b" },
+    { label: "Home", data: "\x1b[H" },
+    { label: "End", data: "\x1b[F" },
+  ],
+  [
+    { label: "PgUp", data: "\x1b[5~" },
+    { label: "PgDn", data: "\x1b[6~" },
+    { label: "←", data: "\x1b[D" },
+    { label: "→", data: "\x1b[C" },
+    { label: "↑", data: "\x1b[A" },
+    { label: "↓", data: "\x1b[B" },
+  ],
+];
 
 // ─── WebSocket ──────────────────────────────────────────────────
 
@@ -213,6 +236,70 @@ function send(data: object | string) {
   ws.send(typeof data === "string" ? data : JSON.stringify(data));
 }
 
+function sendTerminalInput(data: string) {
+  if (!data) return;
+  send({ type: "input", data });
+  activeTerm?.focus();
+}
+
+function mapCtrlInput(data: string): string {
+  if (!ctrlLatchActive.value || data.length !== 1) return data;
+  ctrlLatchActive.value = false;
+  shiftLatchActive.value = false;
+  const ch = data.toLowerCase();
+  if (ch >= "a" && ch <= "z") {
+    return String.fromCharCode(ch.charCodeAt(0) - 96);
+  }
+  const controlMap: Record<string, string> = {
+    "@": "\x00",
+    "[": "\x1b",
+    "\\": "\x1c",
+    "]": "\x1d",
+    "^": "\x1e",
+    "_": "\x1f",
+    "?": "\x7f",
+  };
+  return controlMap[data] ?? data;
+}
+
+function mapShiftInput(data: string): string {
+  if (!shiftLatchActive.value || data.length !== 1) return data;
+  shiftLatchActive.value = false;
+  if (data >= "a" && data <= "z") {
+    return data.toUpperCase();
+  }
+  return data;
+}
+
+function mapShortcutInput(data: string): string {
+  return mapShiftInput(mapCtrlInput(data));
+}
+
+function handleShortcutKey(key: { data?: string; toggle?: string }) {
+  if (key.toggle === "ctrl") {
+    ctrlLatchActive.value = !ctrlLatchActive.value;
+    if (ctrlLatchActive.value) shiftLatchActive.value = false;
+    activeTerm?.focus();
+    return;
+  }
+  if (key.toggle === "shift") {
+    shiftLatchActive.value = !shiftLatchActive.value;
+    if (shiftLatchActive.value) ctrlLatchActive.value = false;
+    activeTerm?.focus();
+    return;
+  }
+  ctrlLatchActive.value = false;
+  shiftLatchActive.value = false;
+  sendTerminalInput(key.data || "");
+}
+
+function setMobileShortcutHidden(hidden: boolean) {
+  mobileShortcutHidden.value = hidden;
+  ctrlLatchActive.value = false;
+  shiftLatchActive.value = false;
+  activeTerm?.focus();
+}
+
 // ─── Control message handlers ──────────────────────────────────
 
 function handleControl(msg: any) {
@@ -290,7 +377,7 @@ function getOrCreateTerm(id: string): { term: Terminal; fitAddon: FitAddon } {
     term.loadAddon(new WebLinksAddon());
     term.onData((data) => {
       if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(data);
+        ws.send(mapShortcutInput(data));
       }
     });
     entry = { term, fitAddon, opened: false };
@@ -433,6 +520,18 @@ function formatTime(ts: number) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function updateMobileShortcutBottomOffset() {
+  const viewport = window.visualViewport;
+  if (!viewport) {
+    mobileShortcutBottomOffset.value = 0;
+    return;
+  }
+  mobileShortcutBottomOffset.value = Math.max(
+    0,
+    Math.round(window.innerHeight - viewport.height - viewport.offsetTop),
+  );
+}
+
 // ─── Lifecycle ──────────────────────────────────────────────────
 
 let hasConnected = false;
@@ -442,9 +541,20 @@ watch(() => props.visible, (visible) => {
     hasConnected = true;
     connect();
   }
+  if (visible) updateMobileShortcutBottomOffset();
 }, { immediate: true });
 
+onMounted(() => {
+  updateMobileShortcutBottomOffset();
+  window.visualViewport?.addEventListener("resize", updateMobileShortcutBottomOffset);
+  window.visualViewport?.addEventListener("scroll", updateMobileShortcutBottomOffset);
+  window.addEventListener("resize", updateMobileShortcutBottomOffset);
+});
+
 onUnmounted(() => {
+  window.visualViewport?.removeEventListener("resize", updateMobileShortcutBottomOffset);
+  window.visualViewport?.removeEventListener("scroll", updateMobileShortcutBottomOffset);
+  window.removeEventListener("resize", updateMobileShortcutBottomOffset);
   for (const timer of initialCommandTimers) clearTimeout(timer);
   initialCommandTimers.clear();
   unmountActiveTerminal();
@@ -586,6 +696,53 @@ onUnmounted(() => {
           @touchend="handleTerminalTouchEnd"
           @touchcancel="handleTerminalTouchEnd"
         />
+        <div
+          v-show="!mobileShortcutHidden"
+          class="mobile-shortcut-bar"
+          :aria-label="t('terminal.mobileShortcutBar')"
+          :style="{ '--terminal-mobile-keyboard-offset': `${mobileShortcutBottomOffset}px` }"
+        >
+          <button
+            type="button"
+            class="mobile-shortcut-toggle mobile-shortcut-hide"
+            :aria-label="t('terminal.hideMobileShortcutBar')"
+            :title="t('terminal.hideMobileShortcutBar')"
+            @click="setMobileShortcutHidden(true)"
+          >
+            ˅
+          </button>
+          <div
+            v-for="(row, rowIndex) in mobileShortcutKeyRows"
+            :key="rowIndex"
+            class="mobile-shortcut-row"
+          >
+            <button
+              v-for="key in row"
+              :key="key.label"
+              type="button"
+              class="mobile-shortcut-key"
+              :class="{
+                active:
+                  (key.toggle === 'ctrl' && ctrlLatchActive) ||
+                  (key.toggle === 'shift' && shiftLatchActive),
+              }"
+              @click="handleShortcutKey(key)"
+            >
+              {{ key.label }}
+            </button>
+          </div>
+        </div>
+        <button
+          v-show="mobileShortcutHidden"
+          type="button"
+          class="mobile-shortcut-toggle mobile-shortcut-show"
+          :aria-label="t('terminal.showMobileShortcutBar')"
+          :title="t('terminal.showMobileShortcutBar')"
+          :style="{ '--terminal-mobile-keyboard-offset': `${mobileShortcutBottomOffset}px` }"
+          @click="setMobileShortcutHidden(false)"
+        >
+          ⌨
+        </button>
       </div>
     </div>
   </div>
@@ -876,6 +1033,41 @@ onUnmounted(() => {
   }
 }
 
+.mobile-shortcut-bar,
+.mobile-shortcut-toggle {
+  display: none;
+}
+
+.mobile-shortcut-toggle,
+.mobile-shortcut-key {
+  border: 1px solid rgba(var(--accent-primary-rgb), 0.18);
+  background: rgba(var(--accent-primary-rgb), 0.08);
+  color: $text-secondary;
+  border-radius: $radius-sm;
+  padding: 6px 10px;
+  min-width: 42px;
+  min-height: 32px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all $transition-fast;
+
+  &:active,
+  &.active {
+    transform: translateY(1px);
+    background: rgba(var(--accent-primary-rgb), 0.18);
+    color: $text-primary;
+  }
+
+  &.active {
+    border-color: rgba(var(--accent-primary-rgb), 0.55);
+    box-shadow: 0 0 0 1px rgba(var(--accent-primary-rgb), 0.22) inset;
+  }
+}
+
 @media (max-width: $breakpoint-mobile) {
   .terminal-panel-drawer {
     height: 100%;
@@ -909,6 +1101,84 @@ onUnmounted(() => {
   .terminal-container {
     margin: 6px;
     margin-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+    gap: 6px;
+  }
+
+  .mobile-shortcut-bar {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(var(--terminal-mobile-keyboard-offset, 0px) + 8px + env(safe-area-inset-bottom, 0px));
+    z-index: 70;
+    flex-shrink: 0;
+    gap: 6px;
+    overflow: hidden;
+    padding: 6px 40px 6px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: $radius-md;
+    background: rgba(15, 15, 28, 0.92);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(8px);
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .mobile-shortcut-row {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .mobile-shortcut-hide {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 28px;
+    min-width: 28px;
+    min-height: 30px;
+    padding: 0;
+    font-size: 15px;
+    line-height: 1;
+  }
+
+  .mobile-shortcut-show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    right: 12px;
+    bottom: calc(var(--terminal-mobile-keyboard-offset, 0px) + 8px + env(safe-area-inset-bottom, 0px));
+    z-index: 70;
+    width: 42px;
+    min-width: 42px;
+    min-height: 36px;
+    padding: 0;
+    border-radius: 999px;
+    background: rgba(15, 15, 28, 0.92);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(8px);
+    font-size: 16px;
+  }
+
+  .mobile-shortcut-key {
+    flex: 0 0 auto;
+    min-height: 30px;
+    padding: 5px 9px;
   }
 
   .terminal-xterm {
