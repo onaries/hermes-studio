@@ -6,6 +6,7 @@ import { useChatStore, type Session } from "@/stores/hermes/chat";
 import { useAppStore } from "@/stores/hermes/app";
 import { useProfilesStore } from "@/stores/hermes/profiles";
 import { useSessionBrowserPrefsStore } from "@/stores/hermes/session-browser-prefs";
+import { useSettingsStore } from "@/stores/hermes/settings";
 import {
   NButton,
   NDrawer,
@@ -37,6 +38,7 @@ const chatStore = useChatStore();
 const appStore = useAppStore();
 const profilesStore = useProfilesStore();
 const sessionBrowserPrefsStore = useSessionBrowserPrefsStore();
+const settingsStore = useSettingsStore();
 const router = useRouter();
 const message = useMessage();
 const { t } = useI18n();
@@ -73,6 +75,7 @@ const browserNotificationPermission = ref<NotificationPermission | 'unsupported'
 );
 const notifiedApprovalIds = new Set<string>();
 const notifiedClarifyIds = new Set<string>();
+const notifiedCompletionIds = new Set<string>();
 
 function sessionHref(sessionId: string) {
   return router.resolve({
@@ -132,7 +135,7 @@ async function requestBrowserNotifications() {
   return false;
 }
 
-async function showBrowserNotification(title: string, body: string, tag: string) {
+async function showBrowserNotification(title: string, body: string, tag: string, requireInteraction = true) {
   if (typeof window === "undefined" || !("Notification" in window)) return;
 
   if (Notification.permission === "default") {
@@ -146,7 +149,7 @@ async function showBrowserNotification(title: string, body: string, tag: string)
   const notification = new Notification(title, {
     body,
     tag,
-    requireInteraction: true,
+    requireInteraction,
   });
   notification.onclick = () => {
     const desktop = (window as typeof window & { hermesDesktop?: { showWindow?: () => Promise<void> } }).hermesDesktop;
@@ -304,6 +307,24 @@ watch(
       t("chat.clarifyNotificationTitle"),
       buildNotificationBody(clarify.question, t("chat.clarifyNotificationBody")),
       `hermes-clarify-${clarify.clarifyId}`,
+    );
+  },
+);
+
+watch(
+  () => chatStore.latestCompletionNotification,
+  (completion) => {
+    if (!completion || notifiedCompletionIds.has(completion.id)) return;
+    if (settingsStore.display.browser_notify_on_complete !== true) return;
+    notifiedCompletionIds.add(completion.id);
+    const failed = completion.status === "failed";
+    void showBrowserNotification(
+      failed ? t("chat.completionFailedNotificationTitle") : t("chat.completionNotificationTitle"),
+      t(failed ? "chat.completionFailedNotificationBody" : "chat.completionNotificationBody", {
+        title: completion.sessionTitle,
+      }),
+      `hermes-completion-${completion.id}`,
+      false,
     );
   },
 );

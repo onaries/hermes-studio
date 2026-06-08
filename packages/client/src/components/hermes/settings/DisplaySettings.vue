@@ -30,6 +30,36 @@ function handleThemeChange(val: string) {
   setBrightness(m)
   save({ skin: m })
 }
+
+async function handleBrowserNotifyOnCompleteChange(enabled: boolean) {
+  if (!enabled) {
+    await save({ browser_notify_on_complete: false })
+    return
+  }
+
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    message.warning(t('chat.browserNotificationsUnsupported'))
+    await save({ browser_notify_on_complete: false })
+    return
+  }
+
+  if (Notification.permission === 'denied') {
+    message.warning(t('settings.display.browserNotifyOnCompleteDenied'))
+    await save({ browser_notify_on_complete: false })
+    return
+  }
+
+  const permission = Notification.permission === 'granted'
+    ? 'granted'
+    : await Notification.requestPermission()
+  if (permission !== 'granted') {
+    await save({ browser_notify_on_complete: false })
+    return
+  }
+
+  message.success(t('chat.browserNotificationsEnabled'))
+  await save({ browser_notify_on_complete: true })
+}
 </script>
 
 <template>
@@ -54,6 +84,9 @@ function handleThemeChange(val: string) {
     </SettingRow>
     <SettingRow :label="t('settings.display.bellOnComplete')" :hint="t('settings.display.bellOnCompleteHint')">
       <NSwitch :value="settingsStore.display.bell_on_complete" @update:value="v => save({ bell_on_complete: v })" />
+    </SettingRow>
+    <SettingRow :label="t('settings.display.browserNotifyOnComplete')" :hint="t('settings.display.browserNotifyOnCompleteHint')">
+      <NSwitch :value="settingsStore.display.browser_notify_on_complete === true" @update:value="handleBrowserNotifyOnCompleteChange" />
     </SettingRow>
     <SettingRow :label="t('settings.display.mobileEnterToSend')" :hint="t('settings.display.mobileEnterToSendHint')">
       <NSwitch :value="settingsStore.display.mobile_enter_to_send === true" @update:value="v => save({ mobile_enter_to_send: v })" />

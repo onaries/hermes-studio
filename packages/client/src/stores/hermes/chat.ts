@@ -22,6 +22,13 @@ export interface Attachment {
   file?: File
 }
 
+export interface CompletionNotification {
+  id: string
+  sessionId: string
+  sessionTitle: string
+  status: 'completed' | 'failed'
+}
+
 export interface Message {
   id: string
   role: 'user' | 'assistant' | 'system' | 'tool' | 'command'
@@ -524,6 +531,7 @@ export const useChatStore = defineStore('chat', () => {
   const activeSessionId = ref<string | null>(null)
   const focusMessageId = ref<string | null>(null)
   const streamStates = ref<Map<string, { abort: () => void }>>(new Map())
+  const latestCompletionNotification = ref<CompletionNotification | null>(null)
   /** sessionId → server-reported isWorking status */
   const serverWorking = ref<Set<string>>(new Set())
   const sessionProfileFilter = ref<string | null>(null)
@@ -1724,6 +1732,17 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+
+  function emitCompletionNotification(sessionId: string, status: 'completed' | 'failed') {
+    const target = sessions.value.find(s => s.id === sessionId)
+    latestCompletionNotification.value = {
+      id: `${sessionId}-${status}-${Date.now()}`,
+      sessionId,
+      sessionTitle: target?.title || 'New Chat',
+      status,
+    }
+  }
+
   async function sendMessage(content: string, attachments?: Attachment[]) {
     if ((!content.trim() && !(attachments && attachments.length > 0))) return
 
@@ -2461,6 +2480,7 @@ export const useChatStore = defineStore('chat', () => {
               reasoningAssistantMessageId = null
               activeRunMarker = null
               updateSessionTitle(sid)
+              emitCompletionNotification(sid, swallowedError ? 'failed' : 'completed')
               break
             }
 
@@ -2485,6 +2505,7 @@ export const useChatStore = defineStore('chat', () => {
               activeAssistantMessageId = null
               reasoningAssistantMessageId = null
               activeRunMarker = null
+              emitCompletionNotification(sid, 'failed')
               break
             }
 
@@ -3015,6 +3036,7 @@ export const useChatStore = defineStore('chat', () => {
             activeRunMarker = null
           }
           updateSessionTitle(sid)
+          emitCompletionNotification(sid, swallowedError ? 'failed' : 'completed')
           break
         }
 
@@ -3043,6 +3065,7 @@ export const useChatStore = defineStore('chat', () => {
           activeAssistantMessageId = null
           reasoningAssistantMessageId = null
           activeRunMarker = null
+          emitCompletionNotification(sid, 'failed')
           break
         }
 
@@ -3303,6 +3326,7 @@ export const useChatStore = defineStore('chat', () => {
     pendingClarifies,
     activePendingApproval,
     activePendingClarify,
+    latestCompletionNotification,
     removeQueuedMessage,
     isLoadingSessions,
     sessionsLoaded,
