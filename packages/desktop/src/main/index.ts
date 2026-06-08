@@ -1,5 +1,6 @@
-import { app, BrowserWindow, Menu, Tray, shell, ipcMain, nativeImage } from 'electron'
+import { app, BrowserWindow, Menu, Tray, shell, ipcMain, nativeImage, session } from 'electron'
 import { join } from 'node:path'
+import { shouldGrantDesktopPermission } from './desktop-permissions'
 import { startWebUiServer, stopWebUiServer, getToken } from './webui-server'
 import { bundledNode, desktopIcon, desktopTrayTemplateIcon, desktopWindowsTrayIcon, hermesBinExists, hermesBin, webuiDir } from './paths'
 import { checkForDesktopUpdates, initAutoUpdater } from './updater'
@@ -134,6 +135,18 @@ function updateTrayMenu() {
     },
   ])
   tray.setContextMenu(menu)
+}
+
+function configureDesktopPermissions() {
+  const grantFor = (permission: string, origin?: string) => shouldGrantDesktopPermission(permission, origin, PORT)
+
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback, details) => {
+    callback(grantFor(permission, details.requestingOrigin))
+  })
+
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission, requestingOrigin, details) => {
+    return grantFor(permission, requestingOrigin || details.requestingUrl)
+  })
 }
 
 function createTray() {
@@ -407,6 +420,7 @@ async function bootstrap(source?: RuntimeDownloadSource) {
 }
 
 ipcMain.handle('hermes-desktop:get-token', () => getToken())
+ipcMain.handle('hermes-desktop:show-window', () => showMainWindow())
 ipcMain.handle('hermes-desktop:retry-bootstrap', async (_event, source?: RuntimeDownloadSource) => {
   if (serverUrl) {
     await mainWindow?.loadURL(serverUrl)
@@ -463,6 +477,7 @@ function runDesktopApp() {
         console.warn(`[cli-shim] failed to install hermes-studio-mcp command: ${err instanceof Error ? err.message : String(err)}`)
       })
     }
+    configureDesktopPermissions()
     createTray()
     createWindow()
     bootstrap()

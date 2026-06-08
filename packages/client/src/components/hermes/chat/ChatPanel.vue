@@ -149,7 +149,12 @@ async function showBrowserNotification(title: string, body: string, tag: string)
     requireInteraction: true,
   });
   notification.onclick = () => {
-    window.focus();
+    const desktop = (window as typeof window & { hermesDesktop?: { showWindow?: () => Promise<void> } }).hermesDesktop;
+    if (desktop?.showWindow) {
+      void desktop.showWindow();
+    } else {
+      window.focus();
+    }
     notification.close();
   };
 }
