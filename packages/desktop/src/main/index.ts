@@ -141,7 +141,7 @@ function configureDesktopPermissions() {
   const grantFor = (permission: string, origin?: string) => shouldGrantDesktopPermission(permission, origin, PORT)
 
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback, details) => {
-    callback(grantFor(permission, details.requestingOrigin))
+    callback(grantFor(permission, details.requestingUrl))
   })
 
   session.defaultSession.setPermissionCheckHandler((_webContents, permission, requestingOrigin, details) => {
