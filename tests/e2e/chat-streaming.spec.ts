@@ -548,7 +548,7 @@ test('closes the new chat modal after confirming while a pending interaction exi
   await expect(page.locator('.approval-bar')).toBeVisible()
 
   await page.getByRole('button', { name: 'New Chat' }).click()
-  const modal = page.locator('.n-card').filter({ hasText: 'Profiles' })
+  const modal = page.locator('[role="dialog"]').filter({ hasText: 'New Chat' })
   await expect(modal).toBeVisible()
   await modal.getByRole('button', { name: 'New Chat' }).click()
 

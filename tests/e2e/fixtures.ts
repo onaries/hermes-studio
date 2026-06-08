@@ -175,6 +175,11 @@ export async function mockHermesApi(page: Page, options: MockHermesApiOptions = 
       return
     }
 
+    if (pathname === '/api/hermes/workspace/folders') {
+      await route.fulfill(jsonResponse({ folders: [] }))
+      return
+    }
+
     if (pathname === '/api/hermes/files/list') {
       await route.fulfill(jsonResponse({ entries: [], path: '' }))
       return
