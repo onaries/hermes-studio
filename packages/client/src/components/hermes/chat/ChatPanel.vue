@@ -62,6 +62,11 @@ let mobileQuery: MediaQueryList | null = null;
 let approvalCountdownTimer: number | null = null;
 const isMobile = ref(false);
 const approvalNow = ref(Date.now());
+const browserNotificationPermission = ref<NotificationPermission | 'unsupported'>(
+  typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported",
+);
+const notifiedApprovalIds = new Set<string>();
+const notifiedClarifyIds = new Set<string>();
 
 function sessionHref(sessionId: string) {
   return router.resolve({
@@ -94,7 +99,62 @@ function handleMobileChange(e: MediaQueryListEvent | MediaQueryList) {
   }
 }
 
+function syncBrowserNotificationPermission() {
+  browserNotificationPermission.value =
+    typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported";
+}
+
+async function requestBrowserNotifications() {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    browserNotificationPermission.value = "unsupported";
+    message.warning(t("chat.browserNotificationsUnsupported"));
+    return false;
+  }
+
+  if (Notification.permission === "granted") {
+    browserNotificationPermission.value = "granted";
+    message.success(t("chat.browserNotificationsEnabled"));
+    return true;
+  }
+
+  const permission = await Notification.requestPermission();
+  browserNotificationPermission.value = permission;
+  if (permission === "granted") {
+    message.success(t("chat.browserNotificationsEnabled"));
+    return true;
+  }
+  return false;
+}
+
+async function showBrowserNotification(title: string, body: string, tag: string) {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+
+  if (Notification.permission === "default") {
+    await requestBrowserNotifications();
+  } else {
+    syncBrowserNotificationPermission();
+  }
+
+  if (Notification.permission !== "granted") return;
+
+  const notification = new Notification(title, {
+    body,
+    tag,
+    requireInteraction: true,
+  });
+  notification.onclick = () => {
+    window.focus();
+    notification.close();
+  };
+}
+
+function buildNotificationBody(primary: string, fallback: string) {
+  const text = primary.trim() || fallback;
+  return text.length > 180 ? `${text.slice(0, 177)}...` : text;
+}
+
 onMounted(() => {
+  syncBrowserNotificationPermission();
   mobileQuery = window.matchMedia("(max-width: 768px)");
   handleMobileChange(mobileQuery);
   mobileQuery.addEventListener("change", handleMobileChange);
@@ -210,6 +270,32 @@ const clarifyCountdownText = computed(() => {
   return t("chat.clarifyExpiresIn", { time });
 });
 const clarifyResponse = ref('');
+
+watch(
+  visibleApproval,
+  (approval) => {
+    if (!approval || notifiedApprovalIds.has(approval.approvalId)) return;
+    notifiedApprovalIds.add(approval.approvalId);
+    void showBrowserNotification(
+      t("chat.approvalNotificationTitle"),
+      buildNotificationBody(approval.command || approval.description, t("chat.approvalNotificationBody")),
+      `hermes-approval-${approval.approvalId}`,
+    );
+  },
+);
+
+watch(
+  visibleClarify,
+  (clarify) => {
+    if (!clarify || notifiedClarifyIds.has(clarify.clarifyId)) return;
+    notifiedClarifyIds.add(clarify.clarifyId);
+    void showBrowserNotification(
+      t("chat.clarifyNotificationTitle"),
+      buildNotificationBody(clarify.question, t("chat.clarifyNotificationBody")),
+      `hermes-clarify-${clarify.clarifyId}`,
+    );
+  },
+);
 
 function handleClarify(response?: string) {
   if (clarifyRemainingMs.value <= 0) return;
@@ -1323,6 +1409,14 @@ async function handleSessionModelCustomSubmit() {
                   >
                     {{ t("chat.approvalDeny") }}
                   </NButton>
+                  <NButton
+                    v-if="browserNotificationPermission === 'default'"
+                    size="small"
+                    tertiary
+                    @click="requestBrowserNotifications"
+                  >
+                    {{ t("chat.browserNotificationsEnable") }}
+                  </NButton>
                 </div>
               </div>
             </div>
@@ -1372,6 +1466,14 @@ async function handleSessionModelCustomSubmit() {
                   >
                     {{ t('chat.clarifyDismiss') }}
                   </NButton>
+                  <NButton
+                    v-if="browserNotificationPermission === 'default'"
+                    size="small"
+                    tertiary
+                    @click="requestBrowserNotifications"
+                  >
+                    {{ t('chat.browserNotificationsEnable') }}
+                  </NButton>
                 </div>
                 <div v-else class="clarify-actions clarify-actions-open">
                   <div class="clarify-input-row">
@@ -1383,6 +1485,14 @@ async function handleSessionModelCustomSubmit() {
                     />
                     <NButton size="small" type="primary" :disabled="clarifyRemainingMs <= 0" @click="handleClarify()">
                       {{ t('chat.clarifySubmit') }}
+                    </NButton>
+                    <NButton
+                      v-if="browserNotificationPermission === 'default'"
+                      size="small"
+                      tertiary
+                      @click="requestBrowserNotifications"
+                    >
+                      {{ t('chat.browserNotificationsEnable') }}
                     </NButton>
                   </div>
                 </div>

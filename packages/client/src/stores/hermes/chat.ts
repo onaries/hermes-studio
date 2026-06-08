@@ -9,7 +9,6 @@ import { useProfilesStore } from './profiles'
 import { useSettingsStore } from './settings'
 import { primeCompletionSound, playCompletionSound } from '@/utils/completion-sound'
 import { detectThinkingBoundary } from '@/utils/thinking-parser'
-import { findCurrentTurnAssistant } from '@/utils/live-assistant-target'
 
 // Re-export ContentBlock for convenience
 export type ContentBlock = ContentBlockImport
@@ -247,7 +246,8 @@ function selectResumedInFlightAssistant(messages: Message[], activeRunMarker?: s
   const finishReason = readFinishReason(lastMessage)
   const runMarker = readRunMarker(lastMessage)
   const hasMatchingRunMarker = !!activeRunMarker && !!runMarker && runMarker === activeRunMarker
-  return finishReason === null || hasMatchingRunMarker ? lastMessage : null
+  const hasExplicitInFlightMarker = finishReason === null && typeof runMarker === 'string' && runMarker.trim() !== ''
+  return hasMatchingRunMarker || hasExplicitInFlightMarker ? lastMessage : null
 }
 
 function getReplayRunMarker(events?: Array<{ event: string; data: RunEvent }>): string | null {
@@ -275,7 +275,7 @@ function resolveResumedAssistantState(
   const activeAssistant = options.previousActiveAssistantMessageId
     ? messages.find(m => m.role === 'assistant' && m.id === options.previousActiveAssistantMessageId) || null
     : null
-  const selectedActiveAssistant = activeAssistant || selectResumedInFlightAssistant(messages, options.activeRunMarker) || findCurrentTurnAssistant(messages) || null
+  const selectedActiveAssistant = activeAssistant || selectResumedInFlightAssistant(messages, options.activeRunMarker)
   const reasoningAssistant = options.previousReasoningAssistantMessageId
     ? messages.find(m => m.role === 'assistant' && m.id === options.previousReasoningAssistantMessageId) || null
     : null
