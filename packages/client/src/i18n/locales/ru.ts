@@ -279,6 +279,8 @@ export default {
     outlineTitle: 'План беседы',
     outlineEmpty: 'Нет содержимого беседы',
     outlineUserQuestion: 'Вопрос пользователя',
+    outlineGoTop: 'К началу',
+    outlineGoBottom: 'К концу',
     inputPlaceholder: 'Введите сообщение... (Enter — отправить, Shift+Enter — новая строка)',
     slashCommandArgs: {
       message: '<сообщение>',

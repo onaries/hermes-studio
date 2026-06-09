@@ -47,6 +47,79 @@ function formatToolDuration(seconds: number): string {
   return `${mins}m ${secs}s`
 }
 
+type ToolCallLike = {
+  toolName?: string
+  toolPreview?: string
+  toolArgs?: unknown
+  toolDuration?: number
+  toolStatus?: string
+}
+
+function parseToolArgs(raw: unknown): unknown {
+  if (raw === null || raw === undefined || raw === '') return null
+  if (typeof raw !== 'string') return raw
+  const trimmed = raw.trim()
+  if (!trimmed || !/^[{[]/.test(trimmed)) return trimmed
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    return raw
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function rawString(value: unknown): string {
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return ''
+}
+
+function firstRawString(record: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value = rawString(record[key])
+    if (value) return value
+  }
+  return ''
+}
+
+function fullToolPreview(tool: ToolCallLike): string {
+  const name = (tool.toolName || '').toLowerCase()
+  const args = parseToolArgs(tool.toolArgs)
+  if (isRecord(args)) {
+    if (name.includes('read_file') || name.includes('write_file') || name.includes('patch')) {
+      return firstRawString(args, ['path']) || tool.toolPreview || ''
+    }
+    if (name.includes('skill_view')) {
+      return firstRawString(args, ['name']) || tool.toolPreview || ''
+    }
+    if (name.includes('terminal')) {
+      return firstRawString(args, ['command']) || tool.toolPreview || ''
+    }
+    if (name.includes('web_search')) {
+      return firstRawString(args, ['query']) || tool.toolPreview || ''
+    }
+    if (name.includes('search_files')) {
+      return [firstRawString(args, ['pattern']), firstRawString(args, ['path'])]
+        .filter(Boolean)
+        .join(' ')
+        || tool.toolPreview
+        || ''
+    }
+  }
+  return tool.toolPreview || ''
+}
+
+function toolCallTitle(tool: ToolCallLike): string {
+  const parts = [tool.toolName, fullToolPreview(tool)]
+  if (tool.toolDuration && tool.toolStatus !== 'running') parts.push(formatToolDuration(tool.toolDuration))
+  if (tool.toolStatus === 'done') parts.push('✓')
+  if (tool.toolStatus === 'error') parts.push('✕')
+  return parts.filter(Boolean).join(' ')
+}
+
 const currentToolCalls = computed(() => {
   const msgs = chatStore.messages;
   // Find the last user message index
@@ -396,6 +469,7 @@ defineExpose({
             v-for="tc in visibleToolCalls"
             :key="tc.id"
             class="tool-call-item"
+            :title="toolCallTitle(tc)"
           >
             <svg
               width="12"
@@ -411,13 +485,13 @@ defineExpose({
               />
             </svg>
             <span class="tool-call-name">{{ tc.toolName }}</span>
-            <span v-if="tc.toolPreview" class="tool-call-preview">{{
-              tc.toolPreview
+            <span v-if="fullToolPreview(tc)" class="tool-call-preview">{{
+              fullToolPreview(tc)
             }}</span>
             <span
               v-if="tc.toolDuration && tc.toolStatus !== 'running'"
               class="tool-call-duration"
-              :title="$t('chat.executionDuration')"
+              :title="t('chat.executionDuration')"
             >{{ formatToolDuration(tc.toolDuration) }}</span
             >
             <svg
@@ -818,6 +892,19 @@ defineExpose({
     white-space: nowrap;
     max-width: 300px;
     color: $text-muted;
+  }
+
+  &:hover {
+    align-items: flex-start;
+  }
+
+  &:hover .tool-call-preview {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: initial;
+    max-width: min(760px, 72vw);
+    overflow-wrap: anywhere;
+    color: $text-secondary;
   }
 }
 

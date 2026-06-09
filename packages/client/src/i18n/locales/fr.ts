@@ -357,6 +357,8 @@ export default {
     outlineTitle: 'Plan de la conversation',
     outlineEmpty: 'Aucun contenu de conversation',
     outlineUserQuestion: 'Question utilisateur',
+    outlineGoTop: 'Aller en haut',
+    outlineGoBottom: 'Aller en bas',
     inputPlaceholder: 'Tapez un message... (Entree pour envoyer, Shift+Entree pour un saut de ligne)',
     slashCommandArgs: {
       message: '<message>',
