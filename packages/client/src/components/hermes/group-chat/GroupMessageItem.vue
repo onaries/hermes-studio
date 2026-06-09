@@ -46,8 +46,7 @@ const isAgent = computed(() => {
 
 const isAgentError = computed(() => {
     if (props.message.role !== 'assistant') return false
-    if (props.message.finish_reason === 'error') return true
-    return /^Error:\s*/i.test(props.message.content || '')
+    return props.message.finish_reason === 'error'
 })
 
 const isSelf = computed(() => {
