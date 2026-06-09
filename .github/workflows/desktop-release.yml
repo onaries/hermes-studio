@@ -44,6 +44,32 @@ jobs:
               packages/desktop/release/*.dmg.blockmap
               packages/desktop/release/*.zip
               packages/desktop/release/*.zip.blockmap
+          - label: Windows x64
+            runner: windows-latest
+            target_os: win32
+            target_arch: x64
+            electron_target: "--win nsis --x64"
+            artifact_files: |
+              packages/desktop/release/*.exe
+              packages/desktop/release/*.exe.blockmap
+              packages/desktop/release/latest*.yml
+          - label: Linux x64
+            runner: ubuntu-22.04
+            target_os: linux
+            target_arch: x64
+            electron_target: "--linux AppImage deb --x64"
+            artifact_files: |
+              packages/desktop/release/*.AppImage
+              packages/desktop/release/*.deb
+              packages/desktop/release/latest*.yml
+          - label: Linux arm64
+            runner: ubuntu-22.04-arm
+            target_os: linux
+            target_arch: arm64
+            electron_target: "--linux AppImage --arm64"
+            artifact_files: |
+              packages/desktop/release/*.AppImage
+              packages/desktop/release/latest*.yml
 
     steps:
       - name: Checkout repository
