@@ -112,6 +112,10 @@ function fullToolPreview(tool: ToolCallLike): string {
   return tool.toolPreview || ''
 }
 
+function toolCallPreview(tool: ToolCallLike): string {
+  return tool.toolPreview || fullToolPreview(tool)
+}
+
 function toolCallTitle(tool: ToolCallLike): string {
   const parts = [tool.toolName, fullToolPreview(tool)]
   if (tool.toolDuration && tool.toolStatus !== 'running') parts.push(formatToolDuration(tool.toolDuration))
@@ -485,8 +489,8 @@ defineExpose({
               />
             </svg>
             <span class="tool-call-name">{{ tc.toolName }}</span>
-            <span v-if="fullToolPreview(tc)" class="tool-call-preview">{{
-              fullToolPreview(tc)
+            <span v-if="toolCallPreview(tc)" class="tool-call-preview">{{
+              toolCallPreview(tc)
             }}</span>
             <span
               v-if="tc.toolDuration && tc.toolStatus !== 'running'"

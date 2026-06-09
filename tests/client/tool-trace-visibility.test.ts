@@ -79,6 +79,10 @@ const VirtualMessageListStub = defineComponent({
   props: {
     messages: { type: Array, default: () => [] },
   },
+  methods: {
+    scrollToBottom() {},
+    shouldAutoFollowBottom() { return true },
+  },
   template: `
     <div class="virtual-message-list-stub">
       <slot name="before" />
