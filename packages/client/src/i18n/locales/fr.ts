@@ -384,12 +384,12 @@ export default {
     files: 'Espace de travail',
     todo: {
       tab: 'Todo',
-      title: 'Liste des tâches',
-      subtitle: 'Tâches actuelles trouvées dans cette session de chat.',
-      total: 'Total',
+      title: 'Tâches en cours',
+      subtitle: 'Uniquement les tâches en cours de cette session de chat.',
+      total: 'En cours',
       lastUpdated: 'Dernière mise à jour {time}',
-      emptyTitle: 'Aucune tâche pour le moment',
-      emptyDescription: 'Lorsque Hermes utilisera l’outil todo dans cette session, la liste actuelle apparaîtra ici.',
+      emptyTitle: 'Aucune tâche en cours',
+      emptyDescription: 'Lorsqu’Hermes marque une tâche comme en cours, elle apparaît ici.',
     },
   },
 

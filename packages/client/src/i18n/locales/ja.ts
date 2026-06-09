@@ -384,12 +384,12 @@ export default {
     files: 'ワークスペース',
     todo: {
       tab: 'Todo',
-      title: 'Todo リスト',
-      subtitle: 'このチャットセッションで見つかった現在の Todo 項目です。',
-      total: '合計',
+      title: '進行中の Todo',
+      subtitle: 'このチャットセッションの進行中 Todo のみを表示します。',
+      total: '進行中',
       lastUpdated: '最終更新 {time}',
-      emptyTitle: 'Todo 項目はまだありません',
-      emptyDescription: 'このセッションで Hermes が todo ツールを使うと、現在のリストがここに表示されます。',
+      emptyTitle: '進行中の Todo はありません',
+      emptyDescription: 'Hermes が Todo を進行中にすると、ここに表示されます。',
     },
   },
 

@@ -37,15 +37,13 @@ describe('todo drawer list', () => {
 
     const list = buildTodoDrawerList(messages, t)
 
-    expect(list.total).toBe(3)
-    expect(list.counts.completed).toBe(1)
-    expect(list.counts.pending).toBe(1)
+    expect(list.total).toBe(1)
+    expect(list.counts.completed).toBe(0)
+    expect(list.counts.pending).toBe(0)
     expect(list.counts.in_progress).toBe(1)
-    expect(list.sections.map(section => section.status)).toEqual(['in_progress', 'pending', 'completed'])
+    expect(list.sections.map(section => section.status)).toEqual(['in_progress'])
     expect(list.items.map(item => [item.id, item.status])).toEqual([
       ['c', 'in_progress'],
-      ['b', 'pending'],
-      ['a', 'completed'],
     ])
   })
 
@@ -53,13 +51,14 @@ describe('todo drawer list', () => {
     const messages = [
       toolMessage('1', 1000, undefined, JSON.stringify({ todos: [
         { id: 'a', content: 'Review current list', status: 'pending' },
+        { id: 'b', content: 'Run focused test', status: 'in_progress' },
       ] })),
     ]
 
     const list = buildTodoDrawerList(messages, t)
 
     expect(list.total).toBe(1)
-    expect(list.items[0]).toMatchObject({ id: 'a', content: 'Review current list', status: 'pending' })
+    expect(list.items[0]).toMatchObject({ id: 'b', content: 'Run focused test', status: 'in_progress' })
   })
 
   it('ignores non-todo tool messages and invalid todo payloads', () => {

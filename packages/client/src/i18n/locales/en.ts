@@ -384,12 +384,12 @@ export default {
     files: 'Workspace',
     todo: {
       tab: 'Todo',
-      title: 'Todo list',
-      subtitle: 'Current todo items found in this chat session.',
-      total: 'Total',
+      title: 'Current todos',
+      subtitle: 'Only in-progress todo items from this chat session.',
+      total: 'In progress',
       lastUpdated: 'Last updated {time}',
-      emptyTitle: 'No todo items yet',
-      emptyDescription: 'When Hermes uses the todo tool in this session, the current list will appear here.',
+      emptyTitle: 'No in-progress todos',
+      emptyDescription: 'When Hermes marks a todo as in progress, it will appear here.',
     },
   },
 

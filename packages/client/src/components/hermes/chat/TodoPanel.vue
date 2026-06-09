@@ -6,7 +6,7 @@ import { buildTodoDrawerList, type TodoDrawerItem } from '@/utils/todo-drawer-li
 
 const chatStore = useChatStore()
 const { t } = useI18n()
-const statusOrder = ['in_progress', 'pending', 'completed', 'cancelled'] as const
+const statusOrder = ['in_progress'] as const
 
 const todoList = computed(() => buildTodoDrawerList(chatStore.activeSession?.messages || [], t))
 const hasTodos = computed(() => todoList.value.total > 0)

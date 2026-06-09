@@ -384,12 +384,12 @@ export default {
     files: '工作區',
     todo: {
       tab: '待辦',
-      title: '待辦清單',
-      subtitle: '此聊天工作階段中找到的目前待辦項目。',
-      total: '總數',
+      title: '進行中的待辦',
+      subtitle: '只顯示此聊天工作階段中進行中的待辦項目。',
+      total: '進行中',
       lastUpdated: '最後更新 {time}',
-      emptyTitle: '尚無待辦項目',
-      emptyDescription: '當 Hermes 在此工作階段使用 todo 工具時，目前清單會顯示在這裡。',
+      emptyTitle: '沒有進行中的待辦',
+      emptyDescription: '當 Hermes 將 Todo 標記為進行中時，會顯示在這裡。',
     },
   },
 
