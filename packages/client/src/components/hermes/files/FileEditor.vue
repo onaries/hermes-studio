@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { NButton, NSpace, useMessage, useDialog } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useFilesStore } from '@/stores/hermes/files'
@@ -23,6 +23,13 @@ const filesStore = useFilesStore()
 const editorContainer = ref<HTMLElement | null>(null)
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
 const saving = ref(false)
+
+const editorPath = computed(() => filesStore.editingFile?.path || '')
+const editorDisplayName = computed(() => {
+  const path = editorPath.value
+  if (!path) return ''
+  return path.split(/[\\/]/).filter(Boolean).pop() || path
+})
 
 onMounted(() => {
   if (!editorContainer.value || !filesStore.editingFile) return
@@ -88,8 +95,8 @@ function handleClose() {
 <template>
   <div class="file-editor">
     <div class="editor-header">
-      <span class="editor-filename">{{ filesStore.editingFile?.path }}</span>
-      <NSpace>
+      <span class="editor-filename" :title="editorPath">{{ editorDisplayName }}</span>
+      <NSpace class="editor-actions">
         <NButton size="small" type="primary" :loading="saving" @click="handleSave">
           {{ t('files.saveFile') }}
         </NButton>
@@ -115,6 +122,7 @@ function handleClose() {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 8px 16px;
   border-bottom: 1px solid $border-color;
   background-color: $bg-card;
@@ -126,12 +134,16 @@ function handleClose() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 300px;
+  flex: 1 1 auto;
+  min-width: 0;
 
   @media (max-width: $breakpoint-mobile) {
-    max-width: 120px;
     font-size: 12px;
   }
+}
+
+.editor-actions {
+  flex: 0 0 auto;
 }
 
 .editor-container {

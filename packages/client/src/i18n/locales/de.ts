@@ -384,12 +384,12 @@ export default {
     files: 'Arbeitsbereich',
     todo: {
       tab: 'Todo',
-      title: 'Todo-Liste',
-      subtitle: 'Aktuelle Todo-Einträge aus dieser Chatsitzung.',
-      total: 'Gesamt',
+      title: 'Aktuelle Todos',
+      subtitle: 'Nur laufende Todo-Einträge aus dieser Chat-Sitzung.',
+      total: 'Laufend',
       lastUpdated: 'Zuletzt aktualisiert {time}',
-      emptyTitle: 'Noch keine Todo-Einträge',
-      emptyDescription: 'Wenn Hermes in dieser Sitzung das todo-Tool verwendet, erscheint die aktuelle Liste hier.',
+      emptyTitle: 'Keine laufenden Todos',
+      emptyDescription: 'Wenn Hermes ein Todo als laufend markiert, erscheint es hier.',
     },
   },
 

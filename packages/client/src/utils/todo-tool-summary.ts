@@ -19,7 +19,7 @@ type Translator = (key: string, params?: Record<string, unknown>) => string
 const TODO_TOOL_NAMES = new Set(['todo', 'functions.todo'])
 const TODO_STATUSES = new Set<TodoToolStatus>(['pending', 'in_progress', 'completed', 'cancelled'])
 const PREVIEW_ITEM_LIMIT = 3
-const PREVIEW_STATUSES = new Set<TodoToolStatus>(['in_progress', 'completed'])
+const PREVIEW_STATUSES = new Set<TodoToolStatus>(['in_progress'])
 
 function parseJsonPayload(raw?: unknown): any | null {
   if (!raw || typeof raw !== 'string') return null

@@ -384,12 +384,12 @@ export default {
     files: '작업 공간',
     todo: {
       tab: 'Todo',
-      title: 'Todo 목록',
-      subtitle: '이 채팅 세션에서 발견된 현재 Todo 항목입니다.',
-      total: '전체',
+      title: '진행 중인 Todo',
+      subtitle: '이 채팅 세션의 진행 중인 Todo 항목만 표시합니다.',
+      total: '진행 중',
       lastUpdated: '마지막 업데이트 {time}',
-      emptyTitle: '아직 Todo 항목이 없습니다',
-      emptyDescription: '이 세션에서 Hermes가 todo 도구를 사용하면 현재 목록이 여기에 표시됩니다.',
+      emptyTitle: '진행 중인 Todo가 없습니다',
+      emptyDescription: 'Hermes가 Todo를 진행 중으로 표시하면 여기에 나타납니다.',
     },
   },
 

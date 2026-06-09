@@ -25,6 +25,7 @@ export interface TodoDrawerList {
 type Translator = (key: string, params?: Record<string, unknown>) => string
 
 const TODO_STATUSES: TodoToolStatus[] = ['in_progress', 'pending', 'completed', 'cancelled']
+const VISIBLE_TODO_STATUSES = new Set<TodoToolStatus>(['in_progress'])
 const TODO_TOOL_NAMES = new Set(['todo', 'functions.todo'])
 
 type TodoPayload = {
@@ -118,7 +119,7 @@ export function buildTodoDrawerList(messages: Message[], t: Translator): TodoDra
     if (appliedArgs) lastUpdatedAt = timestamp
   }
 
-  const items = Array.from(state.values()).sort((a, b) => {
+  const items = Array.from(state.values()).filter(item => VISIBLE_TODO_STATUSES.has(item.status)).sort((a, b) => {
     const statusOrder = TODO_STATUSES.indexOf(a.status) - TODO_STATUSES.indexOf(b.status)
     if (statusOrder !== 0) return statusOrder
     return b.updatedAt - a.updatedAt

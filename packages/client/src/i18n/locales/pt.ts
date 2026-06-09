@@ -384,12 +384,12 @@ export default {
     files: 'Espaço de trabalho',
     todo: {
       tab: 'Todo',
-      title: 'Lista de tarefas',
-      subtitle: 'Tarefas atuais encontradas nesta sessão de chat.',
-      total: 'Total',
+      title: 'Tarefas em andamento',
+      subtitle: 'Somente tarefas em andamento desta sessão de chat.',
+      total: 'Em andamento',
       lastUpdated: 'Última atualização {time}',
-      emptyTitle: 'Ainda não há tarefas',
-      emptyDescription: 'Quando o Hermes usar a ferramenta todo nesta sessão, a lista atual aparecerá aqui.',
+      emptyTitle: 'Nenhuma tarefa em andamento',
+      emptyDescription: 'Quando Hermes marcar uma tarefa como em andamento, ela aparecerá aqui.',
     },
   },
 
