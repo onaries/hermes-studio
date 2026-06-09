@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Message } from '@/stores/hermes/chat'
 
@@ -21,6 +21,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const outlineContentRef = ref<HTMLElement | null>(null)
 
 function extractAllHeadings(text: string, messageId: string): OutlineItem[] {
   const items: OutlineItem[] = []
@@ -116,14 +117,45 @@ function scrollToTarget(item: OutlineItem) {
     anchorId: item.anchorId,
   })
 }
+
+function scrollOutlineContent(position: 'top' | 'bottom') {
+  const content = outlineContentRef.value
+  if (!content) return
+  content.scrollTo({
+    top: position === 'top' ? 0 : content.scrollHeight,
+    behavior: 'smooth',
+  })
+}
 </script>
 
 <template>
   <div class="outline-panel">
     <div class="outline-header">
       <span class="outline-title">{{ t('chat.outlineTitle') }}</span>
+      <div class="outline-nav-actions">
+        <button
+          type="button"
+          class="outline-nav-button"
+          :disabled="outlineItems.length === 0"
+          :title="t('chat.outlineGoTop')"
+          :aria-label="t('chat.outlineGoTop')"
+          @click="scrollOutlineContent('top')"
+        >
+          ↑
+        </button>
+        <button
+          type="button"
+          class="outline-nav-button"
+          :disabled="outlineItems.length === 0"
+          :title="t('chat.outlineGoBottom')"
+          :aria-label="t('chat.outlineGoBottom')"
+          @click="scrollOutlineContent('bottom')"
+        >
+          ↓
+        </button>
+      </div>
     </div>
-    <div class="outline-content">
+    <div ref="outlineContentRef" class="outline-content">
       <template v-if="outlineItems.length > 0">
         <template v-for="item in outlineItems" :key="item.id">
           <div
@@ -177,15 +209,57 @@ function scrollToTarget(item: OutlineItem) {
 }
 
 .outline-header {
-  padding: 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid $border-color;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .outline-title {
   font-size: 14px;
   font-weight: 600;
   color: $text-primary;
+}
+
+.outline-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.outline-nav-button {
+  width: 26px;
+  height: 26px;
+  border: 1px solid $border-color;
+  border-radius: 6px;
+  background: transparent;
+  color: $text-secondary;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background-color: $bg-secondary;
+    color: $text-primary;
+    border-color: $accent-primary;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .dark & {
+    border-color: rgba(255, 255, 255, 0.12);
+  }
 }
 
 .outline-content {

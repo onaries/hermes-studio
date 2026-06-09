@@ -411,6 +411,8 @@ export default {
     outlineTitle: 'Konversationsübersicht',
     outlineEmpty: 'Kein Konversationsinhalt',
     outlineUserQuestion: 'Benutzerfrage',
+    outlineGoTop: 'Nach oben',
+    outlineGoBottom: 'Nach unten',
     inputPlaceholder: 'Nachricht eingeben... (Enter zum Senden, Shift+Enter fur neue Zeile)',
     slashCommandArgs: {
       message: '<Nachricht>',

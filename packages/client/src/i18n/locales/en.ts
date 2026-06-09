@@ -412,6 +412,8 @@ export default {
     outlineTitle: 'Conversation Outline',
     outlineEmpty: 'No conversation content',
     outlineUserQuestion: 'User question',
+    outlineGoTop: 'Go to top',
+    outlineGoBottom: 'Go to bottom',
     inputPlaceholder: 'Type a message... (Enter to send, Shift+Enter for new line)',
     slashCommandArgs: {
       message: '<message>',

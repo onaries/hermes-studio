@@ -411,6 +411,8 @@ export default {
     outlineTitle: '會話大綱',
     outlineEmpty: '暫無會話內容',
     outlineUserQuestion: '使用者問題',
+    outlineGoTop: '跳到頂部',
+    outlineGoBottom: '跳到底部',
     inputPlaceholder: '輸入訊息... (Enter 發送，Shift+Enter 換行)',
     slashCommandArgs: {
       message: '<訊息>',

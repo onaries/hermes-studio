@@ -411,6 +411,8 @@ export default {
     outlineTitle: '会話アウトライン',
     outlineEmpty: '会話内容はありません',
     outlineUserQuestion: 'ユーザーの質問',
+    outlineGoTop: '一番上へ移動',
+    outlineGoBottom: '一番下へ移動',
     inputPlaceholder: 'メッセージを入力... (Enter で送信、Shift+Enter で改行)',
     slashCommandArgs: {
       message: '<メッセージ>',

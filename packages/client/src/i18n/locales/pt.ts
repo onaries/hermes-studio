@@ -411,6 +411,8 @@ export default {
     outlineTitle: 'Esboço da conversa',
     outlineEmpty: 'Nenhum conteúdo da conversa',
     outlineUserQuestion: 'Pergunta do usuário',
+    outlineGoTop: 'Ir para o topo',
+    outlineGoBottom: 'Ir para o fim',
     inputPlaceholder: 'Digite uma mensagem... (Enter para enviar, Shift+Enter para nova linha)',
     slashCommandArgs: {
       message: '<mensagem>',
