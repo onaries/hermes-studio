@@ -31,6 +31,22 @@ function handleThemeChange(val: string) {
   save({ skin: m })
 }
 
+function showNotificationEnableProbe() {
+  if (typeof window === 'undefined' || !('Notification' in window)) return
+  if (Notification.permission !== 'granted') return
+  try {
+    const notification = new Notification(t('chat.browserNotificationsEnabled'), {
+      body: t('settings.display.browserNotifyOnCompleteHint'),
+      tag: 'hermes-notification-enable-probe',
+      silent: true,
+    })
+    window.setTimeout(() => notification.close(), 6000)
+  } catch {
+    // Some desktop/browser environments report granted before the OS surface is ready.
+    // Real completion notifications will still retry through the normal notification path.
+  }
+}
+
 async function handleBrowserNotifyOnCompleteChange(enabled: boolean) {
   if (!enabled) {
     await save({ browser_notify_on_complete: false })
@@ -57,6 +73,7 @@ async function handleBrowserNotifyOnCompleteChange(enabled: boolean) {
     return
   }
 
+  showNotificationEnableProbe()
   message.success(t('chat.browserNotificationsEnabled'))
   await save({ browser_notify_on_complete: true })
 }
