@@ -10,6 +10,9 @@ vi.mock('vue-i18n', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
+  NDrawer: { template: '<div><slot /></div>' },
+  NDrawerContent: { template: '<div><slot /></div>' },
+  NSpin: { template: '<div><slot /></div>' },
   useMessage: () => ({
     error: vi.fn(),
     success: vi.fn(),
@@ -23,28 +26,35 @@ vi.mock('@/api/hermes/download', () => ({
 }))
 
 import GroupMessageItem from '@/components/hermes/group-chat/GroupMessageItem.vue'
-import type { ChatMessage } from '@/api/hermes/group-chat'
+import type { ChatMessage, RoomAgent } from '@/api/hermes/group-chat'
 
-function mountToolMessage(message: Partial<ChatMessage>) {
+function mountGroupMessage(message: Partial<ChatMessage>, agents: RoomAgent[] = []) {
   return mount(GroupMessageItem, {
     props: {
       message: {
-        id: 'group-tool',
+        id: 'group-message',
         roomId: 'room-1',
         senderId: 'agent-1',
         senderName: 'UAT Agent',
-        role: 'tool',
+        role: 'assistant',
         content: '',
         timestamp: new Date().toISOString(),
-        toolName: 'runtime_payload',
-        toolStatus: 'done',
         ...message,
       } as ChatMessage,
-      agents: [],
+      agents,
       members: [],
       currentUserId: 'user-1',
     },
     global: { stubs: { MarkdownRenderer: true, ProfileAvatar: true } },
+  })
+}
+
+function mountToolMessage(message: Partial<ChatMessage>) {
+  return mountGroupMessage({
+    role: 'tool',
+    toolName: 'runtime_payload',
+    toolStatus: 'done',
+    ...message,
   })
 }
 
@@ -102,5 +112,45 @@ describe('GroupMessageItem tool details', () => {
     expect(block.exists()).toBe(true)
     expect(block.find('.code-lang').text()).toBe('text')
     expect(block.find('code').text()).toBe('false')
+  })
+
+  it('does not mark assistant prose that starts with Error as a failed agent response', () => {
+    const wrapper = mountGroupMessage(
+      {
+        content: 'Error: 확인 결과:\n\n- 운영 서버는 현재 정상',
+        finish_reason: 'stop',
+      },
+      [{
+        id: 'room-agent-1',
+        roomId: 'room-1',
+        agentId: 'agent-1',
+        profile: 'default',
+        name: 'UAT Agent',
+        description: '',
+        invited: Date.now(),
+      }],
+    )
+
+    expect(wrapper.find('.msg-content').classes()).not.toContain('agent-error')
+  })
+
+  it('marks assistant messages with error finish reason as failed agent responses', () => {
+    const wrapper = mountGroupMessage(
+      {
+        content: 'Agent failed while running',
+        finish_reason: 'error',
+      },
+      [{
+        id: 'room-agent-1',
+        roomId: 'room-1',
+        agentId: 'agent-1',
+        profile: 'default',
+        name: 'UAT Agent',
+        description: '',
+        invited: Date.now(),
+      }],
+    )
+
+    expect(wrapper.find('.msg-content').classes()).toContain('agent-error')
   })
 })
