@@ -34,6 +34,16 @@ jobs:
               packages/desktop/release/*.dmg.blockmap
               packages/desktop/release/*.zip
               packages/desktop/release/*.zip.blockmap
+          - label: macOS x64
+            runner: macos-15-intel
+            target_os: darwin
+            target_arch: x64
+            electron_target: "--mac dmg zip --x64"
+            artifact_files: |
+              packages/desktop/release/*.dmg
+              packages/desktop/release/*.dmg.blockmap
+              packages/desktop/release/*.zip
+              packages/desktop/release/*.zip.blockmap
 
     steps:
       - name: Checkout repository
@@ -154,9 +164,13 @@ jobs:
           path: /tmp/hermes-mac-manifests
           merge-multiple: false
 
-      - name: Prepare macOS update manifest
+      - name: Merge macOS update manifests
         shell: bash
-        run: cp /tmp/hermes-mac-manifests/latest-mac-arm64/latest-mac.yml /tmp/latest-mac.yml
+        run: |
+          node packages/desktop/scripts/merge-mac-latest-yml.mjs \
+            /tmp/hermes-mac-manifests/latest-mac-arm64/latest-mac.yml \
+            /tmp/hermes-mac-manifests/latest-mac-x64/latest-mac.yml \
+            > /tmp/latest-mac.yml
 
       - name: Upload merged macOS updater manifest to release
         uses: softprops/action-gh-release@v2
