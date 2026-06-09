@@ -131,10 +131,7 @@ function insertVoiceTranscriptIntoInput(text: string) {
     textarea.focus()
     textarea.setSelectionRange(nextCursorPosition, nextCursorPosition)
 
-    if (textareaHeight.value === null) {
-      textarea.style.height = 'auto'
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 100)}px`
-    }
+    resizeTextareaToContent()
   })
 }
 
@@ -205,6 +202,15 @@ const filteredBridgeCommands = computed(() => {
 
 // 自定义高度拖拽
 const textareaHeight = ref<number | null>(null) // null = auto
+const TEXTAREA_AUTO_MIN_HEIGHT = 20
+const TEXTAREA_AUTO_MAX_HEIGHT = 240
+
+function resizeTextareaToContent() {
+  const el = textareaRef.value
+  if (!el || textareaHeight.value !== null) return
+  el.style.height = 'auto'
+  el.style.height = `${Math.min(Math.max(el.scrollHeight, TEXTAREA_AUTO_MIN_HEIGHT), TEXTAREA_AUTO_MAX_HEIGHT)}px`
+}
 
 function startResize(e: MouseEvent) {
   e.preventDefault()
@@ -274,6 +280,7 @@ function saveDraftForActiveSession(value: string) {
 // 从 localStorage 读取设置
 onMounted(() => {
   loadDraftForActiveSession()
+  nextTick(resizeTextareaToContent)
   const saved = localStorage.getItem('autoPlaySpeech')
   if (saved !== null) {
     autoPlaySpeech.value = saved === 'true'
@@ -291,10 +298,12 @@ watch(autoPlaySpeech, (value) => {
 
 watch(inputText, (value) => {
   saveDraftForActiveSession(value)
+  nextTick(resizeTextareaToContent)
 })
 
 watch(() => chatStore.activeSession?.id, () => {
   loadDraftForActiveSession()
+  nextTick(resizeTextareaToContent)
 })
 
 const canSend = computed(() => inputText.value.trim() || attachments.value.length > 0)
@@ -554,6 +563,7 @@ function handleSend() {
 
   if (textareaRef.value) {
     textareaRef.value.style.height = 'auto'
+    nextTick(resizeTextareaToContent)
   }
 }
 
@@ -688,20 +698,19 @@ function handleKeydown(e: KeyboardEvent) {
   if (!shouldSubmitOnEnter(e, {
     isMobileLike: isMobileLikeInputDevice(),
     mobileEnterToSend: settingsStore.display.mobile_enter_to_send === true,
-  })) return
+  })) {
+    if (e.key === 'Enter') nextTick(resizeTextareaToContent)
+    return
+  }
   if (isImeEnter(e)) return
 
   e.preventDefault()
   handleSend()
 }
 
-function handleInput(e: Event) {
-  const el = e.target as HTMLTextAreaElement
+function handleInput() {
   if (!isComposing.value) updateSlashState()
-  // 用户手动拖拽自定义高度时，不覆盖
-  if (textareaHeight.value !== null) return
-  el.style.height = 'auto'
-  el.style.height = Math.min(el.scrollHeight, 100) + 'px'
+  resizeTextareaToContent()
 }
 
 function handleCommandHover(index: number) {
