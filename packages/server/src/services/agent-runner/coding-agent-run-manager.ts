@@ -9,13 +9,16 @@ import { extractResponseText } from '../hermes/run-chat/response-utils'
 import type { SessionState } from '../hermes/run-chat/types'
 import type { CanonicalResponsesEvent } from './adapters/responses-stream'
 import { mapCodingAgentResponseEvent } from './coding-agent-event-mapper'
+import { normalizeWindowsCommandPath, windowsCmdShimExecution, windowsCommandNeedsShell } from '../windows-command'
 
 const DEFAULT_IDLE_MS = 30 * 60 * 1000
 const TERMINAL_OUTPUT_FLUSH_MS = 120
 const MAX_TERMINAL_EVENT_CHARS = 4000
+const CHILD_STDERR_TAIL_CHARS = 8 * 1024
 const CODING_AGENT_TOOL_OUTPUT_STORAGE_LIMIT = 32 * 1024
 const CODING_AGENT_TOOL_OUTPUT_HEAD_CHARS = 24 * 1024
 const CODING_AGENT_TOOL_OUTPUT_TAIL_CHARS = 8 * 1024
+const CODEX_REASONING_SUMMARY_ARGS = ['-c', 'model_reasoning_summary="auto"']
 
 let pty: any = null
 
@@ -82,6 +85,7 @@ interface ManagedCodingAgentRun {
   exited: boolean
   currentChild?: ChildProcess
   currentChildKillTimer?: ReturnType<typeof setTimeout>
+  currentChildStderr?: string
   printResponseId?: string
   printMessageId?: string
   printTextStarted?: boolean
@@ -189,35 +193,64 @@ function childIsRunning(child?: ChildProcess): boolean {
   return Boolean(child && child.exitCode == null && child.signalCode == null && !child.killed)
 }
 
-function windowsCommandNeedsShell(command: string): boolean {
-  const normalized = command.trim().toLowerCase()
-  return normalized.endsWith('.cmd') || normalized.endsWith('.bat')
-}
-
-function quoteCmdArg(value: string): string {
-  return `"${String(value).replace(/"/g, '""')}"`
+function decodeChildChunk(chunk: Buffer): string {
+  const utf8 = chunk.toString('utf8')
+  if (process.platform !== 'win32' || !utf8.includes('\uFFFD')) return utf8
+  try {
+    return new TextDecoder('gb18030').decode(chunk)
+  } catch {
+    return utf8
+  }
 }
 
 function spawnCodingAgentChild(command: string, args: string[], options: {
   cwd: string
   env: NodeJS.ProcessEnv
 }): ChildProcess {
+  const normalizedCommand = process.platform === 'win32' ? normalizeWindowsCommandPath(command) : command
   if (process.platform === 'win32' && windowsCommandNeedsShell(command)) {
-    return spawn('cmd.exe', ['/d', '/s', '/c', [quoteCmdArg(command), ...args.map(quoteCmdArg)].join(' ')], {
+    const execution = windowsCmdShimExecution(normalizedCommand, args)
+    return spawn(execution.command, execution.args, {
       cwd: options.cwd,
       env: options.env,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsVerbatimArguments: execution.windowsVerbatimArguments,
       windowsHide: true,
     })
   }
 
-  return spawn(command, args, {
+  return spawn(normalizedCommand, args, {
     cwd: options.cwd,
     env: options.env,
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: process.platform !== 'win32',
     windowsHide: process.platform === 'win32',
   })
+}
+
+function childProcessErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (!err || typeof err !== 'object') return String(err || 'Process failed')
+  const record = err as Record<string, unknown>
+  const message = record.message
+  if (typeof message === 'string' && message.trim()) return message
+  try {
+    return JSON.stringify(record)
+  } catch {
+    return String(err)
+  }
+}
+
+function appendChildStderr(run: ManagedCodingAgentRun, chunk: Buffer): string {
+  const text = sanitizeCodingAgentTerminalOutput(decodeChildChunk(chunk))
+  run.currentChildStderr = `${run.currentChildStderr || ''}${text}`.slice(-CHILD_STDERR_TAIL_CHARS)
+  return text.trim()
+}
+
+function exitErrorMessage(agentName: string, code: number | null, stderr?: string): string {
+  const message = `${agentName} exited with code ${code ?? 'unknown'}`
+  const detail = String(stderr || '').trim()
+  return detail ? `${message}: ${detail}` : message
 }
 
 function appendedTextDelta(existing: string, next: string): string {
@@ -661,6 +694,7 @@ export class CodingAgentRunManager {
     run.responseStartEmitted = false
     run.terminalEventHandled = false
     run.printToolBlocks = new Map()
+    run.currentChildStderr = ''
     run.runMarker = undefined
 
     this.handleClaudePrintResponseEvent(run, {
@@ -706,8 +740,29 @@ export class CodingAgentRunManager {
 
     child.stderr?.on('data', (chunk: Buffer) => {
       this.touch(run)
-      const text = sanitizeCodingAgentTerminalOutput(chunk.toString('utf8')).trim()
+      const text = appendChildStderr(run, chunk)
       if (text) logger.debug({ runId: run.id, sessionId: run.launch.sessionId, text }, '[coding-agent-run] claude print stderr')
+    })
+
+    child.on('error', (err) => {
+      if (run.currentChildKillTimer) clearTimeout(run.currentChildKillTimer)
+      run.currentChildKillTimer = undefined
+      run.currentChild = undefined
+      logger.warn({ err, runId: run.id, sessionId: run.launch.sessionId }, '[coding-agent-run] claude print failed to start')
+      this.handleClaudePrintResponseEvent(run, {
+        type: 'response.failed',
+        data: {
+          type: 'response.failed',
+          response: {
+            id: run.printResponseId,
+            object: 'response',
+            status: 'failed',
+            model: run.launch.model,
+            error: { message: childProcessErrorMessage(err) },
+            output: [],
+          },
+        },
+      })
     })
 
     child.on('exit', (code) => {
@@ -734,7 +789,7 @@ export class CodingAgentRunManager {
             object: 'response',
             status: 'failed',
             model: run.launch.model,
-            error: { message: `Claude Code exited with code ${code ?? 'unknown'}` },
+            error: { message: exitErrorMessage('Claude Code', code, run.currentChildStderr) },
             output: [],
           },
         },
@@ -1079,6 +1134,7 @@ export class CodingAgentRunManager {
     run.codexToolBlocks = new Map()
     run.codexChatText = ''
     run.codexPendingUsage = undefined
+    run.currentChildStderr = ''
     run.runMarker = undefined
 
     this.handleClaudePrintResponseEvent(run, {
@@ -1091,6 +1147,7 @@ export class CodingAgentRunManager {
 
     const commonArgs = [
       '--json',
+      ...CODEX_REASONING_SUMMARY_ARGS,
       ...run.launch.args,
       '--skip-git-repo-check',
       '--dangerously-bypass-approvals-and-sandbox',
@@ -1119,8 +1176,29 @@ export class CodingAgentRunManager {
 
     child.stderr?.on('data', (chunk: Buffer) => {
       this.touch(run)
-      const text = sanitizeCodingAgentTerminalOutput(chunk.toString('utf8')).trim()
+      const text = appendChildStderr(run, chunk)
       if (text) logger.debug({ runId: run.id, sessionId: run.launch.sessionId, text }, '[coding-agent-run] codex exec stderr')
+    })
+
+    child.on('error', (err) => {
+      if (run.currentChildKillTimer) clearTimeout(run.currentChildKillTimer)
+      run.currentChildKillTimer = undefined
+      run.currentChild = undefined
+      logger.warn({ err, runId: run.id, sessionId: run.launch.sessionId }, '[coding-agent-run] codex exec failed to start')
+      this.handleClaudePrintResponseEvent(run, {
+        type: 'response.failed',
+        data: {
+          type: 'response.failed',
+          response: {
+            id: run.printResponseId,
+            object: 'response',
+            status: 'failed',
+            model: run.launch.model,
+            error: { message: childProcessErrorMessage(err) },
+            output: [],
+          },
+        },
+      })
     })
 
     child.on('exit', (code) => {
@@ -1147,7 +1225,7 @@ export class CodingAgentRunManager {
             object: 'response',
             status: 'failed',
             model: run.launch.model,
-            error: { message: `Codex exited with code ${code ?? 'unknown'}` },
+            error: { message: exitErrorMessage('Codex', code, run.currentChildStderr) },
             output: [],
           },
         },
@@ -1193,6 +1271,10 @@ export class CodingAgentRunManager {
       this.handleCodexItemCompleted(run, event.item || event)
       return
     }
+    if (type === 'response_item') {
+      this.handleCodexResponseItem(run, event.payload || event.item || event)
+      return
+    }
     if (type === 'turn.completed') {
       run.codexPendingUsage = event.usage
       return
@@ -1210,6 +1292,15 @@ export class CodingAgentRunManager {
     }
     if (method === 'item/agentMessage/delta' || method === 'item/assistantMessage/delta') {
       this.appendCodexText(run, String(params.delta || params.text || ''))
+      return
+    }
+    if (
+      method === 'item/reasoning/delta' ||
+      method === 'item/reasoningText/delta' ||
+      method === 'item/reasoningSummary/delta' ||
+      method === 'item/thinking/delta'
+    ) {
+      this.appendCodexReasoning(run, this.codexReasoningText(params))
       return
     }
     if (method === 'item/started') {
@@ -1270,6 +1361,10 @@ export class CodingAgentRunManager {
 
   private handleCodexItemCompleted(run: ManagedCodingAgentRun, item: any) {
     const itemType = this.codexItemType(item)
+    if (this.isCodexReasoningItem(itemType)) {
+      this.appendCodexReasoning(run, this.codexReasoningText(item))
+      return
+    }
     if (
       itemType === 'agent_message' ||
       itemType === 'assistant_message' ||
@@ -1331,6 +1426,23 @@ export class CodingAgentRunManager {
     })
   }
 
+  private handleCodexResponseItem(run: ManagedCodingAgentRun, item: any) {
+    const itemType = this.codexItemType(item)
+    if (this.isCodexReasoningItem(itemType)) {
+      this.appendCodexReasoning(run, this.codexReasoningText(item))
+      return
+    }
+    if (
+      itemType === 'agent_message' ||
+      itemType === 'assistant_message' ||
+      itemType === 'agentMessage' ||
+      itemType === 'assistantMessage' ||
+      itemType === 'message'
+    ) {
+      this.appendCodexFinalText(run, String(item.text || item.message || item.content || ''))
+    }
+  }
+
   private codexItemType(item: any): string {
     return String(item?.type || item?.item_type || item?.itemType || '').trim()
   }
@@ -1340,6 +1452,27 @@ export class CodingAgentRunManager {
       itemType === 'mcp_tool_call' ||
       itemType === 'web_search' ||
       itemType === 'file_change'
+  }
+
+  private isCodexReasoningItem(itemType: string): boolean {
+    return itemType === 'reasoning' ||
+      itemType === 'reasoning_text' ||
+      itemType === 'reasoning_summary' ||
+      itemType === 'thinking'
+  }
+
+  private codexReasoningText(item: any): string {
+    if (typeof item?.delta === 'string') return item.delta
+    if (typeof item?.text === 'string') return item.text
+    if (typeof item?.summary === 'string') return item.summary
+    if (typeof item?.reasoning === 'string') return item.reasoning
+    if (Array.isArray(item?.summary)) {
+      return item.summary
+        .map((part: any) => typeof part?.text === 'string' ? part.text : typeof part === 'string' ? part : '')
+        .filter(Boolean)
+        .join('')
+    }
+    return ''
   }
 
   private isRedundantCodexExecToolItem(item: any, itemType: string): boolean {
@@ -1427,6 +1560,19 @@ export class CodingAgentRunManager {
         output_index: 0,
         content_index: 0,
         delta,
+      },
+    })
+  }
+
+  private appendCodexReasoning(run: ManagedCodingAgentRun, text: string) {
+    if (!text) return
+    this.handleClaudePrintResponseEvent(run, {
+      type: 'response.reasoning.delta',
+      data: {
+        type: 'response.reasoning.delta',
+        item_id: run.printMessageId,
+        output_index: 0,
+        delta: text,
       },
     })
   }
