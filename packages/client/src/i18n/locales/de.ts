@@ -443,6 +443,7 @@ export default {
       reloadMcp: 'MCP-Server neu laden',
     },
     attachFiles: 'Dateien anhangen',
+    dropFilesToAttach: 'Dateien zum Anhängen ablegen',
     reasoningEffort: {
       tooltip: 'Denkaufwand',
       defaultLabel: 'Standard',

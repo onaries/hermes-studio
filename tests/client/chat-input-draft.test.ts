@@ -139,4 +139,22 @@ describe('ChatInput draft persistence', () => {
     expect(store.sessions[0].reasoningEffort).toBe('high')
     expect(localStorage.getItem('hermes:reasoning_effort:session-reasoning')).toBe('high')
   })
+
+  it('exposes a file drop helper that adds attachment previews', async () => {
+    const createObjectURL = vi.fn(() => 'blob:drop-test')
+    const revokeObjectURL = vi.fn()
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL })
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL })
+    const wrapper = mountForSession('session-file-drop')
+    const file = new File(['hello'], 'notes.txt', { type: 'text/plain' })
+
+    ;(wrapper.vm as any).addFiles([file])
+    await nextTick()
+
+    expect(createObjectURL).toHaveBeenCalledWith(file)
+    expect(wrapper.find('.attachment-preview').exists()).toBe(true)
+    expect(wrapper.text()).toContain('notes.txt')
+
+    wrapper.unmount()
+  })
 })

@@ -444,6 +444,7 @@ export default {
       reloadMcp: 'Reload MCP servers',
     },
     attachFiles: 'Attach files',
+    dropFilesToAttach: 'Drop files to attach',
     reasoningEffort: {
       tooltip: 'Reasoning effort',
       defaultLabel: 'Default',

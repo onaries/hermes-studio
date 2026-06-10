@@ -490,6 +490,16 @@ function addFile(file: File) {
   })
 }
 
+
+function addFiles(files: File[] | FileList) {
+  for (const file of Array.from(files)) addFile(file)
+  textareaRef.value?.focus()
+}
+
+defineExpose({
+  addFiles,
+})
+
 function handleAttachClick() {
   fileInputRef.value?.click()
 }
@@ -497,7 +507,7 @@ function handleAttachClick() {
 function handleFileChange(e: Event) {
   const input = e.target as HTMLInputElement
   if (!input.files) return
-  for (const file of input.files) addFile(file)
+  addFiles(input.files)
   input.value = ''
 }
 
@@ -545,8 +555,7 @@ function handleDrop(e: DragEvent) {
   isDragging.value = false
   const files = Array.from(e.dataTransfer?.files || [])
   if (!files.length) return
-  for (const file of files) addFile(file)
-  textareaRef.value?.focus()
+  addFiles(files)
 }
 
 // --- Send ---

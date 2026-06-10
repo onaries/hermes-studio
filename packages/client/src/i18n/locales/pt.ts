@@ -443,6 +443,7 @@ export default {
       reloadMcp: 'Recarregar servidores MCP',
     },
     attachFiles: 'Anexar arquivos',
+    dropFilesToAttach: 'Solte arquivos para anexar',
     reasoningEffort: {
       tooltip: 'Esforço de raciocínio',
       defaultLabel: 'Padrão',

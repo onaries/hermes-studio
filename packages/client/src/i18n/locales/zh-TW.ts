@@ -443,6 +443,7 @@ export default {
       reloadMcp: '重載 MCP 伺服器',
     },
     attachFiles: '新增附件',
+    dropFilesToAttach: '拖放檔案以附加',
     reasoningEffort: {
       tooltip: '推理強度',
       defaultLabel: '預設',
