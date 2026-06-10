@@ -396,6 +396,7 @@ export default {
   // Chat
   chat: {
     contextRemaining: 'restante',
+    liveTps: 'TPS',
     contextClickToEdit: 'Clique para editar o tamanho do contexto',
     contextEditTitle: 'Editar tamanho do contexto',
     contextEditDesc: 'Definir o limite de tamanho do contexto para o modelo atual (em tokens)',
@@ -444,6 +445,13 @@ export default {
     },
     attachFiles: 'Anexar arquivos',
     dropFilesToAttach: 'Solte arquivos para anexar',
+    todoPanel: {
+      title: 'Todo',
+      subtitle: 'Todos os itens Todo desta solicitação ativa.',
+      total: 'Itens',
+      hide: 'Ocultar Todo',
+      show: 'Mostrar Todo',
+    },
     reasoningEffort: {
       tooltip: 'Esforço de raciocínio',
       defaultLabel: 'Padrão',

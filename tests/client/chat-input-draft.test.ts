@@ -117,6 +117,33 @@ describe('ChatInput draft persistence', () => {
     expect(wrapper.find('.context-bar').exists()).toBe(false)
   })
 
+  it('shows live TPS beside remaining context when available', async () => {
+    const wrapper = mountForSession('session-live-tps', {
+      inputTokens: 1200,
+      outputTokens: 300,
+      contextTokens: 1500,
+      liveTps: 42.3,
+    })
+    await nextTick()
+
+    expect(wrapper.find('.context-info').text()).toContain('42.3 chat.liveTps')
+    expect(wrapper.find('.live-tps').exists()).toBe(true)
+  })
+
+  it('shows live TPS even before context usage has settled', async () => {
+    const wrapper = mountForSession('session-live-tps-only', {
+      inputTokens: 0,
+      outputTokens: 0,
+      contextTokens: 0,
+      liveTps: 18.6,
+    })
+    await nextTick()
+
+    expect(wrapper.find('.context-info').text()).toBe('18.6 chat.liveTps')
+    expect(wrapper.find('.live-tps').exists()).toBe(true)
+    expect(wrapper.find('.context-bar').exists()).toBe(false)
+  })
+
   it('hides reasoning effort selector for coding-agent sessions', async () => {
     const wrapper = mountForSession('session-codex', {
       source: 'coding_agent',

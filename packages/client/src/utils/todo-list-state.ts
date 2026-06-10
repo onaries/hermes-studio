@@ -1,22 +1,22 @@
 import type { Message } from '@/stores/hermes/chat'
 import type { TodoToolStatus } from './todo-tool-summary'
 
-export interface TodoDrawerItem {
+export interface TodoListItem {
   id: string
   content: string
   status: TodoToolStatus
   updatedAt: number
 }
 
-export interface TodoDrawerStatusSection {
+export interface TodoListStatusSection {
   status: TodoToolStatus
   label: string
-  items: TodoDrawerItem[]
+  items: TodoListItem[]
 }
 
-export interface TodoDrawerList {
-  items: TodoDrawerItem[]
-  sections: TodoDrawerStatusSection[]
+export interface TodoListState {
+  items: TodoListItem[]
+  sections: TodoListStatusSection[]
   total: number
   counts: Record<TodoToolStatus, number>
   lastUpdatedAt: number | null
@@ -25,7 +25,6 @@ export interface TodoDrawerList {
 type Translator = (key: string, params?: Record<string, unknown>) => string
 
 const TODO_STATUSES: TodoToolStatus[] = ['in_progress', 'pending', 'completed', 'cancelled']
-const VISIBLE_TODO_STATUSES = new Set<TodoToolStatus>(['in_progress'])
 const TODO_TOOL_NAMES = new Set(['todo', 'functions.todo'])
 
 type TodoPayload = {
@@ -66,7 +65,7 @@ function normalizeStatus(value: unknown): TodoToolStatus | null {
   return TODO_STATUSES.includes(value as TodoToolStatus) ? value as TodoToolStatus : null
 }
 
-function normalizeTodos(payload: TodoPayload | null, timestamp: number): TodoDrawerItem[] {
+function normalizeTodos(payload: TodoPayload | null, timestamp: number): TodoListItem[] {
   if (!payload || !Array.isArray(payload.todos)) return []
 
   return payload.todos.flatMap((item, index) => {
@@ -83,7 +82,7 @@ function normalizeTodos(payload: TodoPayload | null, timestamp: number): TodoDra
   })
 }
 
-function applyPayload(state: Map<string, TodoDrawerItem>, payload: TodoPayload | null, timestamp: number) {
+function applyPayload(state: Map<string, TodoListItem>, payload: TodoPayload | null, timestamp: number) {
   const todos = normalizeTodos(payload, timestamp)
   if (todos.length === 0) return false
 
@@ -97,8 +96,8 @@ function applyPayload(state: Map<string, TodoDrawerItem>, payload: TodoPayload |
   return true
 }
 
-export function buildTodoDrawerList(messages: Message[], t: Translator): TodoDrawerList {
-  const state = new Map<string, TodoDrawerItem>()
+export function buildTodoListState(messages: Message[], t: Translator): TodoListState {
+  const state = new Map<string, TodoListItem>()
   let lastUpdatedAt: number | null = null
 
   for (const message of messages) {
@@ -119,7 +118,7 @@ export function buildTodoDrawerList(messages: Message[], t: Translator): TodoDra
     if (appliedArgs) lastUpdatedAt = timestamp
   }
 
-  const items = Array.from(state.values()).filter(item => VISIBLE_TODO_STATUSES.has(item.status)).sort((a, b) => {
+  const items = Array.from(state.values()).sort((a, b) => {
     const statusOrder = TODO_STATUSES.indexOf(a.status) - TODO_STATUSES.indexOf(b.status)
     if (statusOrder !== 0) return statusOrder
     return b.updatedAt - a.updatedAt

@@ -102,6 +102,7 @@ export interface Session {
   inputTokens?: number
   outputTokens?: number
   contextTokens?: number
+  liveTps?: number | null
   endedAt?: number | null
   lastActiveAt?: number
   workspace?: string | null
@@ -557,6 +558,7 @@ export const useChatStore = defineStore('chat', () => {
   const activeSessionId = ref<string | null>(null)
   const focusMessageId = ref<string | null>(null)
   const streamStates = ref<Map<string, { abort: () => void }>>(new Map())
+  const liveTpsTrackers = new Map<string, { startedAt: number; outputTokens: number }>()
   const latestCompletionNotification = ref<CompletionNotification | null>(null)
   /** sessionId → server-reported isWorking status */
   const serverWorking = ref<Set<string>>(new Set())
@@ -629,6 +631,42 @@ export const useChatStore = defineStore('chat', () => {
 
   function isSessionLive(sessionId: string): boolean {
     return streamStates.value.has(sessionId) || serverWorking.value.has(sessionId)
+  }
+
+  function estimateLiveOutputTokens(delta: string): number {
+    const trimmed = delta.trim()
+    if (!trimmed) return 0
+    const cjkMatches = trimmed.match(/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/g)
+    const cjkCount = cjkMatches?.length || 0
+    const nonCjkText = trimmed.replace(/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/g, '')
+    const nonCjkCount = Math.ceil(nonCjkText.length / 4)
+    return Math.max(1, cjkCount + nonCjkCount)
+  }
+
+  function setSessionLiveTps(sessionId: string, value: number | null) {
+    const session = sessions.value.find(s => s.id === sessionId)
+    if (session) session.liveTps = value
+  }
+
+  function resetLiveTps(sessionId: string) {
+    liveTpsTrackers.set(sessionId, { startedAt: Date.now(), outputTokens: 0 })
+    setSessionLiveTps(sessionId, null)
+  }
+
+  function recordLiveTpsDelta(sessionId: string, delta: string) {
+    const estimatedTokens = estimateLiveOutputTokens(delta)
+    if (estimatedTokens <= 0) return
+    const now = Date.now()
+    const tracker = liveTpsTrackers.get(sessionId) || { startedAt: now, outputTokens: 0 }
+    tracker.outputTokens += estimatedTokens
+    liveTpsTrackers.set(sessionId, tracker)
+    const elapsedSeconds = Math.max((now - tracker.startedAt) / 1000, 0.25)
+    setSessionLiveTps(sessionId, Math.round((tracker.outputTokens / elapsedSeconds) * 10) / 10)
+  }
+
+  function stopLiveTpsTracking(sessionId: string, clearValue = false) {
+    liveTpsTrackers.delete(sessionId)
+    if (clearValue) setSessionLiveTps(sessionId, null)
   }
 
   function clearActiveSession() {
@@ -1987,6 +2025,7 @@ export const useChatStore = defineStore('chat', () => {
       const cleanup = () => {
         streamStates.value.delete(sid)
         serverWorking.value.delete(sid)
+        stopLiveTpsTracking(sid)
       }
 
       // Per-active-run flags used to detect silently-swallowed errors at run.completed.
@@ -2168,6 +2207,7 @@ export const useChatStore = defineStore('chat', () => {
           switch (evt.event) {
             case 'run.started':
               serverWorking.value.add(sid)
+              resetLiveTps(sid)
               clearAgentEventMessages(sid)
               setAbortState(null)
               setCompressionState(sid, null)
@@ -2324,6 +2364,7 @@ export const useChatStore = defineStore('chat', () => {
               if (evt.delta) {
                 runProducedAssistantText = true
                 runProducedAssistantContent = true
+                recordLiveTpsDelta(sid, evt.delta)
               }
               const msgs = getSessionMsgs(sid)
               const last = activeAssistantMessageId
@@ -2702,6 +2743,7 @@ export const useChatStore = defineStore('chat', () => {
       closed = true
       streamStates.value.delete(sid)
       serverWorking.value.delete(sid)
+      stopLiveTpsTracking(sid)
       // Unregister from global session handlers
       unregisterSessionHandlers(sid)
     }
@@ -2766,6 +2808,7 @@ export const useChatStore = defineStore('chat', () => {
 
         case 'run.started':
           serverWorking.value.add(sid)
+          resetLiveTps(sid)
           clearAgentEventMessages(sid)
           setAbortState(null)
           setCompressionState(sid, null)
@@ -2894,6 +2937,7 @@ export const useChatStore = defineStore('chat', () => {
           if (evt.delta) {
             runProducedAssistantText = true
             runProducedAssistantContent = true
+            recordLiveTpsDelta(sid, evt.delta)
           }
           const msgs = getSessionMsgs(sid)
           const last = activeAssistantMessageId

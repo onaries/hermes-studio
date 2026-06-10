@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTodoDrawerList } from '@/utils/todo-drawer-list'
+import { buildTodoListState } from '@/utils/todo-list-state'
 import type { Message } from '@/stores/hermes/chat'
 
 const t = (key: string) => ({
@@ -22,7 +22,7 @@ function toolMessage(id: string, timestamp: number, toolArgs?: unknown, toolResu
   }
 }
 
-describe('todo drawer list', () => {
+describe('todo list state', () => {
   it('builds the current todo list from merged todo updates', () => {
     const messages = [
       toolMessage('1', 1000, JSON.stringify({ merge: false, todos: [
@@ -35,15 +35,17 @@ describe('todo drawer list', () => {
       ] })),
     ]
 
-    const list = buildTodoDrawerList(messages, t)
+    const list = buildTodoListState(messages, t)
 
-    expect(list.total).toBe(1)
-    expect(list.counts.completed).toBe(0)
-    expect(list.counts.pending).toBe(0)
+    expect(list.total).toBe(3)
+    expect(list.counts.completed).toBe(1)
+    expect(list.counts.pending).toBe(1)
     expect(list.counts.in_progress).toBe(1)
-    expect(list.sections.map(section => section.status)).toEqual(['in_progress'])
+    expect(list.sections.map(section => section.status)).toEqual(['in_progress', 'pending', 'completed'])
     expect(list.items.map(item => [item.id, item.status])).toEqual([
       ['c', 'in_progress'],
+      ['b', 'pending'],
+      ['a', 'completed'],
     ])
   })
 
@@ -55,10 +57,13 @@ describe('todo drawer list', () => {
       ] })),
     ]
 
-    const list = buildTodoDrawerList(messages, t)
+    const list = buildTodoListState(messages, t)
 
-    expect(list.total).toBe(1)
-    expect(list.items[0]).toMatchObject({ id: 'b', content: 'Run focused test', status: 'in_progress' })
+    expect(list.total).toBe(2)
+    expect(list.items.map(item => [item.id, item.status])).toEqual([
+      ['b', 'in_progress'],
+      ['a', 'pending'],
+    ])
   })
 
   it('ignores non-todo tool messages and invalid todo payloads', () => {
@@ -67,7 +72,7 @@ describe('todo drawer list', () => {
       toolMessage('2', 2000, JSON.stringify({ todos: [{ id: 'bad', content: '', status: 'pending' }] })),
     ]
 
-    const list = buildTodoDrawerList(messages, t)
+    const list = buildTodoListState(messages, t)
 
     expect(list.total).toBe(0)
     expect(list.sections).toEqual([])

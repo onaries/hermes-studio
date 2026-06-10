@@ -119,11 +119,11 @@ describe('tool trace visibility', () => {
     useToolTraceVisibility().setToolTraceVisible(true)
   })
 
-  function mountLiveList() {
+  function mountLiveList(messages: Message[] = sampleMessages) {
     const chatStore = useChatStore()
     chatStore.activeSessionId = 'session-1'
-    chatStore.messages = [...sampleMessages]
-    chatStore.activeSession = makeSession(sampleMessages)
+    chatStore.messages = [...messages]
+    chatStore.activeSession = makeSession(messages)
     chatStore.abortState = { aborting: true, synced: false }
 
     return mount(MessageList, {
@@ -148,6 +148,28 @@ describe('tool trace visibility', () => {
     expect(wrapper.findAll('.tool-call-name').map(node => node.text())).toContain('read_file')
     const readFileTool = wrapper.findAll('.tool-call-item').find(node => node.text().includes('read_file'))
     expect(readFileTool?.attributes('title')).toContain('/Users/safemotion/Documents/projects/safemotion/clip/really/long/file/path/that/does/not/fit/on/one/line.ts')
+  })
+
+  it('renders the current todo panel below the live tool panel', () => {
+    const messages: Message[] = [
+      { id: 'user-1', role: 'user', content: 'do the thing', timestamp: 1 },
+      { id: 'tool-read', role: 'tool', content: '', timestamp: 2, toolName: 'read_file', toolArgs: { path: '/tmp/file.ts' }, toolResult: 'ok', toolStatus: 'done' },
+      { id: 'tool-todo', role: 'tool', content: '', timestamp: 3, toolName: 'todo', toolArgs: JSON.stringify({ todos: [
+        { id: 'a', content: 'Plan patch', status: 'completed' },
+        { id: 'b', content: 'Apply patch', status: 'in_progress' },
+        { id: 'c', content: 'Verify behavior', status: 'pending' },
+      ] }), toolResult: '{}', toolStatus: 'done' },
+    ]
+    const wrapper = mountLiveList(messages)
+    const html = wrapper.html()
+
+    expect(wrapper.find('.tool-calls-panel').exists()).toBe(true)
+    expect(wrapper.find('.todo-panel').exists()).toBe(true)
+    expect(html.indexOf('streaming-indicator')).toBeLessThan(html.indexOf('todo-panel'))
+    expect(html.indexOf('tool-calls-panel')).toBeLessThan(html.indexOf('todo-panel'))
+    expect(wrapper.text()).toContain('Plan patch')
+    expect(wrapper.text()).toContain('Apply patch')
+    expect(wrapper.text()).toContain('Verify behavior')
   })
 
   it('applies the same default-visible rule to history sessions', () => {

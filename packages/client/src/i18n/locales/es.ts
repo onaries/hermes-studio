@@ -396,6 +396,7 @@ export default {
   // Chat
   chat: {
     contextRemaining: 'restante',
+    liveTps: 'TPS',
     contextClickToEdit: 'Haz clic para editar la longitud del contexto',
     contextEditTitle: 'Editar longitud del contexto',
     contextEditDesc: 'Establecer el límite de longitud del contexto para el modelo actual (en tokens)',
@@ -444,6 +445,13 @@ export default {
     },
     attachFiles: 'Adjuntar archivos',
     dropFilesToAttach: 'Suelta archivos para adjuntarlos',
+    todoPanel: {
+      title: 'Todo',
+      subtitle: 'Todos los elementos Todo de esta solicitud activa.',
+      total: 'Elementos',
+      hide: 'Ocultar Todo',
+      show: 'Mostrar Todo',
+    },
     reasoningEffort: {
       tooltip: 'Esfuerzo de razonamiento',
       defaultLabel: 'Predeterminado',

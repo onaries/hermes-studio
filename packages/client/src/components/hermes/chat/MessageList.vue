@@ -19,6 +19,7 @@ import { ref, computed, nextTick, onBeforeUnmount, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import VirtualMessageList from "./VirtualMessageList.vue";
 import MessageItem from "./MessageItem.vue";
+import TodoPanel from "./TodoPanel.vue";
 import { useChatStore } from "@/stores/hermes/chat";
 import thinkingImageLight from "@/assets/thinking-light.gif";
 import thinkingImageDark from "@/assets/thinking-dark.gif";
@@ -560,6 +561,7 @@ defineExpose({
           </div>
         </div>
         </Transition>
+        <TodoPanel />
       </template>
     </VirtualMessageList>
     <Transition name="queue-float">
