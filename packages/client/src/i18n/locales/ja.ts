@@ -443,6 +443,7 @@ export default {
       reloadMcp: 'MCP サーバーを再読み込み',
     },
     attachFiles: 'ファイルを添付',
+    dropFilesToAttach: 'ファイルをドロップして添付',
     reasoningEffort: {
       tooltip: '推論の労力',
       defaultLabel: '既定',

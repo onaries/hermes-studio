@@ -47,6 +47,9 @@ const showDrawer = ref(false);
 const drawerActiveTab = ref<"terminal" | "files" | "todo">("files");
 const showOutline = ref(false);
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
+const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
+const isFileDragOverChat = ref(false);
+let chatFileDragDepth = 0;
 
 const currentMode = ref<"chat" | "live">("chat");
 
@@ -990,6 +993,41 @@ function sessionModelAlias(model: string, provider: string) {
   return appStore.getModelAlias(model, provider);
 }
 
+function dragEventHasFiles(event: DragEvent): boolean {
+  return Array.from(event.dataTransfer?.types || []).includes("Files");
+}
+
+function handleChatFileDragOver(event: DragEvent) {
+  if (!dragEventHasFiles(event)) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+}
+
+function handleChatFileDragEnter(event: DragEvent) {
+  if (!dragEventHasFiles(event)) return;
+  event.preventDefault();
+  chatFileDragDepth += 1;
+  isFileDragOverChat.value = true;
+}
+
+function handleChatFileDragLeave(event: DragEvent) {
+  if (!dragEventHasFiles(event)) return;
+  chatFileDragDepth = Math.max(0, chatFileDragDepth - 1);
+  if (chatFileDragDepth === 0) {
+    isFileDragOverChat.value = false;
+  }
+}
+
+function handleChatFileDrop(event: DragEvent) {
+  if (!dragEventHasFiles(event)) return;
+  event.preventDefault();
+  const files = Array.from(event.dataTransfer?.files || []);
+  chatFileDragDepth = 0;
+  isFileDragOverChat.value = false;
+  if (!files.length) return;
+  chatInputRef.value?.addFiles(files);
+}
+
 async function selectSessionModel(model: string, provider: string) {
   const meta = sessionModelBaseGroups.value.find((group) => group.provider === provider)?.model_meta?.[model];
   if (meta?.disabled || !sessionModelSessionId.value) return;
@@ -1572,8 +1610,25 @@ async function handleSessionModelCustomSubmit() {
       </header>
 
       <template v-if="currentMode === 'chat'">
-        <div class="chat-content-wrapper">
+        <div
+          class="chat-content-wrapper"
+          :class="{ 'chat-content-wrapper--file-drag': isFileDragOverChat }"
+          @dragover="handleChatFileDragOver"
+          @dragenter="handleChatFileDragEnter"
+          @dragleave="handleChatFileDragLeave"
+          @drop="handleChatFileDrop"
+        >
           <div class="chat-main-content">
+            <div v-if="isFileDragOverChat" class="chat-file-drop-overlay">
+              <div class="chat-file-drop-card">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                <span>{{ t("chat.dropFilesToAttach") }}</span>
+              </div>
+            </div>
             <MessageList ref="messageListRef" />
             <div v-if="visibleApproval || visibleClarify" class="pending-interaction-stack">
               <div v-if="visibleApproval" class="approval-bar">
@@ -1742,7 +1797,7 @@ async function handleSessionModelCustomSubmit() {
             @navigate="handleOutlineNavigate"
           />
         </div>
-        <ChatInput />
+        <ChatInput ref="chatInputRef" />
       </template>
       <ConversationMonitorPane
         v-else
@@ -2358,6 +2413,40 @@ async function handleSessionModelCustomSubmit() {
   position: relative;
   min-width: 0;
   max-width: 100%;
+}
+
+.chat-content-wrapper--file-drag {
+  outline: 2px dashed var(--accent-info);
+  outline-offset: -8px;
+}
+
+.chat-file-drop-overlay {
+  position: absolute;
+  inset: 12px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--accent-info);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+.chat-file-drop-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(var(--accent-info-rgb), 0.35);
+  background: $bg-card;
+  color: var(--accent-info);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.18);
 }
 
 .chat-main-content {

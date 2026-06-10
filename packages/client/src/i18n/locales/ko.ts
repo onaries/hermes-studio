@@ -443,6 +443,7 @@ export default {
       reloadMcp: 'MCP 서버 다시 로드',
     },
     attachFiles: '파일 첨부',
+    dropFilesToAttach: '파일을 놓아 첨부',
     reasoningEffort: {
       tooltip: '추론 노력',
       defaultLabel: '기본값',

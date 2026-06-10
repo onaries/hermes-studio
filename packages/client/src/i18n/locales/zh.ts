@@ -444,6 +444,7 @@ export default {
       reloadMcp: '重载 MCP 服务器',
     },
     attachFiles: '添加附件',
+    dropFilesToAttach: '拖放文件以附加',
     reasoningEffort: {
       tooltip: '推理强度',
       defaultLabel: '默认',

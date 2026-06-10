@@ -361,6 +361,7 @@ export default {
       destroy: 'Освободить Bridge Agent текущего сеанса',
     },
     attachFiles: 'Прикрепить файлы',
+    dropFilesToAttach: 'Перетащите файлы для вложения',
     reasoningEffort: {
       tooltip: 'Глубина рассуждений',
       defaultLabel: 'По умолчанию',
