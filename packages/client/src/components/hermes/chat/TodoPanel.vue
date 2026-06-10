@@ -75,6 +75,10 @@ function itemTitle(item: TodoListItem): string {
 @use "@/styles/variables" as *;
 
 .todo-panel {
+  width: fit-content;
+  min-width: min(280px, calc(100% - 32px));
+  max-width: min(560px, calc(100% - 32px));
+  box-sizing: border-box;
   flex-shrink: 0;
   margin: 4px 16px 0;
   padding: 5px 8px;
@@ -172,6 +176,7 @@ function itemTitle(item: TodoListItem): string {
   grid-template-columns: auto auto minmax(0, 1fr);
   gap: 6px;
   align-items: center;
+  min-width: 0;
   padding: 3px 8px;
   border: 1px solid rgba(var(--border-color-rgb), 0.5);
   border-radius: $radius-sm;
@@ -267,7 +272,9 @@ function itemTitle(item: TodoListItem): string {
   color: $text-primary;
   font-size: 11px;
   line-height: 1.35;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @keyframes todo-heading-pulse {
@@ -326,12 +333,20 @@ function itemTitle(item: TodoListItem): string {
 
 @media (max-width: $breakpoint-mobile) {
   .todo-panel {
+    width: auto;
+    min-width: 0;
+    max-width: none;
     margin: 3px 8px 0;
     padding: 4px 6px;
   }
 
   .todo-items-wrap {
     max-height: 96px;
+  }
+
+  .todo-content {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 </style>

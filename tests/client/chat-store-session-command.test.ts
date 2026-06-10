@@ -159,6 +159,69 @@ describe('chat store session.command fanout', () => {
     }
   })
 
+  it('starts live TPS timing at the first streamed token, not at run start', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(1_000)
+      const store = useChatStore()
+      const session = makeSession()
+      store.sessions = [session]
+      store.activeSessionId = 'session-1'
+      store.activeSession = session
+
+      chatApi.sessionCommandHandlers[0]({
+        event: 'session.command',
+        session_id: 'session-1',
+        command: 'goal',
+        action: 'resume',
+        message: 'Goal resumed',
+        started: true,
+        terminal: false,
+      })
+
+      const handlers = chatApi.registerSessionHandlers.mock.calls[0]?.[1]
+      handlers.onRunStarted({ event: 'run.started', session_id: 'session-1' })
+      vi.setSystemTime(61_000)
+      handlers.onMessageDelta({ event: 'message.delta', session_id: 'session-1', delta: 'abcdefghijklmnopqrst' })
+      vi.setSystemTime(62_000)
+      handlers.onMessageDelta({ event: 'message.delta', session_id: 'session-1', delta: 'abcdefghijklmnopqrst' })
+
+      expect(session.liveTps).toBe(10)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('updates live TPS while reasoning deltas stream before answer text', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(1_000)
+      const store = useChatStore()
+      const session = makeSession()
+      store.sessions = [session]
+      store.activeSessionId = 'session-1'
+      store.activeSession = session
+
+      chatApi.sessionCommandHandlers[0]({
+        event: 'session.command',
+        session_id: 'session-1',
+        command: 'goal',
+        action: 'resume',
+        message: 'Goal resumed',
+        started: true,
+        terminal: false,
+      })
+
+      const handlers = chatApi.registerSessionHandlers.mock.calls[0]?.[1]
+      handlers.onRunStarted({ event: 'run.started', session_id: 'session-1' })
+      handlers.onReasoningDelta({ event: 'reasoning.delta', session_id: 'session-1', delta: 'thinking text' })
+
+      expect(session.liveTps).toBeGreaterThan(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('handles approval events for resumed runs and clears stale approvals on completion', () => {
     const store = useChatStore()
     const session = makeSession()
