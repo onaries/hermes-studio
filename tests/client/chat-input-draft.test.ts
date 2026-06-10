@@ -144,6 +144,18 @@ describe('ChatInput draft persistence', () => {
     expect(wrapper.find('.context-bar').exists()).toBe(false)
   })
 
+  it('renders the context bar fill at the current usage width', async () => {
+    const wrapper = mountForSession('session-context-bar', {
+      inputTokens: 120000,
+      outputTokens: 56000,
+      contextTokens: 176000,
+    })
+    await nextTick()
+
+    expect(wrapper.find('.context-bar').exists()).toBe(true)
+    expect(wrapper.find('.context-bar-fill').attributes('style')).toContain('width: 68.75%')
+  })
+
   it('hides reasoning effort selector for coding-agent sessions', async () => {
     const wrapper = mountForSession('session-codex', {
       source: 'coding_agent',

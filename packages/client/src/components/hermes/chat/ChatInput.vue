@@ -1197,6 +1197,7 @@ function isImage(type: string): boolean {
 }
 
 .context-bar-fill {
+  display: block;
   height: 100%;
   background: linear-gradient(90deg, rgba(128, 128, 128, 0.3), rgba(128, 128, 128, 0.6));
   border-radius: 2px;

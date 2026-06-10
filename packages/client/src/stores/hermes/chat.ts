@@ -559,7 +559,7 @@ export const useChatStore = defineStore('chat', () => {
   const activeSessionId = ref<string | null>(null)
   const focusMessageId = ref<string | null>(null)
   const streamStates = ref<Map<string, { abort: () => void }>>(new Map())
-  const liveTpsTrackers = new Map<string, { startedAt: number; outputTokens: number }>()
+  const liveTpsTrackers = new Map<string, { startedAt: number | null; outputTokens: number }>()
   const latestCompletionNotification = ref<CompletionNotification | null>(null)
   /** sessionId → server-reported isWorking status */
   const serverWorking = ref<Set<string>>(new Set())
@@ -650,7 +650,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   function resetLiveTps(sessionId: string) {
-    liveTpsTrackers.set(sessionId, { startedAt: Date.now(), outputTokens: 0 })
+    liveTpsTrackers.set(sessionId, { startedAt: null, outputTokens: 0 })
     setSessionLiveTps(sessionId, null)
   }
 
@@ -658,10 +658,12 @@ export const useChatStore = defineStore('chat', () => {
     const estimatedTokens = estimateLiveOutputTokens(delta)
     if (estimatedTokens <= 0) return
     const now = Date.now()
-    const tracker = liveTpsTrackers.get(sessionId) || { startedAt: now, outputTokens: 0 }
+    const tracker = liveTpsTrackers.get(sessionId) || { startedAt: null, outputTokens: 0 }
+    if (tracker.startedAt == null) tracker.startedAt = now
+    const startedAt = tracker.startedAt
     tracker.outputTokens += estimatedTokens
     liveTpsTrackers.set(sessionId, tracker)
-    const elapsedSeconds = Math.max((now - tracker.startedAt) / 1000, 0.25)
+    const elapsedSeconds = Math.max((now - startedAt) / 1000, 0.25)
     setSessionLiveTps(sessionId, Math.round((tracker.outputTokens / elapsedSeconds) * 10) / 10)
   }
 
@@ -2358,6 +2360,7 @@ export const useChatStore = defineStore('chat', () => {
             case 'thinking.delta': {
               const text = evt.text || evt.delta || ''
               if (!text) break
+              recordLiveTpsDelta(sid, text)
               runProducedAssistantText = true
               const msgs = getSessionMsgs(sid)
               const reasoningTargetId = reasoningAssistantMessageId || activeAssistantMessageId
@@ -2939,6 +2942,7 @@ export const useChatStore = defineStore('chat', () => {
         case 'thinking.delta': {
           const text = evt.text || evt.delta || ''
           if (!text) break
+          recordLiveTpsDelta(sid, text)
           runProducedAssistantText = true
           const msgs = getSessionMsgs(sid)
           const reasoningTargetId = reasoningAssistantMessageId || activeAssistantMessageId
