@@ -467,7 +467,9 @@ const liveTps = computed(() => {
   const value = chatStore.activeSession?.liveTps
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null
 })
-const showContextMetrics = computed(() => !isCodingAgentSession.value && (showContextUsage.value || liveTps.value != null))
+const showLiveTps = computed(() => settingsStore.display.show_live_tps !== false)
+const visibleLiveTps = computed(() => showLiveTps.value ? liveTps.value : null)
+const showContextMetrics = computed(() => !isCodingAgentSession.value && (showContextUsage.value || visibleLiveTps.value != null))
 
 const usagePercent = computed(() =>
   Math.min((totalTokens.value / contextLength.value) * 100, 100),
@@ -864,8 +866,8 @@ function isImage(type: string): boolean {
             </NTooltip>
             · {{ t('chat.contextRemaining') }} {{ formatTokens(remainingTokens) }}
           </template>
-          <span v-if="liveTps != null" class="live-tps">
-            <span v-if="showContextUsage">· </span>{{ formatTps(liveTps) }} {{ t('chat.liveTps') }}
+          <span v-if="visibleLiveTps != null" class="live-tps">
+            <span v-if="showContextUsage">· </span>{{ formatTps(visibleLiveTps) }} {{ t('chat.liveTps') }}
           </span>
         </span>
         <span v-if="showContextUsage" class="context-bar">

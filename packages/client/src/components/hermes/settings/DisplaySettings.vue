@@ -94,6 +94,9 @@ async function testCompletionNotification() {
     <SettingRow :label="t('settings.display.showCost')" :hint="t('settings.display.showCostHint')">
       <NSwitch :value="settingsStore.display.show_cost" @update:value="v => save({ show_cost: v })" />
     </SettingRow>
+    <SettingRow :label="t('settings.display.showLiveTps')" :hint="t('settings.display.showLiveTpsHint')">
+      <NSwitch :value="settingsStore.display.show_live_tps !== false" @update:value="v => save({ show_live_tps: v })" />
+    </SettingRow>
     <SettingRow :label="t('settings.display.inlineDiffs')" :hint="t('settings.display.inlineDiffsHint')">
       <NSwitch :value="settingsStore.display.inline_diffs" @update:value="v => save({ inline_diffs: v })" />
     </SettingRow>

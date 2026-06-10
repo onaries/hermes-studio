@@ -808,9 +808,13 @@ function handleBatchDeleteConfirm() {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
             </template>
           </NButton>
-          <span class="header-session-title">{{ activeSessionTitle }}</span>
-          <span v-if="activeSessionSource" class="source-badge">{{ getSourceLabel(activeSessionSource) }}</span>
-          <span v-if="historySession?.workspace" class="workspace-badge" :title="historySession.workspace">📁 {{ historySession.workspace.split('/').pop() || historySession.workspace }}</span>
+          <div class="header-title-stack" :class="{ 'has-workspace': historySession?.workspace }">
+            <span class="header-title-row">
+              <span class="header-session-title">{{ activeSessionTitle }}</span>
+              <span v-if="activeSessionSource" class="source-badge">{{ getSourceLabel(activeSessionSource) }}</span>
+            </span>
+            <span v-if="historySession?.workspace" class="workspace-badge" :title="historySession.workspace">📁 {{ historySession.workspace.split('/').pop() || historySession.workspace }}</span>
+          </div>
         </div>
         <div class="header-actions">
           <NTooltip trigger="hover">
@@ -1178,6 +1182,24 @@ function handleBatchDeleteConfirm() {
   min-width: 0;
 }
 
+.header-title-stack {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
 .header-session-title {
   font-size: 16px;
   font-weight: 600;
@@ -1207,7 +1229,43 @@ function handleBatchDeleteConfirm() {
 
 @media (max-width: $breakpoint-mobile) {
   .chat-header {
-    padding: 16px 12px 16px 52px;
+    padding: 14px 10px 14px 52px;
+  }
+
+  .header-left {
+    gap: 6px;
+  }
+
+  .header-title-stack.has-workspace {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 1px;
+  }
+
+  .header-title-stack.has-workspace .header-title-row {
+    width: 100%;
+    flex: 0 1 auto;
+  }
+
+  .header-title-stack.has-workspace .header-session-title {
+    font-size: 13px;
+    line-height: 1.15;
+  }
+
+  .header-title-stack.has-workspace .source-badge {
+    font-size: 9px;
+    line-height: 13px;
+    padding: 0 5px;
+  }
+
+  .header-title-stack.has-workspace .workspace-badge {
+    max-width: 100%;
+    font-size: 10px;
+    line-height: 1.2;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
   }
 }
 
