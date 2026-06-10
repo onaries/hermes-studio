@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { NSwitch, NSelect, useMessage } from 'naive-ui'
+import { NButton, NSwitch, NSelect, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/hermes/settings'
 import { useTheme, type BrightnessMode } from '@/composables/useTheme'
+import { requestCompletionNotificationPermission, showCompletionNotification, type CompletionNotificationPermissionResult } from '@/utils/completion-notification'
 import SettingRow from './SettingRow.vue'
 
 const settingsStore = useSettingsStore()
@@ -31,51 +32,48 @@ function handleThemeChange(val: string) {
   save({ skin: m })
 }
 
-function showNotificationEnableProbe() {
-  if (typeof window === 'undefined' || !('Notification' in window)) return
-  if (Notification.permission !== 'granted') return
-  try {
-    const notification = new Notification(t('chat.browserNotificationsEnabled'), {
-      body: t('settings.display.browserNotifyOnCompleteHint'),
-      tag: 'hermes-notification-enable-probe',
-      silent: true,
+function notificationPermissionErrorKey(result: CompletionNotificationPermissionResult): string {
+  if (result.reason === 'insecure') return 'settings.display.notifyOnCompleteInsecure'
+  if (result.reason === 'unsupported') return 'settings.display.notifyOnCompleteUnsupported'
+  return 'settings.display.notifyOnCompleteDenied'
+}
+
+async function handleNotifyOnCompleteChange(value: boolean) {
+  if (value) {
+    const result = await requestCompletionNotificationPermission()
+    if (!result.granted) {
+      message.error(t(notificationPermissionErrorKey(result)))
+      return
+    }
+  }
+  await save({ notify_on_complete: value })
+  if (value) {
+    void showCompletionNotification({
+      title: 'Hermes',
+      body: t('settings.display.notifyOnCompleteTest'),
+      icon: '/coding-agents/hermes.png',
+      tag: `hermes-complete-test-${Date.now()}`,
     })
-    window.setTimeout(() => notification.close(), 6000)
-  } catch {
-    // Some desktop/browser environments report granted before the OS surface is ready.
-    // Real completion notifications will still retry through the normal notification path.
   }
 }
 
-async function handleBrowserNotifyOnCompleteChange(enabled: boolean) {
-  if (!enabled) {
-    await save({ browser_notify_on_complete: false })
+async function testCompletionNotification() {
+  const result = await requestCompletionNotificationPermission()
+  if (!result.granted) {
+    message.error(t(notificationPermissionErrorKey(result)))
     return
   }
-
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    message.warning(t('chat.browserNotificationsUnsupported'))
-    await save({ browser_notify_on_complete: false })
+  const shown = await showCompletionNotification({
+    title: 'Hermes',
+    body: t('settings.display.notifyOnCompleteTest'),
+    icon: '/coding-agents/hermes.png',
+    tag: `hermes-complete-test-${Date.now()}`,
+  })
+  if (!shown) {
+    message.error(t('settings.display.notifyOnCompleteTestFailed'))
     return
   }
-
-  if (Notification.permission === 'denied') {
-    message.warning(t('settings.display.browserNotifyOnCompleteDenied'))
-    await save({ browser_notify_on_complete: false })
-    return
-  }
-
-  const permission = Notification.permission === 'granted'
-    ? 'granted'
-    : await Notification.requestPermission()
-  if (permission !== 'granted') {
-    await save({ browser_notify_on_complete: false })
-    return
-  }
-
-  showNotificationEnableProbe()
-  message.success(t('chat.browserNotificationsEnabled'))
-  await save({ browser_notify_on_complete: true })
+  message.success(t('settings.display.notifyOnCompleteTestSent'))
 }
 </script>
 
@@ -102,8 +100,13 @@ async function handleBrowserNotifyOnCompleteChange(enabled: boolean) {
     <SettingRow :label="t('settings.display.bellOnComplete')" :hint="t('settings.display.bellOnCompleteHint')">
       <NSwitch :value="settingsStore.display.bell_on_complete" @update:value="v => save({ bell_on_complete: v })" />
     </SettingRow>
-    <SettingRow :label="t('settings.display.browserNotifyOnComplete')" :hint="t('settings.display.browserNotifyOnCompleteHint')">
-      <NSwitch :value="settingsStore.display.browser_notify_on_complete === true" @update:value="handleBrowserNotifyOnCompleteChange" />
+    <SettingRow :label="t('settings.display.notifyOnComplete')" :hint="`${t('settings.display.notifyOnCompleteHint')} ${t('settings.display.notifyOnCompleteMacHint')}`">
+      <div class="notify-controls">
+        <NSwitch :value="settingsStore.display.notify_on_complete" @update:value="handleNotifyOnCompleteChange" />
+        <NButton size="tiny" secondary @click="testCompletionNotification">
+          {{ t('settings.display.notifyOnCompleteTestButton') }}
+        </NButton>
+      </div>
     </SettingRow>
     <SettingRow :label="t('settings.display.mobileEnterToSend')" :hint="t('settings.display.mobileEnterToSendHint')">
       <NSwitch :value="settingsStore.display.mobile_enter_to_send === true" @update:value="v => save({ mobile_enter_to_send: v })" />
@@ -116,5 +119,11 @@ async function handleBrowserNotifyOnCompleteChange(enabled: boolean) {
 
 .settings-section {
   margin-top: 16px;
+}
+
+.notify-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 </style>

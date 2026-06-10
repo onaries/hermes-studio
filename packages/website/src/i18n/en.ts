@@ -20,42 +20,57 @@ export default {
     github: 'GitHub',
   },
   hero: {
-    title: 'Self-Hosted AI Chat Dashboard',
-    subtitle: 'Open-source AI agent dashboard — streaming chat, multi-model routing, Kanban boards, usage analytics, web terminal, all in one self-hosted interface.',
-    cta: 'Get Started',
+    navLabel: 'Hero navigation',
+    nav: {
+      workspace: 'Workspace',
+      runtime: 'Runtime',
+      automation: 'Automation',
+      deploy: 'Deploy',
+    },
+    badge: 'Local-first AI Agent Workspace',
+    title: 'Hermes Studio',
+    subtitle: 'A desktop app and local control plane for Hermes Agent. Chat, manage profiles, run coding agents, inspect files, automate jobs, and keep your runtime under your control.',
+    cta: 'Download Desktop',
+    docsCta: 'Read Docs',
     viewGithub: 'View on GitHub',
+    downloadDesktop: 'Download Desktop',
+    latestRelease: 'Latest Release',
+    getInstallers: 'Get Installers',
+    docsTitle: 'Documentation',
+    docsLibrary: 'Library',
     install: 'npm install -g hermes-web-ui',
+    previewAlt: 'Hermes Studio dashboard preview',
   },
   features: {
-    title: 'Everything You Need',
-    desc: 'A complete AI agent management dashboard with rich features out of the box.',
+    title: 'One Local Console for Hermes Agent',
+    desc: 'Hermes Studio brings chat, runtime management, automation, files, coding agents, and release-ready desktop distribution into one workspace.',
     streaming: {
-      title: 'Streaming Chat',
-      desc: 'Real-time Socket.IO-powered AI conversations with multi-session management, Markdown rendering, and code syntax highlighting.',
+      title: 'Agent Chat',
+      desc: 'Streaming Hermes Agent conversations with sessions, Markdown, tool traces, uploads, downloads, model badges, and context usage.',
     },
     platforms: {
-      title: '8 Platforms',
-      desc: 'Unified management for Telegram, Discord, Slack, WhatsApp, Matrix, Feishu, WeChat, and WeCom channels.',
+      title: 'Platform Channels',
+      desc: 'Configure Telegram, Discord, Slack, WhatsApp, Matrix, Feishu, WeChat, and WeCom credentials and behavior from one page.',
     },
     multiModel: {
-      title: 'Multi-Model',
-      desc: 'Support for Claude, GPT, Gemini, DeepSeek, and any OpenAI-compatible provider with auto-discovery.',
+      title: 'Models & Providers',
+      desc: 'Discover models from profile credentials, manage OpenAI-compatible providers, switch defaults, and use OAuth flows for supported services.',
     },
     groupChat: {
       title: 'Group Chat',
       desc: 'Multi-agent chat rooms with mention routing, context compression, and real-time collaboration.',
     },
     kanban: {
-      title: 'Kanban Board',
-      desc: 'Visual task management with 7 status columns, assignee tracking, and filtering for AI-driven workflows.',
+      title: 'Jobs & Kanban',
+      desc: 'Schedule cron jobs, trigger runs immediately, and organize agent work on a profile-aware Kanban board.',
     },
     analytics: {
       title: 'Usage Analytics',
       desc: 'Token usage breakdown, cost tracking, cache hit rates, model distribution, and 30-day trends.',
     },
     profiles: {
-      title: 'Multi-Profile',
-      desc: 'Account-authorized Hermes profiles with isolated config, models, uploads, jobs, usage, memory, skills, plugins, and providers.',
+      title: 'Profiles & Access',
+      desc: 'Account-authorized Hermes profiles with isolated config, models, uploads, jobs, usage, memory, skills, plugins, providers, and visibility.',
     },
     files: {
       title: 'File Browser',
@@ -66,16 +81,16 @@ export default {
       desc: 'Full PTY terminal in the browser with multi-session support via WebSocket and xterm.js.',
     },
     quickInstall: {
-      title: 'One Command',
-      desc: 'Install and start with a single command. Initializes Hermes Studio data, starts the bridge, and opens the browser.',
+      title: 'Desktop Runtime',
+      desc: 'Windows, macOS, and Linux desktop builds bundle the Web UI runtime and manage Hermes Studio state separately from Hermes Agent data.',
     },
     i18n: {
-      title: '8 Languages',
-      desc: 'Built-in support for English, Chinese, German, Spanish, French, Japanese, Korean, and Portuguese.',
+      title: 'Coding Agents & MCP',
+      desc: 'Launch local coding-agent sessions, use Codex and Claude Code proxy routes, and manage the bundled hermes-studio MCP server.',
     },
     theme: {
-      title: 'Dark / Light',
-      desc: 'Pure Ink monochrome design with smooth theme switching. Responsive layout for mobile and desktop.',
+      title: 'Updates & Releases',
+      desc: 'Desktop updates check Cloudflare first with GitHub fallback, while full desktop releases are manually promoted to GitHub Latest.',
     },
   },
   platforms: {
@@ -92,14 +107,35 @@ export default {
   },
   screenshots: {
     localUrl: 'http://localhost:8648',
+    tourLabel: 'Product tour',
     previous: 'Previous screenshot',
     next: 'Next screenshot',
     goTo: 'View screenshot {number}',
     items: [
-      { src: '/image1.png', alt: 'AI chat with image generation' },
-      { src: '/image2.png', alt: 'Chat and file browser' },
-      { src: '/image3.png', alt: 'Multi-panel workspace' },
-      { src: '/image4.png', alt: 'Kanban board' },
+      {
+        src: '/image1.png',
+        alt: 'Hermes Studio chat workspace with Claude Code agent',
+        title: 'Agent Chat',
+        desc: 'Chat with Claude Code, Codex, and Hermes using model routing and session history.',
+      },
+      {
+        src: '/image2.png',
+        alt: 'Hermes Studio version preview workspace',
+        title: 'Version Preview',
+        desc: 'Preview a tag or branch in an isolated workspace with build and log controls.',
+      },
+      {
+        src: '/image3.png',
+        alt: 'Hermes Studio version manager modal',
+        title: 'Version Manager',
+        desc: 'Switch Runtime and Web UI versions, then download assets from GitHub or Cloudflare.',
+      },
+      {
+        src: '/image4.png',
+        alt: 'Hermes Studio file workspace',
+        title: 'File Workspace',
+        desc: 'Browse state, upload files, create folders, and jump between files and terminal.',
+      },
     ],
   },
   install: {
@@ -173,6 +209,9 @@ export default {
     description: 'Self-hosted AI chat dashboard for Hermes Agent.',
     license: 'BSL-1.1 License',
     madeWith: 'Built with Vue 3, Naive UI, and TypeScript.',
+    github: 'Open GitHub',
+    douyin: 'Open Douyin',
+    xiaohongshu: 'Open Xiaohongshu',
   },
   docs: {
     placeholder: 'Select a section from the sidebar to get started.',
@@ -180,6 +219,7 @@ export default {
       gettingStarted: 'Getting Started',
       configuration: 'Configuration',
       features: 'Features',
+      hermesStudioManual: 'Client Manual',
       platforms: 'Platform Guides',
       api: 'API Reference',
     },
@@ -303,6 +343,39 @@ export default {
       analytics: {
         title: 'Usage Analytics',
         content: 'Track token usage (input/output), estimated costs, cache hit rates, session counts, and model distribution. View 30-day daily trends with interactive charts.',
+      },
+    },
+    hermesStudioManual: {
+      title: 'Hermes Studio Client Manual',
+      intro: 'This page publishes the complete Hermes Studio 0.6.12 client operations manual. The full manual is currently authored in Chinese and covers day-to-day usage, configuration, operations, acceptance review, internal training, visible navigation, dialogs, status pages, key actions, common workflows, and risk notes.',
+      open: {
+        title: 'Open the full manual',
+        content: 'The uploaded manual preserves the original HTML layout, annotated screenshots, tables, and PDF export. Use the HTML version for online browsing and the PDF version for offline review, archiving, or training distribution.',
+        links: [
+          {
+            label: 'Open the Chinese HTML manual',
+            href: '/docs/hermes-studio-0.6.12-full-cn/index.html',
+            description: 'Includes the full table of contents, annotated screenshots, workflow sections, tables, and operational notes.',
+          },
+          {
+            label: 'Download the Chinese PDF manual',
+            href: '/docs/hermes-studio-0.6.12-full-cn/hermes-studio-0.6.12-full-cn.pdf',
+            description: 'Best for offline reading, archival use, printing, and training handouts.',
+          },
+        ],
+      },
+      scope: {
+        title: 'Scope',
+        rows: [
+          ['Version', 'Hermes Studio 0.6.12 client operations manual'],
+          ['Language', 'Full manual in Chinese, with bilingual website entry copy'],
+          ['Coverage', 'Login, chat, history, memory, skills, plugins, files, terminal, jobs, group chat, Kanban, usage, logs, MCP, platform integrations, devices, settings, backup, security, and troubleshooting'],
+          ['Audience', 'Individual users, administrators, support teams, acceptance reviewers, and internal training teams'],
+        ],
+      },
+      maintenance: {
+        title: 'Maintenance note',
+        content: 'When the website, reference docs, Hermes agent docs, and the current client UI differ, the manual treats the currently visible client interface as the operational source of truth. For future releases, replace the uploaded HTML/PDF assets and update the version scope on this page.',
       },
     },
     platforms: {

@@ -7,6 +7,7 @@ export interface DisplayConfig {
   busy_input_mode?: string
   bell_on_complete?: boolean
   browser_notify_on_complete?: boolean
+  notify_on_complete?: boolean
   show_reasoning?: boolean
   streaming?: boolean
   inline_diffs?: boolean
