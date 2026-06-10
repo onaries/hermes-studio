@@ -20,42 +20,57 @@ export default {
     github: 'GitHub',
   },
   hero: {
-    title: '自托管 AI 聊天仪表板',
-    subtitle: '开源 AI Agent 仪表板 — 流式对话、多模型调度、看板管理、用量分析、Web 终端，一个界面掌控一切。',
-    cta: '快速开始',
+    navLabel: 'Hero 导航',
+    nav: {
+      workspace: '工作区',
+      runtime: '运行时',
+      automation: '自动化',
+      deploy: '部署',
+    },
+    badge: '本地优先的 AI Agent 工作区',
+    title: 'Hermes Studio',
+    subtitle: '面向 Hermes Agent 的桌面应用和本地控制台。聊天、管理 Profile、运行 Coding Agent、查看文件、自动化任务，并掌控自己的运行环境。',
+    cta: '下载桌面版',
+    docsCta: '查看文档',
     viewGithub: '查看 GitHub',
+    downloadDesktop: '下载桌面版',
+    latestRelease: '最新版本',
+    getInstallers: '获取安装包',
+    docsTitle: '文档',
+    docsLibrary: '资料库',
     install: 'npm install -g hermes-web-ui',
+    previewAlt: 'Hermes Studio 仪表板预览',
   },
   features: {
-    title: '功能齐全',
-    desc: '开箱即用的完整 AI Agent 管理仪表板。',
+    title: 'Hermes Agent 的本地控制台',
+    desc: 'Hermes Studio 把聊天、运行时管理、自动化、文件、Coding Agent 和桌面分发整合到一个工作区。',
     streaming: {
-      title: '流式聊天',
-      desc: '基于 Socket.IO 的实时 AI 对话，支持多会话管理、Markdown 渲染和代码语法高亮。',
+      title: 'Agent 聊天',
+      desc: 'Hermes Agent 流式对话，支持会话、Markdown、工具轨迹、上传下载、模型标签和上下文用量。',
     },
     platforms: {
-      title: '8 大平台',
-      desc: '统一管理 Telegram、Discord、Slack、WhatsApp、Matrix、飞书、微信、企业微信。',
+      title: '平台渠道',
+      desc: '在一个页面配置 Telegram、Discord、Slack、WhatsApp、Matrix、飞书、微信和企业微信的凭证与行为。',
     },
     multiModel: {
-      title: '多模型支持',
-      desc: '支持 Claude、GPT、Gemini、DeepSeek 及任何 OpenAI 兼容模型，自动发现。',
+      title: '模型与 Provider',
+      desc: '从 Profile 凭证自动发现模型，管理 OpenAI 兼容 Provider，切换默认模型，并使用受支持服务的 OAuth 流程。',
     },
     groupChat: {
       title: '群聊协作',
       desc: '多 Agent 聊天室，支持提及路由、上下文压缩和实时协作。',
     },
     kanban: {
-      title: '看板管理',
-      desc: '可视化任务看板，7 个状态列，支持任务分配和筛选。',
+      title: '任务与看板',
+      desc: '创建 Cron 任务、立即触发执行，并在按 Profile 管理的 Kanban 看板中组织 Agent 工作。',
     },
     analytics: {
       title: '用量分析',
       desc: 'Token 用量、费用追踪、缓存命中率、模型分布和 30 天趋势。',
     },
     profiles: {
-      title: '多配置',
-      desc: '按账号授权的 Hermes Profile，隔离配置、模型、上传、任务、用量、记忆、技能、插件和 Provider。',
+      title: 'Profile 与权限',
+      desc: '按账号授权的 Hermes Profile，隔离配置、模型、上传、任务、用量、记忆、技能、插件、Provider 和可见性。',
     },
     files: {
       title: '文件管理',
@@ -66,16 +81,16 @@ export default {
       desc: '浏览器内完整 PTY 终端，基于 WebSocket 和 xterm.js 的多会话支持。',
     },
     quickInstall: {
-      title: '一键安装',
-      desc: '一条命令安装启动。初始化 Hermes Studio 数据、启动 bridge 并打开浏览器。',
+      title: '桌面运行时',
+      desc: 'Windows、macOS 和 Linux 桌面版内置 Web UI 运行时，并把 Hermes Studio 状态与 Hermes Agent 数据分开管理。',
     },
     i18n: {
-      title: '8 种语言',
-      desc: '内置英语、中文、德语、西班牙语、法语、日语、韩语和葡萄牙语。',
+      title: 'Coding Agent 与 MCP',
+      desc: '启动本地 Coding Agent 会话，使用 Codex 和 Claude Code 代理路由，并管理内置 hermes-studio MCP Server。',
     },
     theme: {
-      title: '暗色 / 亮色',
-      desc: '水墨单色设计，平滑主题切换，响应式布局适配移动端和桌面端。',
+      title: '更新与发布',
+      desc: '桌面更新优先检查 Cloudflare，并保留 GitHub 兜底；完整桌面 release 成功后才提升为 GitHub Latest。',
     },
   },
   platforms: {
@@ -92,14 +107,35 @@ export default {
   },
   screenshots: {
     localUrl: 'http://localhost:8648',
+    tourLabel: '产品导览',
     previous: '上一张截图',
     next: '下一张截图',
     goTo: '查看第 {number} 张截图',
     items: [
-      { src: '/image1.png', alt: '带图片生成的 AI 聊天界面' },
-      { src: '/image2.png', alt: '聊天和文件浏览器界面' },
-      { src: '/image3.png', alt: '多面板工作区界面' },
-      { src: '/image4.png', alt: '看板管理界面' },
+      {
+        src: '/image1.png',
+        alt: 'Hermes Studio Claude Code Agent 对话工作区',
+        title: 'Agent 聊天',
+        desc: '运行 Claude Code、Codex 和 Hermes 对话，支持模型路由和会话历史。',
+      },
+      {
+        src: '/image2.png',
+        alt: 'Hermes Studio 版本预览工作区',
+        title: '版本预览',
+        desc: '在隔离工作区预览 tag 或分支，控制构建并查看日志。',
+      },
+      {
+        src: '/image3.png',
+        alt: 'Hermes Studio 版本管理弹窗',
+        title: '版本管理',
+        desc: '切换 Runtime 与 Web UI 版本，并下载对应发布文件。',
+      },
+      {
+        src: '/image4.png',
+        alt: 'Hermes Studio 文件工作区',
+        title: '文件工作区',
+        desc: '浏览状态、上传文件、创建目录，并快速切换文件与终端。',
+      },
     ],
   },
   install: {
@@ -173,6 +209,9 @@ export default {
     description: 'Hermes Agent 的自托管 AI 聊天仪表板。',
     license: 'BSL-1.1 开源协议',
     madeWith: '使用 Vue 3、Naive UI 和 TypeScript 构建。',
+    github: '打开 GitHub',
+    douyin: '打开抖音',
+    xiaohongshu: '打开小红书',
   },
   docs: {
     placeholder: '从侧边栏选择一个章节开始阅读。',
@@ -180,6 +219,7 @@ export default {
       gettingStarted: '快速开始',
       configuration: '配置说明',
       features: '功能详解',
+      hermesStudioManual: '客户端手册',
       platforms: '平台接入',
       api: 'API 参考',
     },
@@ -303,6 +343,39 @@ export default {
       analytics: {
         title: '用量分析',
         content: '追踪 Token 用量（输入/输出）、预估费用、缓存命中率、会话数和模型分布。查看 30 天日趋势交互图表。',
+      },
+    },
+    hermesStudioManual: {
+      title: 'Hermes Studio 客户端完整操作手册',
+      intro: '这份手册面向 Hermes Studio 桌面客户端和 Web 界面的使用、配置、运维、验收与内部培训场景，覆盖当前客户端可见导航、设置、弹窗、状态页、关键按钮、常见流程和风险提示。',
+      open: {
+        title: '打开完整手册',
+        content: '完整手册保留原始 HTML 排版、截图标注和 PDF 版本。HTML 版本适合在线浏览，PDF 版本适合归档、打印和离线分发。',
+        links: [
+          {
+            label: '在线打开中文 HTML 手册',
+            href: '/docs/hermes-studio-0.6.12-full-cn/index.html',
+            description: '包含目录、截图、表格、风险提示和完整操作章节。',
+          },
+          {
+            label: '下载中文 PDF 手册',
+            href: '/docs/hermes-studio-0.6.12-full-cn/hermes-studio-0.6.12-full-cn.pdf',
+            description: '适合离线阅读、归档和培训材料分发。',
+          },
+        ],
+      },
+      scope: {
+        title: '适用范围',
+        rows: [
+          ['适用版本', 'Hermes Studio 0.6.12 客户端操作手册'],
+          ['文档语言', '中文完整手册；官网提供中英文入口说明'],
+          ['覆盖内容', '登录、聊天、历史、记忆、技能、插件、文件、终端、任务、群聊、看板、用量、日志、MCP、平台集成、设备、设置、备份、安全和故障排除'],
+          ['推荐读者', '个人用户、管理员、技术支持、交付验收人员和内部培训对象'],
+        ],
+      },
+      maintenance: {
+        title: '维护说明',
+        content: '当官网、说明文档、Hermes 智能体文档与当前客户端界面存在差异时，操作步骤以当前客户端实际可见界面为准。后续版本更新时，请同步替换 HTML/PDF 资源并更新本页的适用版本说明。',
       },
     },
     platforms: {
