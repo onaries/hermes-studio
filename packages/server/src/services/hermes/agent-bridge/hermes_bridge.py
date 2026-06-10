@@ -1652,7 +1652,7 @@ class AgentPool:
             return
 
         after_count = self._session_db_message_count(session.session_id, profile)
-        if after_count is None or after_count > db_count_after_prepersist:
+        if after_count is None:
             return
 
         messages = result.get("messages")
@@ -1666,6 +1666,11 @@ class AgentPool:
         ]
         if not generated:
             return
+
+        already_persisted = max(0, after_count - db_count_after_prepersist)
+        if already_persisted >= len(generated):
+            return
+        generated = generated[already_persisted:]
 
         appended = 0
         for msg in generated:
@@ -1695,6 +1700,15 @@ class AgentPool:
                 file=sys.stderr,
                 flush=True,
             )
+
+    def _result_from_agent_messages_for_sync(self, session: AgentSession) -> dict[str, Any] | None:
+        for attr in ("messages", "_messages", "_session_messages"):
+            messages = getattr(session.agent, attr, None)
+            if isinstance(messages, list):
+                return {"messages": copy.deepcopy(messages)}
+        if isinstance(session.history, list) and session.history:
+            return {"messages": copy.deepcopy(session.history)}
+        return None
 
     def start_chat(
         self,
@@ -1759,6 +1773,9 @@ class AgentPool:
             approval_session_token = None
             registered_gateway_approval_session = None
             exec_ask_scope_entered = False
+            db_count_after_prepersist: int | None = None
+            result_for_tail_sync: dict[str, Any] | None = None
+            tail_synced = False
             try:
                 try:
                     self._enter_exec_ask_scope()
@@ -1841,6 +1858,7 @@ class AgentPool:
                     if _did_override_reasoning:
                         session.agent.reasoning_config = _saved_reasoning_config
                 result = _jsonable(result if isinstance(result, dict) else {"value": result})
+                result_for_tail_sync = result
                 if persist:
                     self._sync_result_tail_to_session_db(
                         session,
@@ -1849,6 +1867,7 @@ class AgentPool:
                         profile,
                         db_count_after_prepersist,
                     )
+                    tail_synced = True
                 final_response = str(
                     result.get("final_response")
                     or result.get("response")
@@ -1900,6 +1919,19 @@ class AgentPool:
                     session.current_run_id = None
                     session.last_used_at = time.time()
             except Exception as exc:
+                if persist and not tail_synced:
+                    try:
+                        fallback_result = result_for_tail_sync or self._result_from_agent_messages_for_sync(session)
+                        if fallback_result is not None:
+                            self._sync_result_tail_to_session_db(
+                                session,
+                                fallback_result,
+                                conversation_history,
+                                profile,
+                                db_count_after_prepersist,
+                            )
+                    except Exception:
+                        pass
                 with session.lock:
                     record.status = "error"
                     record.error = str(exc)

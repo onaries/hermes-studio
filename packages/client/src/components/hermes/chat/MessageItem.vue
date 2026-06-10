@@ -1327,12 +1327,16 @@ function handleBtwEscape(event: KeyboardEvent) {
   align-items: flex-start;
   gap: 8px;
   max-width: 85%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .msg-content {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .message-bubble {
@@ -1340,8 +1344,10 @@ function handleBtwEscape(event: KeyboardEvent) {
   font-size: 14px;
   line-height: 1.65;
   word-break: break-word;
+  overflow-wrap: anywhere;
   border-radius: 10px;
   max-width: 100%;
+  min-width: 0;
   position: relative;
   box-sizing: border-box;
 
