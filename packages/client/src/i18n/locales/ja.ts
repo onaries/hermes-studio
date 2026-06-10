@@ -396,6 +396,7 @@ export default {
   // チャット
   chat: {
     contextRemaining: '残り',
+    liveTps: 'TPS',
     contextClickToEdit: 'クリックしてコンテキスト長を編集',
     contextEditTitle: 'コンテキスト長を編集',
     contextEditDesc: '現在のモデルのコンテキスト長制限を設定（トークン数）',
@@ -444,6 +445,13 @@ export default {
     },
     attachFiles: 'ファイルを添付',
     dropFilesToAttach: 'ファイルをドロップして添付',
+    todoPanel: {
+      title: 'Todo',
+      subtitle: '現在のリクエストのすべての Todo 項目を表示します。',
+      total: '項目',
+      hide: 'Todoを非表示',
+      show: 'Todoを表示',
+    },
     reasoningEffort: {
       tooltip: '推論の労力',
       defaultLabel: '既定',

@@ -323,6 +323,7 @@ export default {
 
   chat: {
     contextRemaining: 'Осталось',
+    liveTps: 'TPS',
     contextClickToEdit: 'Нажмите, чтобы изменить размер контекста',
     contextEditTitle: 'Изменить размер контекста',
     contextEditDesc: 'Установите лимит размера контекста для текущей модели (в токенах)',
@@ -362,6 +363,13 @@ export default {
     },
     attachFiles: 'Прикрепить файлы',
     dropFilesToAttach: 'Перетащите файлы для вложения',
+    todoPanel: {
+      title: 'Todo',
+      subtitle: 'Все задачи Todo из текущего запроса.',
+      total: 'Элементы',
+      hide: 'Скрыть Todo',
+      show: 'Показать Todo',
+    },
     reasoningEffort: {
       tooltip: 'Глубина рассуждений',
       defaultLabel: 'По умолчанию',

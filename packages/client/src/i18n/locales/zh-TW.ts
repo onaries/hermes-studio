@@ -396,6 +396,7 @@ export default {
   // 對話
   chat: {
     contextRemaining: '剩餘',
+    liveTps: 'TPS',
     contextClickToEdit: '點擊編輯上下文長度',
     contextEditTitle: '編輯上下文長度',
     contextEditDesc: '設定目前模型的上下文長度限制（token 數量）',
@@ -444,6 +445,13 @@ export default {
     },
     attachFiles: '新增附件',
     dropFilesToAttach: '拖放檔案以附加',
+    todoPanel: {
+      title: 'Todo',
+      subtitle: '顯示目前請求中的所有待辦項目。',
+      total: '項目',
+      hide: '隱藏 Todo',
+      show: '顯示 Todo',
+    },
     reasoningEffort: {
       tooltip: '推理強度',
       defaultLabel: '預設',

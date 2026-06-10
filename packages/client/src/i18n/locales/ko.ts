@@ -396,6 +396,7 @@ export default {
   // 채팅
   chat: {
     contextRemaining: '남음',
+    liveTps: 'TPS',
     contextClickToEdit: '클릭하여 컨텍스트 길이 편집',
     contextEditTitle: '컨텍스트 길이 편집',
     contextEditDesc: '현재 모델의 컨텍스트 길이 제한 설정 (토큰 수)',
@@ -444,6 +445,13 @@ export default {
     },
     attachFiles: '파일 첨부',
     dropFilesToAttach: '파일을 놓아 첨부',
+    todoPanel: {
+      title: 'Todo',
+      subtitle: '현재 요청의 모든 Todo 항목을 표시합니다.',
+      total: '항목',
+      hide: 'Todo 숨기기',
+      show: 'Todo 보이기',
+    },
     reasoningEffort: {
       tooltip: '추론 노력',
       defaultLabel: '기본값',

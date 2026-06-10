@@ -1,298 +1,188 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useChatStore } from '@/stores/hermes/chat'
-import { buildTodoDrawerList, type TodoDrawerItem } from '@/utils/todo-drawer-list'
+import { buildTodoListState, type TodoListItem } from '@/utils/todo-list-state'
 
 const chatStore = useChatStore()
 const { t } = useI18n()
-const statusOrder = ['in_progress'] as const
+const isCollapsed = ref(false)
 
-const todoList = computed(() => buildTodoDrawerList(chatStore.activeSession?.messages || [], t))
+const currentTurnMessages = computed(() => {
+  const messages = chatStore.activeSession?.messages || []
+  let lastTurnStart = -1
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].role === 'user' || messages[index].role === 'command') {
+      lastTurnStart = index
+      break
+    }
+  }
+  return lastTurnStart >= 0 ? messages.slice(lastTurnStart + 1) : messages
+})
+
+const todoList = computed(() => buildTodoListState(currentTurnMessages.value, t))
 const hasTodos = computed(() => todoList.value.total > 0)
+const hasInProgress = computed(() => todoList.value.items.some((item) => item.status === 'in_progress'))
 
-function itemTitle(item: TodoDrawerItem): string {
+function itemTitle(item: TodoListItem): string {
   return item.id ? `${item.id} · ${item.content}` : item.content
-}
-
-function formatUpdatedAt(timestamp: number | null): string {
-  if (!timestamp) return ''
-  return new Date(timestamp).toLocaleString()
 }
 </script>
 
 <template>
-  <div class="todo-panel">
+  <section v-if="hasTodos" class="todo-panel" :aria-label="t('chat.todoPanel.title')">
     <header class="todo-header">
-      <div>
-        <h3>{{ t('drawer.todo.title') }}</h3>
-        <p>{{ t('drawer.todo.subtitle') }}</p>
-      </div>
-      <div v-if="hasTodos" class="todo-total">
-        <span class="todo-total-value">{{ todoList.total }}</span>
-        <span class="todo-total-label">{{ t('drawer.todo.total') }}</span>
-      </div>
+      <span class="todo-heading-icon" :class="{ 'is-running': hasInProgress }" aria-hidden="true">✓</span>
+      <h3>{{ t('chat.todoPanel.title') }}</h3>
+      <span class="todo-total">{{ todoList.total }} {{ t('chat.todoPanel.total') }}</span>
+      <button
+        type="button"
+        class="todo-toggle"
+        :aria-expanded="!isCollapsed"
+        :aria-label="isCollapsed ? t('chat.todoPanel.show') : t('chat.todoPanel.hide')"
+        :title="isCollapsed ? t('chat.todoPanel.show') : t('chat.todoPanel.hide')"
+        @click="isCollapsed = !isCollapsed"
+      >
+        <span aria-hidden="true">{{ isCollapsed ? '+' : '−' }}</span>
+      </button>
     </header>
 
-    <div v-if="hasTodos" class="todo-summary" aria-label="Todo summary">
-      <div
-        v-for="status in statusOrder"
-        :key="status"
-        class="todo-summary-card"
-      >
-        <span class="summary-count">{{ todoList.counts[status] }}</span>
-        <span class="summary-label">{{ t(`chat.todoStatus.${status}`) }}</span>
-      </div>
+    <div v-if="!isCollapsed" class="todo-items-wrap">
+      <ul class="todo-items">
+        <li
+          v-for="item in todoList.items"
+          :key="item.id"
+          class="todo-item"
+          :class="item.status"
+          :title="itemTitle(item)"
+        >
+          <span class="todo-checkbox" aria-hidden="true">
+            <svg v-if="item.status === 'completed'" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span v-else-if="item.status === 'in_progress'" class="progress-mark"></span>
+            <span v-else-if="item.status === 'cancelled'" class="cancel-mark">×</span>
+          </span>
+          <span class="todo-status">{{ t(`chat.todoStatus.${item.status}`) }}</span>
+          <span class="todo-content">{{ item.content }}</span>
+        </li>
+      </ul>
     </div>
-
-    <div v-if="todoList.lastUpdatedAt" class="todo-updated">
-      {{ t('drawer.todo.lastUpdated', { time: formatUpdatedAt(todoList.lastUpdatedAt) }) }}
-    </div>
-
-    <div v-if="!hasTodos" class="todo-empty">
-      <div class="todo-empty-icon">✓</div>
-      <h4>{{ t('drawer.todo.emptyTitle') }}</h4>
-      <p>{{ t('drawer.todo.emptyDescription') }}</p>
-    </div>
-
-    <div v-else class="todo-sections">
-      <section
-        v-for="section in todoList.sections"
-        :key="section.status"
-        class="todo-section"
-      >
-        <div class="section-header">
-          <span class="section-dot" :class="section.status"></span>
-          <span class="section-title">{{ section.label }}</span>
-          <span class="section-count">{{ section.items.length }}</span>
-        </div>
-
-        <ul class="todo-items">
-          <li
-            v-for="item in section.items"
-            :key="item.id"
-            class="todo-item"
-            :class="item.status"
-            :title="itemTitle(item)"
-          >
-            <span class="todo-checkbox" aria-hidden="true">
-              <svg v-if="item.status === 'completed'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              <span v-else-if="item.status === 'in_progress'" class="progress-mark"></span>
-              <span v-else-if="item.status === 'cancelled'" class="cancel-mark">×</span>
-            </span>
-            <span class="todo-content">{{ item.content }}</span>
-          </li>
-        </ul>
-      </section>
-    </div>
-  </div>
+  </section>
 </template>
 
 <style scoped lang="scss">
 @use "@/styles/variables" as *;
 
 .todo-panel {
-  height: 100%;
-  padding: 20px;
-  overflow: auto;
-  background: $bg-primary;
+  flex-shrink: 0;
+  margin: 4px 16px 0;
+  padding: 5px 8px;
+  border: 1px solid rgba(var(--accent-primary-rgb), 0.12);
+  border-radius: $radius-sm;
+  background: color-mix(in srgb, var(--bg-card) 94%, var(--accent-primary));
   color: $text-primary;
 }
 
 .todo-header {
   display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
-  margin-bottom: 18px;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
 
   h3 {
-    margin: 0 0 6px;
-    font-size: 18px;
-    font-weight: 700;
-  }
-
-  p {
+    flex: 1;
+    min-width: 0;
     margin: 0;
+    overflow: hidden;
     color: $text-secondary;
-    font-size: 13px;
+    font-size: 11px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.todo-heading-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: rgba(var(--accent-primary-rgb), 0.1);
+  color: var(--accent-primary);
+  font-size: 9px;
+  font-weight: 700;
+
+  &.is-running {
+    animation: todo-heading-pulse 1.2s ease-in-out infinite;
   }
 }
 
 .todo-total {
-  min-width: 72px;
-  padding: 10px 12px;
-  border: 1px solid $border-color;
-  border-radius: $radius-md;
-  background: $bg-card;
-  text-align: center;
-}
-
-.todo-total-value {
-  display: block;
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--accent-primary);
-}
-
-.todo-total-label {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(var(--accent-primary-rgb), 0.08);
   color: $text-secondary;
-  font-size: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.todo-summary {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 12px;
-
-  @media (max-width: $breakpoint-mobile) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.todo-summary-card {
-  padding: 10px;
-  border: 1px solid $border-color;
-  border-radius: $radius-md;
-  background: $bg-card;
-}
-
-.summary-count {
-  display: block;
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.summary-label {
-  color: $text-secondary;
-  font-size: 12px;
-}
-
-.todo-updated {
-  margin-bottom: 16px;
-  color: $text-secondary;
-  font-size: 12px;
-}
-
-.todo-empty {
-  display: flex;
-  height: min(420px, 60vh);
-  flex-direction: column;
+.todo-toggle {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 6px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  color: $text-secondary;
+  flex-shrink: 0;
+  padding: 0;
+  background: rgba(var(--border-color-rgb), 0.28);
+  color: $text-muted;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
 
-  h4 {
-    margin: 12px 0 6px;
-    color: $text-primary;
-    font-size: 16px;
-  }
-
-  p {
-    max-width: 360px;
-    margin: 0;
-    line-height: 1.5;
+  &:hover {
+    background: rgba(var(--accent-primary-rgb), 0.1);
+    color: $text-secondary;
   }
 }
 
-.todo-empty-icon {
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: rgba(var(--accent-primary-rgb), 0.1);
-  color: var(--accent-primary);
-  font-size: 28px;
-}
-
-.todo-sections {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.todo-section {
-  border: 1px solid $border-color;
-  border-radius: $radius-lg;
-  background: $bg-card;
-  overflow: hidden;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-bottom: 1px solid $border-color;
-  background: rgba(var(--accent-primary-rgb), 0.04);
-}
-
-.section-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: $text-secondary;
-
-  &.in_progress { background: #3b82f6; }
-  &.pending { background: #f59e0b; }
-  &.completed { background: #22c55e; }
-  &.cancelled { background: #94a3b8; }
-}
-
-.section-title {
-  flex: 1;
-  font-weight: 700;
-}
-
-.section-count {
-  min-width: 26px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(var(--accent-primary-rgb), 0.1);
-  color: var(--accent-primary);
-  text-align: center;
-  font-size: 12px;
-  font-weight: 700;
+.todo-items-wrap {
+  max-height: 176px;
+  margin-top: 4px;
+  overflow: auto;
 }
 
 .todo-items {
   list-style: none;
   margin: 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .todo-item {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  padding: 12px 14px;
-  border-bottom: 1px solid rgba(var(--border-color-rgb), 0.6);
-
-  &:last-child {
-    border-bottom: none;
-  }
-
-  &.completed .todo-content {
-    color: $text-secondary;
-    text-decoration: line-through;
-  }
-
-  &.cancelled .todo-content {
-    color: $text-secondary;
-  }
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  padding: 3px 8px;
+  border: 1px solid rgba(var(--border-color-rgb), 0.5);
+  border-radius: $radius-sm;
+  background: color-mix(in srgb, var(--bg-primary) 86%, transparent);
 }
 
 .todo-checkbox {
-  width: 18px;
-  height: 18px;
-  margin-top: 1px;
-  border: 1.5px solid $border-color;
-  border-radius: 5px;
+  width: 12px;
+  height: 12px;
+  border: 1.25px solid $border-color;
+  border-radius: 4px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -301,7 +191,19 @@ function formatUpdatedAt(timestamp: number | null): string {
 }
 
 .todo-item.in_progress .todo-checkbox {
+  position: relative;
   border-color: #3b82f6;
+  animation: todo-progress-pulse 1.15s ease-in-out infinite;
+}
+
+.todo-item.in_progress .todo-checkbox::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 6px;
+  opacity: 0;
+  animation: todo-progress-ring 1.15s ease-out infinite;
 }
 
 .todo-item.completed .todo-checkbox {
@@ -313,22 +215,123 @@ function formatUpdatedAt(timestamp: number | null): string {
   color: #94a3b8;
 }
 
+.todo-item.completed .todo-content {
+  color: $text-secondary;
+  text-decoration: line-through;
+}
+
+.todo-item.cancelled .todo-content {
+  color: $text-secondary;
+}
+
 .progress-mark {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #3b82f6;
+  animation: todo-progress-dot 0.85s ease-in-out infinite;
 }
 
 .cancel-mark {
+  font-size: 10px;
   font-weight: 800;
   line-height: 1;
+}
+
+.todo-status {
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(var(--accent-primary-rgb), 0.08);
+  color: $text-secondary;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.todo-item.in_progress .todo-status {
+  color: #3b82f6;
+}
+
+.todo-item.completed .todo-status {
+  color: #22c55e;
+}
+
+.todo-item.cancelled .todo-status {
+  color: #94a3b8;
 }
 
 .todo-content {
   flex: 1;
   min-width: 0;
-  line-height: 1.5;
+  color: $text-primary;
+  font-size: 11px;
+  line-height: 1.35;
   overflow-wrap: anywhere;
+}
+
+@keyframes todo-heading-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes todo-progress-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(59, 130, 246, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.14);
+  }
+}
+
+@keyframes todo-progress-ring {
+  0% {
+    opacity: 0.65;
+    transform: scale(0.86);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+
+@keyframes todo-progress-dot {
+  0%,
+  100% {
+    transform: scale(0.75);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .todo-heading-icon.is-running,
+  .todo-item.in_progress .todo-checkbox,
+  .todo-item.in_progress .todo-checkbox::after,
+  .progress-mark {
+    animation: none;
+  }
+}
+
+@media (max-width: $breakpoint-mobile) {
+  .todo-panel {
+    margin: 3px 8px 0;
+    padding: 4px 6px;
+  }
+
+  .todo-items-wrap {
+    max-height: 96px;
+  }
 }
 </style>

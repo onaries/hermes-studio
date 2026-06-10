@@ -120,6 +120,45 @@ describe('chat store session.command fanout', () => {
     ])
   })
 
+  it('keeps the latest live TPS visible after a resumed run completes', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(1_000)
+      const store = useChatStore()
+      const session = makeSession()
+      store.sessions = [session]
+      store.activeSessionId = 'session-1'
+      store.activeSession = session
+
+      chatApi.sessionCommandHandlers[0]({
+        event: 'session.command',
+        session_id: 'session-1',
+        command: 'goal',
+        action: 'resume',
+        message: 'Goal resumed',
+        started: true,
+        terminal: false,
+      })
+
+      const handlers = chatApi.registerSessionHandlers.mock.calls[0]?.[1]
+      handlers.onRunStarted({ event: 'run.started', session_id: 'session-1' })
+      handlers.onMessageDelta({ event: 'message.delta', session_id: 'session-1', delta: 'streaming text' })
+      expect(session.liveTps).toBeGreaterThan(0)
+      const finalTps = session.liveTps
+
+      handlers.onRunCompleted({
+        event: 'run.completed',
+        session_id: 'session-1',
+        queue_remaining: 0,
+        output: 'streaming text',
+      })
+
+      expect(session.liveTps).toBe(finalTps)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('handles approval events for resumed runs and clears stale approvals on completion', () => {
     const store = useChatStore()
     const session = makeSession()

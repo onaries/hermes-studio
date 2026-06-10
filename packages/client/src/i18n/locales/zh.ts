@@ -396,6 +396,7 @@ export default {
   // 对话
   chat: {
     contextRemaining: '剩余',
+    liveTps: 'TPS',
     contextClickToEdit: '点击编辑上下文长度',
     contextEditTitle: '编辑上下文长度',
     contextEditDesc: '设置当前模型的上下文长度限制（token 数量）',
@@ -445,6 +446,13 @@ export default {
     },
     attachFiles: '添加附件',
     dropFilesToAttach: '拖放文件以附加',
+    todoPanel: {
+      title: 'Todo',
+      subtitle: '显示当前请求中的所有待办项。',
+      total: '项',
+      hide: '隐藏 Todo',
+      show: '显示 Todo',
+    },
     reasoningEffort: {
       tooltip: '推理强度',
       defaultLabel: '默认',

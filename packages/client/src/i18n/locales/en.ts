@@ -445,6 +445,13 @@ export default {
     },
     attachFiles: 'Attach files',
     dropFilesToAttach: 'Drop files to attach',
+    todoPanel: {
+      title: 'Todo',
+      subtitle: 'All todo items from this active request.',
+      total: 'Items',
+      hide: 'Hide Todo',
+      show: 'Show Todo',
+    },
     reasoningEffort: {
       tooltip: 'Reasoning effort',
       defaultLabel: 'Default',
@@ -489,6 +496,7 @@ export default {
     stopGateway: 'Stop Gateway',
     send: 'Send',
     contextUsed: 'Context used:',
+    liveTps: 'TPS',
     sessions: 'Sessions',
     webUiSessions: 'Sessions',
     allProfiles: 'All profiles',

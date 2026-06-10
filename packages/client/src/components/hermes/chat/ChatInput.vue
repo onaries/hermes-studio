@@ -463,6 +463,11 @@ const totalTokens = computed(() => {
 const showContextUsage = computed(() => totalTokens.value > 0)
 
 const remainingTokens = computed(() => Math.max(0, contextLength.value - totalTokens.value))
+const liveTps = computed(() => {
+  const value = chatStore.activeSession?.liveTps
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null
+})
+const showContextMetrics = computed(() => !isCodingAgentSession.value && (showContextUsage.value || liveTps.value != null))
 
 const usagePercent = computed(() =>
   Math.min((totalTokens.value / contextLength.value) * 100, 100),
@@ -472,6 +477,10 @@ function formatTokens(n: number): string {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
   if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
   return String(n)
+}
+
+function formatTps(n: number): string {
+  return n >= 100 ? Math.round(n).toString() : n.toFixed(1)
 }
 
 // --- File attachment helpers ---
@@ -841,28 +850,35 @@ function isImage(type: string): boolean {
         {{ toolTraceVisible ? t('chat.hideToolCalls') : t('chat.showToolCalls') }}
       </NTooltip>
 
-      <span v-if="showContextUsage" class="context-info" :class="{ 'context-warning': usagePercent > 80 }">
-        {{ formatTokens(totalTokens) }} /
-        <NTooltip trigger="hover">
-          <template #trigger>
-            <span class="context-limit-editable" @click="handleEditContextLimit">
-              {{ formatTokens(contextLength) }}
-            </span>
+      <span v-if="showContextMetrics" class="context-meter">
+        <span class="context-info" :class="{ 'context-warning': usagePercent > 80 }">
+          <template v-if="showContextUsage">
+            {{ formatTokens(totalTokens) }} /
+            <NTooltip trigger="hover">
+              <template #trigger>
+                <span class="context-limit-editable" @click="handleEditContextLimit">
+                  {{ formatTokens(contextLength) }}
+                </span>
+              </template>
+              <span>{{ t('chat.contextClickToEdit') }}</span>
+            </NTooltip>
+            · {{ t('chat.contextRemaining') }} {{ formatTokens(remainingTokens) }}
           </template>
-          <span>{{ t('chat.contextClickToEdit') }}</span>
-        </NTooltip>
-        · {{ t('chat.contextRemaining') }} {{ formatTokens(remainingTokens) }}
+          <span v-if="liveTps != null" class="live-tps">
+            <span v-if="showContextUsage">· </span>{{ formatTps(liveTps) }} {{ t('chat.liveTps') }}
+          </span>
+        </span>
+        <span v-if="showContextUsage" class="context-bar">
+          <span
+            class="context-bar-fill"
+            :class="{
+              'context-bar-warn': usagePercent > 60 && usagePercent <= 80,
+              'context-bar-danger': usagePercent > 80,
+            }"
+            :style="{ width: `${usagePercent}%` }"
+          />
+        </span>
       </span>
-      <div v-if="showContextUsage" class="context-bar">
-        <div
-          class="context-bar-fill"
-          :class="{
-            'context-bar-warn': usagePercent > 60 && usagePercent <= 80,
-            'context-bar-danger': usagePercent > 80,
-          }"
-          :style="{ width: `${usagePercent}%` }"
-        />
-      </div>
     </div>
 
     <!-- Attachment previews -->
@@ -1026,8 +1042,14 @@ function isImage(type: string): boolean {
 .input-top-bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 0 0 6px;
+
+  @media (max-width: 768px) {
+    flex-wrap: nowrap;
+    gap: 5px;
+  }
 }
 
 .auto-play-speech-switch {
@@ -1055,6 +1077,12 @@ function isImage(type: string): boolean {
   :deep(.n-switch),
   :deep(.n-switch__rail) {
     margin-right: 0;
+  }
+
+  @media (max-width: 768px) {
+    gap: 4px;
+    margin-left: 0;
+    padding-left: 6px;
   }
 }
 
@@ -1101,13 +1129,42 @@ function isImage(type: string): boolean {
   }
 }
 
+.context-meter {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  gap: 8px;
+
+  @media (max-width: 768px) {
+    flex: 1 1 0;
+    gap: 4px;
+  }
+}
+
 .context-info {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 11px;
   color: $text-muted;
 
   &.context-warning {
     color: #e8a735;
   }
+
+  @media (max-width: 768px) {
+    font-size: 9px;
+    line-height: 1.2;
+  }
+}
+
+.live-tps {
+  color: var(--accent-primary);
+  font-family: $font-code;
+  font-weight: 600;
 }
 
 .context-limit-editable {
@@ -1124,11 +1181,19 @@ function isImage(type: string): boolean {
 }
 
 .context-bar {
+  display: block;
+  flex: 0 0 60px;
   width: 60px;
   height: 4px;
   background: rgba(128, 128, 128, 0.2);
   border-radius: 2px;
   overflow: hidden;
+
+  @media (max-width: 768px) {
+    flex-basis: 44px;
+    width: 44px;
+    max-width: 16vw;
+  }
 }
 
 .context-bar-fill {
