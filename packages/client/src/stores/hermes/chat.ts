@@ -553,13 +553,27 @@ function removeItem(key: string) {
 // Strip the circular `file: File` reference from attachments before caching —
 // File objects don't serialize and we only need name/type/size/url for display.
 
+type LiveTpsTracker = {
+  startedAt: number | null
+  outputTokens: number
+  baselineOutputTokens: number
+  smoothedTps: number | null
+}
+
+const LIVE_TPS_DISPLAY_DELAY_MS = 1500
+const LIVE_TPS_SMOOTHING_ALPHA = 0.35
+
+function roundTps(value: number): number {
+  return Math.round(value * 10) / 10
+}
+
 export const useChatStore = defineStore('chat', () => {
   const seenSessionCommandEvents = new WeakSet<RunEvent>()
   const sessions = ref<Session[]>([])
   const activeSessionId = ref<string | null>(null)
   const focusMessageId = ref<string | null>(null)
   const streamStates = ref<Map<string, { abort: () => void }>>(new Map())
-  const liveTpsTrackers = new Map<string, { startedAt: number | null; outputTokens: number }>()
+  const liveTpsTrackers = new Map<string, LiveTpsTracker>()
   const latestCompletionNotification = ref<CompletionNotification | null>(null)
   /** sessionId → server-reported isWorking status */
   const serverWorking = ref<Set<string>>(new Set())
@@ -649,8 +663,16 @@ export const useChatStore = defineStore('chat', () => {
     if (session) session.liveTps = value
   }
 
+  function createLiveTpsTracker(sessionId: string): LiveTpsTracker {
+    const session = sessions.value.find(s => s.id === sessionId)
+    const baselineOutputTokens = typeof session?.outputTokens === 'number' && Number.isFinite(session.outputTokens)
+      ? Math.max(0, Math.floor(session.outputTokens))
+      : 0
+    return { startedAt: null, outputTokens: 0, baselineOutputTokens, smoothedTps: null }
+  }
+
   function resetLiveTps(sessionId: string) {
-    liveTpsTrackers.set(sessionId, { startedAt: null, outputTokens: 0 })
+    liveTpsTrackers.set(sessionId, createLiveTpsTracker(sessionId))
     setSessionLiveTps(sessionId, null)
   }
 
@@ -658,13 +680,39 @@ export const useChatStore = defineStore('chat', () => {
     const estimatedTokens = estimateLiveOutputTokens(delta)
     if (estimatedTokens <= 0) return
     const now = Date.now()
-    const tracker = liveTpsTrackers.get(sessionId) || { startedAt: null, outputTokens: 0 }
+    const tracker = liveTpsTrackers.get(sessionId) || createLiveTpsTracker(sessionId)
     if (tracker.startedAt == null) tracker.startedAt = now
     const startedAt = tracker.startedAt
     tracker.outputTokens += estimatedTokens
+    const elapsedMs = now - startedAt
+    if (elapsedMs < LIVE_TPS_DISPLAY_DELAY_MS) {
+      liveTpsTrackers.set(sessionId, tracker)
+      setSessionLiveTps(sessionId, null)
+      return
+    }
+    const elapsedSeconds = Math.max(elapsedMs / 1000, LIVE_TPS_DISPLAY_DELAY_MS / 1000)
+    const rawTps = tracker.outputTokens / elapsedSeconds
+    tracker.smoothedTps = tracker.smoothedTps == null
+      ? rawTps
+      : tracker.smoothedTps * (1 - LIVE_TPS_SMOOTHING_ALPHA) + rawTps * LIVE_TPS_SMOOTHING_ALPHA
     liveTpsTrackers.set(sessionId, tracker)
-    const elapsedSeconds = Math.max((now - startedAt) / 1000, 0.25)
-    setSessionLiveTps(sessionId, Math.round((tracker.outputTokens / elapsedSeconds) * 10) / 10)
+    setSessionLiveTps(sessionId, roundTps(tracker.smoothedTps))
+  }
+
+  function finalizeLiveTpsFromUsage(sessionId: string, totalOutputTokens: unknown) {
+    const tracker = liveTpsTrackers.get(sessionId)
+    if (!tracker?.startedAt) return
+    const elapsedSeconds = (Date.now() - tracker.startedAt) / 1000
+    if (!Number.isFinite(elapsedSeconds) || elapsedSeconds <= 0) return
+    const normalizedTotalOutput = typeof totalOutputTokens === 'number' && Number.isFinite(totalOutputTokens) && totalOutputTokens > 0
+      ? Math.floor(totalOutputTokens)
+      : 0
+    const usageDeltaTokens = normalizedTotalOutput > tracker.baselineOutputTokens
+      ? normalizedTotalOutput - tracker.baselineOutputTokens
+      : 0
+    const finalOutputTokens = usageDeltaTokens > 0 ? usageDeltaTokens : tracker.outputTokens
+    if (finalOutputTokens <= 0) return
+    setSessionLiveTps(sessionId, roundTps(finalOutputTokens / elapsedSeconds))
   }
 
   function stopLiveTpsTracking(sessionId: string, clearValue = false) {
@@ -2549,6 +2597,9 @@ export const useChatStore = defineStore('chat', () => {
               }
               settleRunningTools(sid, 'done')
               // Server-computed usage (local countTokens, snapshot-aware)
+              if ((evt as any).outputTokens != null) {
+                finalizeLiveTpsFromUsage(sid, (evt as any).outputTokens)
+              }
               if ((evt as any).inputTokens != null) {
                 const target = sessions.value.find(s => s.id === sid)
                 if (target) {
@@ -3127,6 +3178,9 @@ export const useChatStore = defineStore('chat', () => {
           }
           settleRunningTools(sid, 'done')
           // Server-computed usage (local countTokens, snapshot-aware)
+          if ((evt as any).outputTokens != null) {
+            finalizeLiveTpsFromUsage(sid, (evt as any).outputTokens)
+          }
           if ((evt as any).inputTokens != null) {
             const target = sessions.value.find(s => s.id === sid)
             if (target) {

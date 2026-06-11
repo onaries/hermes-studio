@@ -143,6 +143,9 @@ describe('chat store session.command fanout', () => {
       const handlers = chatApi.registerSessionHandlers.mock.calls[0]?.[1]
       handlers.onRunStarted({ event: 'run.started', session_id: 'session-1' })
       handlers.onMessageDelta({ event: 'message.delta', session_id: 'session-1', delta: 'streaming text' })
+      expect(session.liveTps).toBeNull()
+      vi.setSystemTime(3_000)
+      handlers.onMessageDelta({ event: 'message.delta', session_id: 'session-1', delta: 'more streaming text' })
       expect(session.liveTps).toBeGreaterThan(0)
       const finalTps = session.liveTps
 
@@ -183,10 +186,58 @@ describe('chat store session.command fanout', () => {
       handlers.onRunStarted({ event: 'run.started', session_id: 'session-1' })
       vi.setSystemTime(61_000)
       handlers.onMessageDelta({ event: 'message.delta', session_id: 'session-1', delta: 'abcdefghijklmnopqrst' })
+      expect(session.liveTps).toBeNull()
       vi.setSystemTime(62_000)
       handlers.onMessageDelta({ event: 'message.delta', session_id: 'session-1', delta: 'abcdefghijklmnopqrst' })
+      expect(session.liveTps).toBeNull()
+      vi.setSystemTime(63_000)
+      handlers.onMessageDelta({ event: 'message.delta', session_id: 'session-1', delta: 'abcdefghijklmnopqrst' })
 
-      expect(session.liveTps).toBe(10)
+      expect(session.liveTps).toBe(7.5)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('uses final server output token delta for the completed TPS value when usage is available', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(1_000)
+      const store = useChatStore()
+      const session = makeSession()
+      session.outputTokens = 100
+      store.sessions = [session]
+      store.activeSessionId = 'session-1'
+      store.activeSession = session
+
+      chatApi.sessionCommandHandlers[0]({
+        event: 'session.command',
+        session_id: 'session-1',
+        command: 'goal',
+        action: 'resume',
+        message: 'Goal resumed',
+        started: true,
+        terminal: false,
+      })
+
+      const handlers = chatApi.registerSessionHandlers.mock.calls[0]?.[1]
+      handlers.onRunStarted({ event: 'run.started', session_id: 'session-1' })
+      vi.setSystemTime(2_000)
+      handlers.onMessageDelta({ event: 'message.delta', session_id: 'session-1', delta: 'short' })
+      vi.setSystemTime(4_000)
+      handlers.onMessageDelta({ event: 'message.delta', session_id: 'session-1', delta: 'short' })
+      vi.setSystemTime(6_000)
+      handlers.onRunCompleted({
+        event: 'run.completed',
+        session_id: 'session-1',
+        queue_remaining: 0,
+        output: 'shortshort',
+        inputTokens: 50,
+        outputTokens: 130,
+      })
+
+      expect(session.outputTokens).toBe(130)
+      expect(session.liveTps).toBe(7.5)
     } finally {
       vi.useRealTimers()
     }
@@ -215,6 +266,9 @@ describe('chat store session.command fanout', () => {
       const handlers = chatApi.registerSessionHandlers.mock.calls[0]?.[1]
       handlers.onRunStarted({ event: 'run.started', session_id: 'session-1' })
       handlers.onReasoningDelta({ event: 'reasoning.delta', session_id: 'session-1', delta: 'thinking text' })
+      expect(session.liveTps).toBeNull()
+      vi.setSystemTime(3_000)
+      handlers.onReasoningDelta({ event: 'reasoning.delta', session_id: 'session-1', delta: 'more thinking text' })
 
       expect(session.liveTps).toBeGreaterThan(0)
     } finally {

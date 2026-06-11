@@ -119,12 +119,12 @@ describe('tool trace visibility', () => {
     useToolTraceVisibility().setToolTraceVisible(true)
   })
 
-  function mountLiveList(messages: Message[] = sampleMessages) {
+  function mountLiveList(messages: Message[] = sampleMessages, showLivePanel = true) {
     const chatStore = useChatStore()
     chatStore.activeSessionId = 'session-1'
     chatStore.messages = [...messages]
     chatStore.activeSession = makeSession(messages)
-    chatStore.abortState = { aborting: true, synced: false }
+    chatStore.abortState = showLivePanel ? { aborting: true, synced: false } : null
 
     return mount(MessageList, {
       global: {
@@ -148,6 +148,35 @@ describe('tool trace visibility', () => {
     expect(wrapper.findAll('.tool-call-name').map(node => node.text())).toContain('read_file')
     const readFileTool = wrapper.findAll('.tool-call-item').find(node => node.text().includes('read_file'))
     expect(readFileTool?.attributes('title')).toContain('/Users/safemotion/Documents/projects/safemotion/clip/really/long/file/path/that/does/not/fit/on/one/line.ts')
+  })
+
+  it('summarizes large tool batches in the transcript and live panel', async () => {
+    const messages: Message[] = [
+      { id: 'user-1', role: 'user', content: 'do many things', timestamp: 1 },
+      { id: 'tool-1', role: 'tool', content: '', timestamp: 2, toolName: 'terminal', toolArgs: { command: 'npm test' }, toolStatus: 'done' },
+      { id: 'tool-2', role: 'tool', content: '', timestamp: 3, toolName: 'terminal', toolArgs: { command: 'npm run build' }, toolStatus: 'done' },
+      { id: 'tool-3', role: 'tool', content: '', timestamp: 4, toolName: 'search_files', toolArgs: { pattern: 'tool', target: 'content' }, toolStatus: 'done' },
+      { id: 'tool-4', role: 'tool', content: '', timestamp: 5, toolName: 'web_search', toolArgs: { query: 'Hermes' }, toolStatus: 'done' },
+      { id: 'assistant-1', role: 'assistant', content: 'done', timestamp: 6 },
+    ]
+
+    const transcriptWrapper = mountLiveList(messages, false)
+
+    const transcriptGroup = transcriptWrapper.find('.tool-trace-group')
+    expect(transcriptGroup.exists()).toBe(true)
+    expect(transcriptGroup.text()).toContain('chat.toolAggregate.ranCommandsMany')
+    expect(transcriptWrapper.findAll('.stub-message').map(node => node.attributes('data-id'))).toEqual([
+      'user-1',
+      'assistant-1',
+    ])
+
+    const liveWrapper = mountLiveList(messages)
+    expect(liveWrapper.find('.tool-call-summary-item').exists()).toBe(true)
+    expect(liveWrapper.find('.tool-call-summary-item').text()).toContain('chat.toolAggregate.ranCommandsMany')
+    expect(liveWrapper.find('.tool-call-summary-item').text()).toContain('chat.toolAggregate.checkedWebOne')
+
+    await liveWrapper.find('.tool-call-summary-item').trigger('click')
+    expect(liveWrapper.findAll('.tool-call-name').map(node => node.text())).toContain('terminal')
   })
 
   it('renders the current todo panel below the live tool panel', () => {
