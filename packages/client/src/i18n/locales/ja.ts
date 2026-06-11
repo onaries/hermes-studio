@@ -2008,6 +2008,7 @@ export default {
   artifacts: {
     list: 'Artifacts',
     backToList: '一覧へ',
+    scrollToTop: '先頭へ',
     download: 'ダウンロード',
     remove: 'Artifactを削除',
     emptyTitle: 'Artifactはまだありません',

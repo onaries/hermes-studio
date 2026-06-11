@@ -2091,6 +2091,7 @@ export default {
   artifacts: {
     list: 'Artifacts',
     backToList: '返回列表',
+    scrollToTop: '回到顶部',
     download: '下载',
     remove: '移除 Artifact',
     emptyTitle: '暂无 Artifact',

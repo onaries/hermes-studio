@@ -2089,6 +2089,7 @@ export default {
   artifacts: {
     list: 'Artifacts',
     backToList: 'Back to list',
+    scrollToTop: 'Top',
     download: 'Download',
     remove: 'Remove artifact',
     emptyTitle: 'No artifacts yet',

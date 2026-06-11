@@ -77,4 +77,22 @@ describe('ArtifactsPanel', () => {
     expect(wrapper.find('.artifact-text').text()).toContain('plain output')
     expect(wrapper.find('.artifact-unsupported').exists()).toBe(false)
   })
+
+  it('scrolls the artifact list and preview back to the top', async () => {
+    const store = useArtifactsStore()
+    store.openContentArtifact({ name: 'notes.md', content: '# Notes', kind: 'markdown', path: '/tmp/notes.md' })
+    const scrollTo = vi.fn()
+    const originalScrollTo = HTMLElement.prototype.scrollTo
+    HTMLElement.prototype.scrollTo = scrollTo
+
+    try {
+      const wrapper = mount(ArtifactsPanel)
+      await wrapper.find('.artifact-top').trigger('click')
+
+      expect(scrollTo).toHaveBeenCalledTimes(2)
+      expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' })
+    } finally {
+      HTMLElement.prototype.scrollTo = originalScrollTo
+    }
+  })
 })

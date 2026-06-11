@@ -2009,6 +2009,7 @@ jobTriggered: 'Job declenche',
   artifacts: {
     list: 'Artifacts',
     backToList: 'Retour à la liste',
+    scrollToTop: 'Haut',
     download: 'Télécharger',
     remove: 'Supprimer l’artifact',
     emptyTitle: 'Aucun artifact pour le moment',

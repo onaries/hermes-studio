@@ -2009,6 +2009,7 @@ jobTriggered: 'Job acionado',
   artifacts: {
     list: 'Artifacts',
     backToList: 'Voltar à lista',
+    scrollToTop: 'Topo',
     download: 'Baixar',
     remove: 'Remover artifact',
     emptyTitle: 'Ainda não há artifacts',

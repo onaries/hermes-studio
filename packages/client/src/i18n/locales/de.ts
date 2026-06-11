@@ -1999,6 +1999,7 @@ jobTriggered: 'Job ausgelost',
   artifacts: {
     list: 'Artifacts',
     backToList: 'Zurück zur Liste',
+    scrollToTop: 'Nach oben',
     download: 'Herunterladen',
     remove: 'Artifact entfernen',
     emptyTitle: 'Noch keine Artifacts',
