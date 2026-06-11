@@ -911,7 +911,6 @@ defineExpose({
   background: rgba(0, 0, 0, 0.03);
   border-radius: $radius-sm;
   border: 0;
-  font: inherit;
   text-align: left;
 
   .dark & {
