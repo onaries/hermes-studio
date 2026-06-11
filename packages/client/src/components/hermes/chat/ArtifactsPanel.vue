@@ -29,7 +29,7 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
 </script>
 
 <template>
-  <div class="artifacts-panel">
+  <div class="artifacts-panel" :class="{ 'artifacts-panel--empty': artifactsStore.artifacts.length === 0 }">
     <aside v-if="artifactsStore.artifacts.length > 0" class="artifact-list" :aria-label="t('artifacts.list')">
       <button
         v-for="artifact in artifactsStore.artifacts"
@@ -135,6 +135,14 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
   height: 100%;
   min-height: 0;
   background: $bg-primary;
+
+  &.artifacts-panel--empty {
+    grid-template-columns: minmax(0, 1fr);
+
+    .artifact-viewer {
+      grid-column: 1 / -1;
+    }
+  }
 
   @media (max-width: $breakpoint-mobile) {
     grid-template-columns: 1fr;
