@@ -555,6 +555,8 @@ function removeItem(key: string) {
 
 type LiveTpsTracker = {
   startedAt: number | null
+  lastDeltaAt: number | null
+  activeElapsedMs: number
   outputTokens: number
   baselineOutputTokens: number
   smoothedTps: number | null
@@ -562,6 +564,7 @@ type LiveTpsTracker = {
 
 const LIVE_TPS_DISPLAY_DELAY_MS = 1500
 const LIVE_TPS_SMOOTHING_ALPHA = 0.35
+const LIVE_TPS_IDLE_GAP_MS = 5000
 
 function roundTps(value: number): number {
   return Math.round(value * 10) / 10
@@ -668,12 +671,38 @@ export const useChatStore = defineStore('chat', () => {
     const baselineOutputTokens = typeof session?.outputTokens === 'number' && Number.isFinite(session.outputTokens)
       ? Math.max(0, Math.floor(session.outputTokens))
       : 0
-    return { startedAt: null, outputTokens: 0, baselineOutputTokens, smoothedTps: null }
+    return {
+      startedAt: null,
+      lastDeltaAt: null,
+      activeElapsedMs: 0,
+      outputTokens: 0,
+      baselineOutputTokens,
+      smoothedTps: null,
+    }
   }
 
   function resetLiveTps(sessionId: string) {
     liveTpsTrackers.set(sessionId, createLiveTpsTracker(sessionId))
     setSessionLiveTps(sessionId, null)
+  }
+
+  function trackLiveTpsActiveElapsed(tracker: LiveTpsTracker, now: number) {
+    if (tracker.lastDeltaAt == null) return
+    const intervalMs = Math.max(0, now - tracker.lastDeltaAt)
+    if (intervalMs <= LIVE_TPS_IDLE_GAP_MS) {
+      tracker.activeElapsedMs += intervalMs
+    }
+  }
+
+  function liveTpsElapsedSeconds(tracker: LiveTpsTracker, now?: number): number {
+    let activeElapsedMs = tracker.activeElapsedMs
+    if (now != null && tracker.lastDeltaAt != null) {
+      const tailMs = Math.max(0, now - tracker.lastDeltaAt)
+      if (tailMs <= LIVE_TPS_IDLE_GAP_MS) {
+        activeElapsedMs += tailMs
+      }
+    }
+    return Math.max(activeElapsedMs / 1000, LIVE_TPS_DISPLAY_DELAY_MS / 1000)
   }
 
   function recordLiveTpsDelta(sessionId: string, delta: string) {
@@ -682,16 +711,15 @@ export const useChatStore = defineStore('chat', () => {
     const now = Date.now()
     const tracker = liveTpsTrackers.get(sessionId) || createLiveTpsTracker(sessionId)
     if (tracker.startedAt == null) tracker.startedAt = now
-    const startedAt = tracker.startedAt
+    trackLiveTpsActiveElapsed(tracker, now)
+    tracker.lastDeltaAt = now
     tracker.outputTokens += estimatedTokens
-    const elapsedMs = now - startedAt
-    if (elapsedMs < LIVE_TPS_DISPLAY_DELAY_MS) {
+    if (tracker.activeElapsedMs < LIVE_TPS_DISPLAY_DELAY_MS) {
       liveTpsTrackers.set(sessionId, tracker)
       setSessionLiveTps(sessionId, null)
       return
     }
-    const elapsedSeconds = Math.max(elapsedMs / 1000, LIVE_TPS_DISPLAY_DELAY_MS / 1000)
-    const rawTps = tracker.outputTokens / elapsedSeconds
+    const rawTps = tracker.outputTokens / liveTpsElapsedSeconds(tracker)
     tracker.smoothedTps = tracker.smoothedTps == null
       ? rawTps
       : tracker.smoothedTps * (1 - LIVE_TPS_SMOOTHING_ALPHA) + rawTps * LIVE_TPS_SMOOTHING_ALPHA
@@ -702,7 +730,7 @@ export const useChatStore = defineStore('chat', () => {
   function finalizeLiveTpsFromUsage(sessionId: string, totalOutputTokens: unknown) {
     const tracker = liveTpsTrackers.get(sessionId)
     if (!tracker?.startedAt) return
-    const elapsedSeconds = (Date.now() - tracker.startedAt) / 1000
+    const elapsedSeconds = liveTpsElapsedSeconds(tracker, Date.now())
     if (!Number.isFinite(elapsedSeconds) || elapsedSeconds <= 0) return
     const normalizedTotalOutput = typeof totalOutputTokens === 'number' && Number.isFinite(totalOutputTokens) && totalOutputTokens > 0
       ? Math.floor(totalOutputTokens)
