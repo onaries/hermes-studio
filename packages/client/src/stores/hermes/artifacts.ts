@@ -71,7 +71,7 @@ function fileArtifactId(path: string, name?: string): string {
 }
 
 function fileStatusForKind(kind: ArtifactKind): ArtifactStatus {
-  return kind === 'file' || kind === 'image' || kind === 'media' ? 'ready' : 'loading'
+  return kind === 'image' || kind === 'media' ? 'ready' : 'loading'
 }
 
 export const useArtifactsStore = defineStore('artifacts', () => {
@@ -171,7 +171,7 @@ export const useArtifactsStore = defineStore('artifacts', () => {
     const item = artifacts.value.find(item => item.id === id) || null
     if (!item) return null
     if (item.content !== undefined || item.status === 'error') return item
-    if (item.kind === 'file' || item.kind === 'image' || item.kind === 'media') return item
+    if (item.kind === 'image' || item.kind === 'media') return item
     if (!item.path) return item
 
     updateArtifact(item.id, { status: 'loading' })

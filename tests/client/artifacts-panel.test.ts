@@ -66,4 +66,15 @@ describe('ArtifactsPanel', () => {
     await wrapper.find('.artifact-back').trigger('click')
     expect(wrapper.classes()).not.toContain('artifacts-panel--mobile-detail')
   })
+
+  it('renders fetched unclassified file content as a text preview', () => {
+    const store = useArtifactsStore()
+    store.openContentArtifact({ name: 'artifact.out', content: 'plain output', kind: 'file', path: '/tmp/artifact.out' })
+
+    const wrapper = mount(ArtifactsPanel)
+
+    expect(wrapper.find('.artifact-text').exists()).toBe(true)
+    expect(wrapper.find('.artifact-text').text()).toContain('plain output')
+    expect(wrapper.find('.artifact-unsupported').exists()).toBe(false)
+  })
 })

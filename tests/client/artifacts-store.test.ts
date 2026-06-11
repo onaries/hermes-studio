@@ -28,14 +28,16 @@ describe('artifacts store', () => {
     expect(store.selectedArtifact?.content).toContain('# Report')
   })
 
-  it('keeps unsupported files downloadable without trying to fetch text', async () => {
+  it('tries to preview unclassified files as text artifacts', async () => {
+    vi.mocked(fetchFileText).mockResolvedValue('zip-ish but readable')
     const store = useArtifactsStore()
 
     await store.openFileArtifact({ path: '/tmp/archive.zip', name: 'archive.zip' })
 
-    expect(fetchFileText).not.toHaveBeenCalled()
+    expect(fetchFileText).toHaveBeenCalledWith('/tmp/archive.zip', 'archive.zip')
     expect(store.selectedArtifact?.kind).toBe('file')
     expect(store.selectedArtifact?.status).toBe('ready')
+    expect(store.selectedArtifact?.content).toBe('zip-ish but readable')
   })
 
   it('registers chat file artifacts without opening the drawer', () => {
