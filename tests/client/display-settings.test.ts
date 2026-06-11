@@ -13,6 +13,8 @@ const mockSettingsStore = vi.hoisted(() => ({
     bell_on_complete: false,
     notify_on_complete: false,
     mobile_enter_to_send: false,
+    terminal_font_size: 14,
+    terminal_font_family: 'Menlo, Monaco, "Courier New", monospace',
     busy_input_mode: 'interrupt',
   },
   saveSection: vi.fn(),
@@ -52,6 +54,8 @@ describe('DisplaySettings', () => {
   beforeEach(() => {
     mockSettingsStore.saveSection.mockReset()
     mockSettingsStore.display.show_live_tps = undefined
+    mockSettingsStore.display.terminal_font_size = 14
+    mockSettingsStore.display.terminal_font_family = 'Menlo, Monaco, "Courier New", monospace'
   })
 
   function mountDisplaySettings() {
@@ -63,6 +67,26 @@ describe('DisplaySettings', () => {
             template: '<div class="setting-row"><div class="setting-row-label">{{ label }}</div><div class="setting-row-hint">{{ hint }}</div><slot /></div>',
           },
           NSelect: true,
+          NInputNumber: {
+            props: ['value'],
+            emits: ['update:value'],
+            template: '<input class="number-stub" :value="value" @input="$emit(\'update:value\', Number($event.target.value))" />',
+          },
+          'n-input-number': {
+            props: ['value'],
+            emits: ['update:value'],
+            template: '<input class="number-stub" :value="value" @input="$emit(\'update:value\', Number($event.target.value))" />',
+          },
+          NInput: {
+            props: ['value'],
+            emits: ['update:value'],
+            template: '<input class="input-stub" :value="value" @input="$emit(\'update:value\', $event.target.value)" />',
+          },
+          'n-input': {
+            props: ['value'],
+            emits: ['update:value'],
+            template: '<input class="input-stub" :value="value" @input="$emit(\'update:value\', $event.target.value)" />',
+          },
           NSwitch: {
             props: ['value'],
             emits: ['update:value'],
@@ -98,5 +122,26 @@ describe('DisplaySettings', () => {
     await toggle?.trigger('click')
 
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_live_tps: false })
+  })
+
+  it('exposes terminal font controls and saves changes', async () => {
+    mockSettingsStore.saveSection.mockResolvedValue(undefined)
+    const wrapper = mountDisplaySettings()
+
+    const rows = wrapper.findAll('.setting-row')
+    const fontSizeRow = rows.find(row => row.text().includes('settings.display.terminalFontSize'))
+    expect(fontSizeRow?.text()).toContain('settings.display.terminalFontSizeHint')
+    const numberInput = fontSizeRow?.find('input')
+    expect(numberInput?.exists()).toBe(true)
+    await numberInput?.setValue('18')
+
+    const fontFamilyRow = rows.find(row => row.text().includes('settings.display.terminalFontFamily'))
+    expect(fontFamilyRow?.text()).toContain('settings.display.terminalFontFamilyHint')
+    const textInput = fontFamilyRow?.find('input')
+    expect(textInput?.exists()).toBe(true)
+    await textInput?.setValue('JetBrains Mono, monospace')
+
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { terminal_font_size: 18 })
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { terminal_font_family: 'JetBrains Mono, monospace' })
   })
 })

@@ -15,6 +15,8 @@ export interface DisplayConfig {
   show_live_tps?: boolean
   skin?: string
   mobile_enter_to_send?: boolean
+  terminal_font_size?: number
+  terminal_font_family?: string
 }
 
 export interface AgentConfig {

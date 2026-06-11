@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NButton, NSwitch, NSelect, useMessage } from 'naive-ui'
+import { NButton, NSwitch, NSelect, NInput, NInputNumber, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/hermes/settings'
 import { useTheme, type BrightnessMode } from '@/composables/useTheme'
@@ -10,6 +10,9 @@ const settingsStore = useSettingsStore()
 const message = useMessage()
 const { t } = useI18n()
 const { brightness, setBrightness } = useTheme()
+
+const DEFAULT_TERMINAL_FONT_SIZE = 14
+const DEFAULT_TERMINAL_FONT_FAMILY = 'Menlo, Monaco, "Courier New", monospace'
 
 const themeOptions = [
   { label: t('settings.display.themeLight'), value: 'light' },
@@ -30,6 +33,15 @@ function handleThemeChange(val: string) {
   const m = val as BrightnessMode
   setBrightness(m)
   save({ skin: m })
+}
+
+function handleTerminalFontFamilyChange(value: string) {
+  save({ terminal_font_family: value.trim() || DEFAULT_TERMINAL_FONT_FAMILY })
+}
+
+function handleTerminalFontSizeChange(value: number | null) {
+  if (value == null) return
+  save({ terminal_font_size: value })
 }
 
 function notificationPermissionErrorKey(result: CompletionNotificationPermissionResult): string {
@@ -114,6 +126,27 @@ async function testCompletionNotification() {
     <SettingRow :label="t('settings.display.mobileEnterToSend')" :hint="t('settings.display.mobileEnterToSendHint')">
       <NSwitch :value="settingsStore.display.mobile_enter_to_send === true" @update:value="v => save({ mobile_enter_to_send: v })" />
     </SettingRow>
+    <SettingRow :label="t('settings.display.terminalFontSize')" :hint="t('settings.display.terminalFontSizeHint')">
+      <NInputNumber
+        :value="settingsStore.display.terminal_font_size ?? DEFAULT_TERMINAL_FONT_SIZE"
+        :min="9"
+        :max="32"
+        :step="1"
+        size="small"
+        class="input-sm"
+        @update:value="handleTerminalFontSizeChange"
+      />
+    </SettingRow>
+    <SettingRow :label="t('settings.display.terminalFontFamily')" :hint="t('settings.display.terminalFontFamilyHint')">
+      <NInput
+        :value="settingsStore.display.terminal_font_family || DEFAULT_TERMINAL_FONT_FAMILY"
+        size="small"
+        class="input-md"
+        :placeholder="DEFAULT_TERMINAL_FONT_FAMILY"
+        clearable
+        @update:value="handleTerminalFontFamilyChange"
+      />
+    </SettingRow>
   </section>
 </template>
 
@@ -128,5 +161,9 @@ async function testCompletionNotification() {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+}
+
+.input-md {
+  width: min(360px, 100%);
 }
 </style>
