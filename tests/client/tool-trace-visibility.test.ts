@@ -228,6 +228,31 @@ describe('tool trace visibility', () => {
     }
   })
 
+  it('does not apply the stronger entry highlight to fast-completed live tools', async () => {
+    vi.useFakeTimers()
+    try {
+      const messages: Message[] = [
+        { id: 'user-1', role: 'user', content: 'inspect repo', timestamp: 1 },
+      ]
+      const wrapper = mountLiveList(messages)
+      const chatStore = useChatStore()
+
+      const nextMessages: Message[] = [
+        ...messages,
+        { id: 'tool-done', role: 'tool', content: '', timestamp: 2, toolName: 'read_file', toolArgs: { path: '/tmp/file.ts' }, toolStatus: 'done', toolDuration: 0.08 },
+      ]
+      chatStore.activeSession = makeSession(nextMessages)
+      await nextTick()
+
+      const doneTool = wrapper.find('.tool-call-item--done')
+      expect(doneTool.exists()).toBe(true)
+      expect(doneTool.text()).toContain('read_file')
+      expect(wrapper.find('.tool-call-item--entering').exists()).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('renders the current todo panel below the live tool panel', () => {
     const messages: Message[] = [
       { id: 'user-1', role: 'user', content: 'do the thing', timestamp: 1 },

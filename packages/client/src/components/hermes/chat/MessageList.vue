@@ -165,7 +165,10 @@ function markToolCallEntering(id: string) {
 }
 
 function isToolCallEntering(tool: Message): boolean {
-  return enteringToolCallIds.value.has(tool.id);
+  // Keep the stronger highlight for tools that are visibly running.
+  // Fast tool calls often arrive already completed; highlighting those after they
+  // are done creates a noisy flash as the success icon appears at the same time.
+  return enteringToolCallIds.value.has(tool.id) && tool.toolStatus === "running";
 }
 
 watch(
@@ -1091,7 +1094,7 @@ defineExpose({
 
 .tool-call-list-enter-active,
 .tool-call-list-appear-active {
-  animation: tool-call-row-enter 0.46s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: tool-call-row-enter 0.22s ease-out both;
 }
 
 .tool-call-list-leave-active {
@@ -1104,8 +1107,7 @@ defineExpose({
 .tool-call-list-enter-from,
 .tool-call-list-appear-from {
   opacity: 0;
-  filter: saturate(1.35);
-  transform: translateY(-8px) scale(0.985);
+  transform: translateY(-3px);
 }
 
 .tool-call-list-leave-to {
@@ -1255,20 +1257,13 @@ defineExpose({
 }
 
 @keyframes tool-call-row-enter {
-  0% {
+  from {
     opacity: 0;
-    filter: saturate(1.3);
-    transform: translateY(-12px) scale(0.96);
+    transform: translateY(-3px);
   }
-  65% {
+  to {
     opacity: 1;
-    filter: saturate(1.12);
-    transform: translateY(1px) scale(1.01);
-  }
-  100% {
-    opacity: 1;
-    filter: none;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
