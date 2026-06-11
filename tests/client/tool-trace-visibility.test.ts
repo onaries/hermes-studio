@@ -150,7 +150,7 @@ describe('tool trace visibility', () => {
     expect(readFileTool?.attributes('title')).toContain('/Users/safemotion/Documents/projects/safemotion/clip/really/long/file/path/that/does/not/fit/on/one/line.ts')
   })
 
-  it('summarizes large tool batches in the transcript and live panel', async () => {
+  it('summarizes large tool batches only in the transcript, not the live panel', () => {
     const messages: Message[] = [
       { id: 'user-1', role: 'user', content: 'do many things', timestamp: 1 },
       { id: 'tool-1', role: 'tool', content: '', timestamp: 2, toolName: 'terminal', toolArgs: { command: 'npm test' }, toolStatus: 'done' },
@@ -171,12 +171,16 @@ describe('tool trace visibility', () => {
     ])
 
     const liveWrapper = mountLiveList(messages)
-    expect(liveWrapper.find('.tool-call-summary-item').exists()).toBe(true)
-    expect(liveWrapper.find('.tool-call-summary-item').text()).toContain('chat.toolAggregate.ranCommandsMany')
-    expect(liveWrapper.find('.tool-call-summary-item').text()).toContain('chat.toolAggregate.checkedWebOne')
-
-    await liveWrapper.find('.tool-call-summary-item').trigger('click')
-    expect(liveWrapper.findAll('.tool-call-name').map(node => node.text())).toContain('terminal')
+    expect(liveWrapper.find('.tool-call-summary-item').exists()).toBe(false)
+    const liveToolNames = liveWrapper
+      .findAll('.tool-call-item:not(.compression-item) .tool-call-name')
+      .map(node => node.text())
+    expect(liveToolNames).toEqual([
+      'web_search',
+      'search_files',
+      'terminal',
+      'terminal',
+    ])
   })
 
   it('renders the current todo panel below the live tool panel', () => {
