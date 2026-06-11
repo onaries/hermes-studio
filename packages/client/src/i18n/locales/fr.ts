@@ -2004,6 +2004,7 @@ jobTriggered: 'Job declenche',
   // Telechargement
   artifacts: {
     list: 'Artifacts',
+    backToList: 'Retour à la liste',
     download: 'Télécharger',
     remove: 'Supprimer l’artifact',
     emptyTitle: 'Aucun artifact pour le moment',

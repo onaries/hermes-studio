@@ -2003,6 +2003,7 @@ export default {
   // ダウンロード
   artifacts: {
     list: 'Artifacts',
+    backToList: '一覧へ',
     download: 'ダウンロード',
     remove: 'Artifactを削除',
     emptyTitle: 'Artifactはまだありません',

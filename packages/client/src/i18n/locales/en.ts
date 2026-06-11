@@ -2084,6 +2084,7 @@ export default {
   // Download
   artifacts: {
     list: 'Artifacts',
+    backToList: 'Back to list',
     download: 'Download',
     remove: 'Remove artifact',
     emptyTitle: 'No artifacts yet',

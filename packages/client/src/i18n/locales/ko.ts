@@ -2002,6 +2002,7 @@ export default {
 
   artifacts: {
     list: 'Artifacts',
+    backToList: '목록으로',
     download: '다운로드',
     remove: 'Artifact 제거',
     emptyTitle: '아직 Artifact가 없습니다',
