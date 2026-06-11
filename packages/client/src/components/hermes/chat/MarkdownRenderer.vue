@@ -70,7 +70,6 @@ const props = withDefaults(defineProps<{
 
 const { t } = useI18n()
 const message = useMessage()
-const artifactsStore = useArtifactsStore()
 
 function diffFoldLabel(hiddenCount: number): string {
   return t('chat.unchangedLines', { count: hiddenCount })
@@ -469,6 +468,7 @@ async function handleMarkdownClick(event: MouseEvent): Promise<void> {
 
 // Get file content and show preview area.
 async function previewTextFile(path: string, fileName: string): Promise<void> {
+  const artifactsStore = useArtifactsStore()
   await artifactsStore.openFileArtifact({ path, name: fileName })
 }
 </script>
