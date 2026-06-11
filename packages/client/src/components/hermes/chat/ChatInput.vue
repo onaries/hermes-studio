@@ -867,7 +867,7 @@ function isImage(type: string): boolean {
             · {{ t('chat.contextRemaining') }} {{ formatTokens(remainingTokens) }}
           </template>
           <span v-if="visibleLiveTps != null" class="live-tps">
-            <span v-if="showContextUsage">· </span>{{ formatTps(visibleLiveTps) }} {{ t('chat.liveTps') }}
+            <span v-if="showContextUsage" class="live-tps-separator" aria-hidden="true">·</span>{{ formatTps(visibleLiveTps) }} {{ t('chat.liveTps') }}
           </span>
         </span>
         <span v-if="showContextUsage" class="context-bar">
@@ -1167,6 +1167,14 @@ function isImage(type: string): boolean {
   color: var(--accent-primary);
   font-family: $font-code;
   font-weight: 600;
+}
+
+.live-tps-separator {
+  display: inline-block;
+  margin: 0 6px 0 8px;
+  color: $text-muted;
+  font-family: $font-ui;
+  font-weight: 500;
 }
 
 .context-limit-editable {

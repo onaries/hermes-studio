@@ -135,6 +135,7 @@ describe('ChatInput draft persistence', () => {
 
     expect(wrapper.find('.context-info').text()).toContain('42.3 chat.liveTps')
     expect(wrapper.find('.live-tps').exists()).toBe(true)
+    expect(wrapper.find('.live-tps-separator').exists()).toBe(true)
   })
 
   it('shows live TPS even before context usage has settled', async () => {
@@ -148,6 +149,7 @@ describe('ChatInput draft persistence', () => {
 
     expect(wrapper.find('.context-info').text()).toBe('18.6 chat.liveTps')
     expect(wrapper.find('.live-tps').exists()).toBe(true)
+    expect(wrapper.find('.live-tps-separator').exists()).toBe(false)
     expect(wrapper.find('.context-bar').exists()).toBe(false)
   })
 
