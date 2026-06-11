@@ -2085,6 +2085,7 @@ export default {
   // 下载
   artifacts: {
     list: 'Artifacts',
+    backToList: '返回列表',
     download: '下载',
     remove: '移除 Artifact',
     emptyTitle: '暂无 Artifact',

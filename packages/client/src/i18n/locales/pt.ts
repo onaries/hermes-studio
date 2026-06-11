@@ -2003,6 +2003,7 @@ jobTriggered: 'Job acionado',
   // Download
   artifacts: {
     list: 'Artifacts',
+    backToList: 'Voltar à lista',
     download: 'Baixar',
     remove: 'Remover artifact',
     emptyTitle: 'Ainda não há artifacts',

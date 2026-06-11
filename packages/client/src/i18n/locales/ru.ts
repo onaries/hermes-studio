@@ -1825,6 +1825,7 @@ export default {
   
   artifacts: {
     list: 'Artifacts',
+    backToList: 'К списку',
     download: 'Скачать',
     remove: 'Удалить artifact',
     emptyTitle: 'Пока нет artifacts',

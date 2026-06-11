@@ -1993,6 +1993,7 @@ jobTriggered: 'Job ausgelost',
   // Download
   artifacts: {
     list: 'Artifacts',
+    backToList: 'Zurück zur Liste',
     download: 'Herunterladen',
     remove: 'Artifact entfernen',
     emptyTitle: 'Noch keine Artifacts',

@@ -50,4 +50,20 @@ describe('ArtifactsPanel', () => {
     expect(wrapper.find('.artifact-list').exists()).toBe(true)
     expect(wrapper.find('.artifact-list-name').text()).toBe('notes.md')
   })
+
+  it('uses a list-to-detail state for mobile artifact browsing', async () => {
+    const store = useArtifactsStore()
+    store.openContentArtifact({ name: 'notes.md', content: '# Notes', kind: 'markdown', path: '/tmp/notes.md' })
+
+    const wrapper = mount(ArtifactsPanel)
+
+    expect(wrapper.classes()).not.toContain('artifacts-panel--mobile-detail')
+
+    await wrapper.find('.artifact-list-item').trigger('click')
+    expect(wrapper.classes()).toContain('artifacts-panel--mobile-detail')
+    expect(wrapper.find('.artifact-back').exists()).toBe(true)
+
+    await wrapper.find('.artifact-back').trigger('click')
+    expect(wrapper.classes()).not.toContain('artifacts-panel--mobile-detail')
+  })
 })

@@ -2076,6 +2076,7 @@ export default {
   // 下載
   artifacts: {
     list: 'Artifacts',
+    backToList: '返回列表',
     download: '下載',
     remove: '移除 Artifact',
     emptyTitle: '尚無 Artifact',

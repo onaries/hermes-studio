@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NSpin, useMessage } from 'naive-ui'
 import { useArtifactsStore, type ArtifactItem } from '@/stores/hermes/artifacts'
@@ -8,6 +8,7 @@ import MarkdownRenderer from './MarkdownRenderer.vue'
 const { t } = useI18n()
 const message = useMessage()
 const artifactsStore = useArtifactsStore()
+const mobileDetailOpen = ref(false)
 
 const selectedArtifact = computed(() => artifactsStore.selectedArtifact)
 
@@ -17,6 +18,28 @@ const selectedIsText = computed(() => selectedArtifact.value?.kind === 'text')
 const selectedIsImage = computed(() => selectedArtifact.value?.kind === 'image')
 const selectedIsMedia = computed(() => selectedArtifact.value?.kind === 'media')
 const selectedIsVideo = computed(() => /\.(mp4|webm|mov)$/i.test(selectedArtifact.value?.name || selectedArtifact.value?.path || ''))
+
+function handleSelectArtifact(id: string): void {
+  artifactsStore.selectArtifact(id)
+  mobileDetailOpen.value = true
+}
+
+function showArtifactList(): void {
+  mobileDetailOpen.value = false
+}
+
+watch(
+  () => artifactsStore.openSequence,
+  (sequence, previousSequence) => {
+    if (sequence !== previousSequence && selectedArtifact.value) {
+      mobileDetailOpen.value = true
+    }
+  },
+)
+
+watch(selectedArtifact, (artifact) => {
+  if (!artifact) mobileDetailOpen.value = false
+})
 
 async function handleDownload(item: ArtifactItem | null): Promise<void> {
   if (!item?.path) return
@@ -29,7 +52,13 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
 </script>
 
 <template>
-  <div class="artifacts-panel" :class="{ 'artifacts-panel--empty': artifactsStore.artifacts.length === 0 }">
+  <div
+    class="artifacts-panel"
+    :class="{
+      'artifacts-panel--empty': artifactsStore.artifacts.length === 0,
+      'artifacts-panel--mobile-detail': mobileDetailOpen && !!selectedArtifact,
+    }"
+  >
     <aside v-if="artifactsStore.artifacts.length > 0" class="artifact-list" :aria-label="t('artifacts.list')">
       <button
         v-for="artifact in artifactsStore.artifacts"
@@ -37,7 +66,7 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
         type="button"
         class="artifact-list-item"
         :class="{ active: artifact.id === artifactsStore.selectedArtifactId }"
-        @click="artifactsStore.selectArtifact(artifact.id)"
+        @click="handleSelectArtifact(artifact.id)"
       >
         <span class="artifact-icon" aria-hidden="true">
           <svg v-if="artifact.kind === 'markdown' || artifact.kind === 'text'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -77,6 +106,17 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
 
     <section class="artifact-viewer">
       <div v-if="selectedArtifact" class="artifact-toolbar">
+        <button
+          type="button"
+          class="artifact-back"
+          :aria-label="t('artifacts.backToList')"
+          @click="showArtifactList"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          <span>{{ t('artifacts.backToList') }}</span>
+        </button>
         <div class="artifact-title-group">
           <h3 class="artifact-title">{{ selectedArtifact.name }}</h3>
           <p v-if="selectedArtifact.path" class="artifact-path" :title="selectedArtifact.path">{{ selectedArtifact.path }}</p>
@@ -146,6 +186,19 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
 
   @media (max-width: $breakpoint-mobile) {
     grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr);
+
+    &:not(.artifacts-panel--empty):not(.artifacts-panel--mobile-detail) {
+      .artifact-viewer {
+        display: none;
+      }
+    }
+
+    &.artifacts-panel--mobile-detail {
+      .artifact-list {
+        display: none;
+      }
+    }
   }
 }
 
@@ -157,9 +210,10 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
   padding: 8px;
 
   @media (max-width: $breakpoint-mobile) {
-    max-height: 168px;
+    height: 100%;
+    max-height: none;
     border-right: 0;
-    border-bottom: 1px solid $border-color;
+    border-bottom: 0;
   }
 }
 
@@ -246,6 +300,45 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
   border-bottom: 1px solid $border-color;
   background: $bg-card;
   flex-shrink: 0;
+  @media (max-width: $breakpoint-mobile) {
+    gap: 8px;
+    padding: 8px 10px;
+
+    .artifact-back {
+      display: inline-flex;
+    }
+
+    .artifact-title {
+      font-size: 14px;
+    }
+
+    .artifact-path {
+      display: none;
+    }
+
+    .artifact-download {
+      padding: 6px 8px;
+    }
+  }
+}
+
+.artifact-back {
+  border: 0;
+  background: transparent;
+  color: $text-secondary;
+  border-radius: $radius-md;
+  padding: 6px 8px;
+  display: none;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  &:hover {
+    color: $text-primary;
+    background: rgba(var(--accent-primary-rgb), 0.08);
+  }
 }
 
 .artifact-title-group {
