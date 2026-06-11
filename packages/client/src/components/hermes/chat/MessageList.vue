@@ -150,6 +150,34 @@ const visibleToolCalls = computed(() =>
   currentToolCalls.value.filter((tool) => !!tool.toolName),
 );
 
+const enteringToolCallIds = ref<Set<string>>(new Set());
+const enteringToolCallTimers = new Map<string, number>();
+
+function markToolCallEntering(id: string) {
+  window.clearTimeout(enteringToolCallTimers.get(id));
+  enteringToolCallIds.value = new Set(enteringToolCallIds.value).add(id);
+  enteringToolCallTimers.set(id, window.setTimeout(() => {
+    enteringToolCallTimers.delete(id);
+    const nextIds = new Set(enteringToolCallIds.value);
+    nextIds.delete(id);
+    enteringToolCallIds.value = nextIds;
+  }, 900));
+}
+
+function isToolCallEntering(tool: Message): boolean {
+  return enteringToolCallIds.value.has(tool.id);
+}
+
+watch(
+  () => visibleToolCalls.value.map((tool) => tool.id),
+  (toolIds, previousToolIds = []) => {
+    const previousIds = new Set(previousToolIds);
+    for (const id of toolIds) {
+      if (!previousIds.has(id)) markToolCallEntering(id);
+    }
+  },
+);
+
 const emptyState = computed(() => {
   const session = chatStore.activeSession;
   const codingAgentId = session?.codingAgentId || (session?.agent === "codex" ? "codex" : session?.agent === "claude" ? "claude-code" : undefined);
@@ -364,6 +392,10 @@ watch(
 
 onBeforeUnmount(() => {
   saveSessionScrollPosition(chatStore.activeSessionId);
+  for (const timer of enteringToolCallTimers.values()) {
+    window.clearTimeout(timer);
+  }
+  enteringToolCallTimers.clear();
 });
 
 defineExpose({
@@ -502,12 +534,13 @@ defineExpose({
               ></span>
             </div>
             <!-- Tool calls -->
-            <TransitionGroup name="tool-call-list" tag="div" class="tool-call-list">
+            <TransitionGroup appear name="tool-call-list" tag="div" class="tool-call-list">
               <div
                 v-for="tc in visibleToolCalls"
                 :key="tc.id"
                 class="tool-call-item"
                 :class="{
+                  'tool-call-item--entering': isToolCallEntering(tc),
                   'tool-call-item--running': tc.toolStatus === 'running',
                   'tool-call-item--done': tc.toolStatus === 'done',
                   'tool-call-item--error': tc.toolStatus === 'error',
@@ -915,6 +948,10 @@ defineExpose({
 }
 
 .tool-call-list-enter-active,
+.tool-call-list-appear-active {
+  animation: tool-call-row-enter 0.46s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 .tool-call-list-leave-active {
   transition:
     opacity 0.24s ease,
@@ -922,7 +959,8 @@ defineExpose({
     filter 0.24s ease;
 }
 
-.tool-call-list-enter-from {
+.tool-call-list-enter-from,
+.tool-call-list-appear-from {
   opacity: 0;
   filter: saturate(1.35);
   transform: translateY(-8px) scale(0.985);
@@ -962,6 +1000,10 @@ defineExpose({
   &.compression-item {
     color: $text-muted;
     font-size: 10px;
+  }
+
+  &.tool-call-item--entering {
+    animation: tool-call-row-enter-highlight 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   &.tool-call-item--running {
@@ -1070,6 +1112,49 @@ defineExpose({
   justify-content: center;
 }
 
+@keyframes tool-call-row-enter {
+  0% {
+    opacity: 0;
+    filter: saturate(1.3);
+    transform: translateY(-12px) scale(0.96);
+  }
+  65% {
+    opacity: 1;
+    filter: saturate(1.12);
+    transform: translateY(1px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    filter: none;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes tool-call-row-enter-highlight {
+  0% {
+    opacity: 0;
+    filter: saturate(1.35);
+    transform: translateY(-14px) scale(0.96);
+    box-shadow:
+      0 0 0 1px rgba(var(--accent-primary-rgb), 0.22) inset,
+      0 12px 28px rgba(var(--accent-primary-rgb), 0.18);
+  }
+  45% {
+    opacity: 1;
+    filter: saturate(1.18);
+    transform: translateY(0) scale(1.015);
+    box-shadow:
+      0 0 0 1px rgba(var(--accent-primary-rgb), 0.24) inset,
+      0 8px 20px rgba(var(--accent-primary-rgb), 0.14);
+  }
+  100% {
+    opacity: 1;
+    filter: none;
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 1px rgba(var(--accent-primary-rgb), 0.04) inset;
+  }
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -1098,18 +1183,22 @@ defineExpose({
 
 @media (prefers-reduced-motion: reduce) {
   .tool-call-list-enter-active,
+  .tool-call-list-appear-active,
   .tool-call-list-leave-active,
   .tool-call-list-move {
     transition: none;
+    animation: none;
   }
 
   .tool-call-list-enter-from,
+  .tool-call-list-appear-from,
   .tool-call-list-leave-to {
     opacity: 1;
     filter: none;
     transform: none;
   }
 
+  .tool-call-item--entering,
   .tool-call-item--running::before,
   .tool-call-item--running::after,
   .tool-call-spinner {
