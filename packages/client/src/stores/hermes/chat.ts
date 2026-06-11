@@ -557,6 +557,7 @@ type LiveTpsTracker = {
   startedAt: number | null
   lastDeltaAt: number | null
   activeElapsedMs: number
+  deltaCount: number
   outputTokens: number
   baselineOutputTokens: number
   smoothedTps: number | null
@@ -565,6 +566,7 @@ type LiveTpsTracker = {
 const LIVE_TPS_DISPLAY_DELAY_MS = 1500
 const LIVE_TPS_SMOOTHING_ALPHA = 0.35
 const LIVE_TPS_IDLE_GAP_MS = 5000
+const LIVE_TPS_MAX_USAGE_ESTIMATE_RATIO = 8
 
 function roundTps(value: number): number {
   return Math.round(value * 10) / 10
@@ -675,6 +677,7 @@ export const useChatStore = defineStore('chat', () => {
       startedAt: null,
       lastDeltaAt: null,
       activeElapsedMs: 0,
+      deltaCount: 0,
       outputTokens: 0,
       baselineOutputTokens,
       smoothedTps: null,
@@ -713,6 +716,7 @@ export const useChatStore = defineStore('chat', () => {
     if (tracker.startedAt == null) tracker.startedAt = now
     trackLiveTpsActiveElapsed(tracker, now)
     tracker.lastDeltaAt = now
+    tracker.deltaCount += 1
     tracker.outputTokens += estimatedTokens
     if (tracker.activeElapsedMs < LIVE_TPS_DISPLAY_DELAY_MS) {
       liveTpsTrackers.set(sessionId, tracker)
@@ -730,6 +734,10 @@ export const useChatStore = defineStore('chat', () => {
   function finalizeLiveTpsFromUsage(sessionId: string, totalOutputTokens: unknown) {
     const tracker = liveTpsTrackers.get(sessionId)
     if (!tracker?.startedAt) return
+    // A single streamed chunk (or an otherwise too-short sample) cannot produce
+    // a stable throughput. Do not let run.completed + cumulative usage jump the
+    // label to thousands of TPS after live display intentionally stayed hidden.
+    if (tracker.deltaCount < 2 || tracker.activeElapsedMs < LIVE_TPS_DISPLAY_DELAY_MS) return
     const elapsedSeconds = liveTpsElapsedSeconds(tracker, Date.now())
     if (!Number.isFinite(elapsedSeconds) || elapsedSeconds <= 0) return
     const normalizedTotalOutput = typeof totalOutputTokens === 'number' && Number.isFinite(totalOutputTokens) && totalOutputTokens > 0
@@ -738,7 +746,10 @@ export const useChatStore = defineStore('chat', () => {
     const usageDeltaTokens = normalizedTotalOutput > tracker.baselineOutputTokens
       ? normalizedTotalOutput - tracker.baselineOutputTokens
       : 0
-    const finalOutputTokens = usageDeltaTokens > 0 ? usageDeltaTokens : tracker.outputTokens
+    const usageLooksPlausible = usageDeltaTokens > 0 && (
+      tracker.outputTokens <= 0 || usageDeltaTokens <= tracker.outputTokens * LIVE_TPS_MAX_USAGE_ESTIMATE_RATIO
+    )
+    const finalOutputTokens = usageLooksPlausible ? usageDeltaTokens : tracker.outputTokens
     if (finalOutputTokens <= 0) return
     setSessionLiveTps(sessionId, roundTps(finalOutputTokens / elapsedSeconds))
   }

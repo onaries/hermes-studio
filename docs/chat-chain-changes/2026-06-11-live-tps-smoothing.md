@@ -6,3 +6,5 @@ impact: Live TPS waits for the first short sampling window, smooths visible valu
 ---
 
 Display-only metering change. `/chat-run`, persistence, approval, streaming protocol, and message content semantics are unchanged. Live TPS uses active streaming duration so long tool/wait gaps do not drag down the visible value when reasoning or answer deltas resume; the separator is rendered as a dedicated inline element so spacing remains legible beside the context meter.
+
+Final completed TPS now keeps the same stability guard as live TPS: a single streamed chunk or a sub-1.5s active sample is not enough to publish a final server-usage TPS, and implausibly large cumulative usage values fall back to the streamed token estimate instead of showing huge spikes.
