@@ -575,6 +575,11 @@ export default {
       usedComputerMany: 'used computer {count} times',
       usedToolsOne: 'used 1 tool',
       usedToolsMany: 'used {count} tools',
+      elapsedDuration: 'Заняло {duration}',
+      durationLessThanSecond: '<1 с',
+      durationSeconds: '{count} с',
+      durationMinutes: '{minutes} мин {seconds} с',
+      durationHours: '{hours} ч {minutes} мин',
     },
 
     thinkingLabel: 'Процесс размышления',
