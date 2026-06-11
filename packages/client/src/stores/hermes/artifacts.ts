@@ -14,6 +14,13 @@ export interface ArtifactItem {
   status: ArtifactStatus
   error?: string
   createdAt: number
+  source?: 'manual' | 'chat'
+  sourceSessionId?: string
+}
+
+export interface ArtifactFileReference {
+  path: string
+  name?: string
 }
 
 const MARKDOWN_EXTENSIONS = new Set(['md', 'markdown'])
@@ -59,10 +66,19 @@ function artifactId(pathOrName: string): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${pathOrName}`
 }
 
+function fileArtifactId(path: string, name?: string): string {
+  return `file:${path}::${name || ''}`
+}
+
+function fileStatusForKind(kind: ArtifactKind): ArtifactStatus {
+  return kind === 'file' || kind === 'image' || kind === 'media' ? 'ready' : 'loading'
+}
+
 export const useArtifactsStore = defineStore('artifacts', () => {
   const artifacts = ref<ArtifactItem[]>([])
   const selectedArtifactId = ref<string | null>(null)
   const openSequence = ref(0)
+  const dismissedChatArtifactIds = new Set<string>()
 
   const selectedArtifact = computed(() => artifacts.value.find(item => item.id === selectedArtifactId.value) || null)
 
@@ -71,10 +87,10 @@ export const useArtifactsStore = defineStore('artifacts', () => {
     openSequence.value += 1
   }
 
-  function upsertArtifact(item: ArtifactItem): void {
+  function upsertArtifact(item: ArtifactItem, options: { select?: boolean; open?: boolean } = {}): void {
     artifacts.value = [item, ...artifacts.value.filter(existing => existing.id !== item.id)].slice(0, 20)
-    selectedArtifactId.value = item.id
-    openSequence.value += 1
+    if (options.select !== false) selectedArtifactId.value = item.id
+    if (options.open !== false) openSequence.value += 1
   }
 
   function updateArtifact(id: string, patch: Partial<ArtifactItem>): ArtifactItem | null {
@@ -96,30 +112,72 @@ export const useArtifactsStore = defineStore('artifacts', () => {
       kind: options.kind || inferKind(options.name),
       status: 'ready',
       createdAt: Date.now(),
+      source: 'manual',
     }
     upsertArtifact(item)
     return item
   }
 
-  async function openFileArtifact(options: { path: string; name?: string }): Promise<ArtifactItem> {
+  function createFileArtifact(options: { path: string; name?: string; source?: 'manual' | 'chat'; sourceSessionId?: string }): ArtifactItem {
     const name = options.name || options.path.split('/').pop() || options.path
+    const id = fileArtifactId(options.path, name)
+    const existing = artifacts.value.find(item => item.id === id)
     const kind = inferKind(name || options.path)
-    const item: ArtifactItem = {
-      id: artifactId(options.path),
+    return {
+      ...existing,
+      id,
       name,
       path: options.path,
       kind,
-      status: kind === 'file' || kind === 'image' || kind === 'media' ? 'ready' : 'loading',
-      createdAt: Date.now(),
+      status: existing?.content !== undefined ? 'ready' : existing?.status || fileStatusForKind(kind),
+      createdAt: existing?.createdAt || Date.now(),
+      source: options.source || existing?.source || 'manual',
+      sourceSessionId: options.sourceSessionId ?? existing?.sourceSessionId,
     }
-    upsertArtifact(item)
+  }
 
-    if (kind === 'file' || kind === 'image' || kind === 'media') {
-      return item
+  function registerFileArtifact(options: { path: string; name?: string; sourceSessionId?: string }): ArtifactItem {
+    const item = createFileArtifact({ ...options, source: 'chat' })
+    dismissedChatArtifactIds.delete(item.id)
+    upsertArtifact(item, { select: selectedArtifactId.value === null, open: false })
+    return item
+  }
+
+  function syncChatFileArtifacts(sessionId: string | null | undefined, files: ArtifactFileReference[]): void {
+    if (!sessionId) {
+      artifacts.value = artifacts.value.filter(item => item.source !== 'chat')
+      if (selectedArtifactId.value && !artifacts.value.some(item => item.id === selectedArtifactId.value)) {
+        selectedArtifactId.value = artifacts.value[0]?.id || null
+      }
+      return
     }
+
+    const seen = new Set<string>()
+    const chatItems = files.flatMap(file => {
+      if (!file.path) return []
+      const item = createFileArtifact({ ...file, source: 'chat', sourceSessionId: sessionId })
+      if (dismissedChatArtifactIds.has(item.id) || seen.has(item.id)) return []
+      seen.add(item.id)
+      return [item]
+    })
+    const manualItems = artifacts.value.filter(item => item.source !== 'chat')
+    artifacts.value = [...chatItems, ...manualItems].slice(0, 20)
+
+    if (selectedArtifactId.value && artifacts.value.some(item => item.id === selectedArtifactId.value)) return
+    selectedArtifactId.value = artifacts.value[0]?.id || null
+  }
+
+  async function ensureArtifactContent(id: string): Promise<ArtifactItem | null> {
+    const item = artifacts.value.find(item => item.id === id) || null
+    if (!item) return null
+    if (item.content !== undefined || item.status === 'error') return item
+    if (item.kind === 'file' || item.kind === 'image' || item.kind === 'media') return item
+    if (!item.path) return item
+
+    updateArtifact(item.id, { status: 'loading' })
 
     try {
-      const content = await fetchFileText(options.path, name)
+      const content = await fetchFileText(item.path, item.name)
       return updateArtifact(item.id, { content, status: 'ready' }) || item
     } catch (err: any) {
       return updateArtifact(item.id, {
@@ -129,7 +187,15 @@ export const useArtifactsStore = defineStore('artifacts', () => {
     }
   }
 
+  async function openFileArtifact(options: { path: string; name?: string }): Promise<ArtifactItem> {
+    const item = createFileArtifact({ ...options, source: 'manual' })
+    upsertArtifact(item)
+    return await ensureArtifactContent(item.id) || item
+  }
+
   function closeArtifact(id: string): void {
+    const item = artifacts.value.find(item => item.id === id)
+    if (item?.source === 'chat') dismissedChatArtifactIds.add(id)
     artifacts.value = artifacts.value.filter(item => item.id !== id)
     if (selectedArtifactId.value === id) {
       selectedArtifactId.value = artifacts.value[0]?.id || null
@@ -139,6 +205,7 @@ export const useArtifactsStore = defineStore('artifacts', () => {
   function clearArtifacts(): void {
     artifacts.value = []
     selectedArtifactId.value = null
+    dismissedChatArtifactIds.clear()
   }
 
   async function downloadArtifact(item: ArtifactItem): Promise<void> {
@@ -158,6 +225,9 @@ export const useArtifactsStore = defineStore('artifacts', () => {
     openSequence,
     openContentArtifact,
     openFileArtifact,
+    registerFileArtifact,
+    syncChatFileArtifacts,
+    ensureArtifactContent,
     selectArtifact,
     closeArtifact,
     clearArtifacts,

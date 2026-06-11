@@ -37,4 +37,34 @@ describe('artifacts store', () => {
     expect(store.selectedArtifact?.kind).toBe('file')
     expect(store.selectedArtifact?.status).toBe('ready')
   })
+
+  it('registers chat file artifacts without opening the drawer', () => {
+    const store = useArtifactsStore()
+
+    store.syncChatFileArtifacts('session-1', [
+      { path: '/tmp/report.md', name: 'report.md' },
+      { path: '/tmp/chart.png', name: 'chart.png' },
+    ])
+
+    expect(store.openSequence).toBe(0)
+    expect(store.artifacts.map(item => item.name)).toEqual(['report.md', 'chart.png'])
+    expect(store.selectedArtifact?.name).toBe('report.md')
+    expect(store.selectedArtifact?.status).toBe('loading')
+    expect(fetchFileText).not.toHaveBeenCalled()
+  })
+
+  it('loads registered chat artifact content lazily and deduplicates later opens', async () => {
+    vi.mocked(fetchFileText).mockResolvedValue('# Chat report')
+    const store = useArtifactsStore()
+    store.syncChatFileArtifacts('session-1', [{ path: '/tmp/report.md', name: 'report.md' }])
+    const id = store.selectedArtifactId!
+
+    await store.ensureArtifactContent(id)
+    await store.openFileArtifact({ path: '/tmp/report.md', name: 'report.md' })
+
+    expect(fetchFileText).toHaveBeenCalledTimes(1)
+    expect(store.artifacts).toHaveLength(1)
+    expect(store.selectedArtifact?.content).toBe('# Chat report')
+    expect(store.openSequence).toBe(1)
+  })
 })
