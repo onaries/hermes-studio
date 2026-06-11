@@ -381,6 +381,7 @@ export default {
   // 抽屜
   drawer: {
     terminal: '終端機',
+    artifacts: 'Artifacts',
     files: '工作區',
     todo: {
       tab: '待辦',
@@ -2068,6 +2069,16 @@ export default {
   },
 
   // 下載
+  artifacts: {
+    list: 'Artifacts',
+    download: '下載',
+    remove: '移除 Artifact',
+    emptyTitle: '尚無 Artifact',
+    emptyDescription: '從聊天中開啟產生的 Markdown 或文字檔後，可在這裡單獨預覽。',
+    loadFailed: 'Artifact 載入失敗',
+    unsupported: '此檔案無法預覽。請下載後在本機開啟。',
+  },
+
   download: {
     downloading: '正在下載...',
     downloadFailed: '下載失敗',

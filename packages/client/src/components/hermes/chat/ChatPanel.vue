@@ -7,6 +7,7 @@ import { useAppStore } from "@/stores/hermes/app";
 import { useProfilesStore } from "@/stores/hermes/profiles";
 import { useSessionBrowserPrefsStore } from "@/stores/hermes/session-browser-prefs";
 import { useSettingsStore } from "@/stores/hermes/settings";
+import { useArtifactsStore } from "@/stores/hermes/artifacts";
 import {
   NButton,
   NDrawer,
@@ -39,17 +40,24 @@ const appStore = useAppStore();
 const profilesStore = useProfilesStore();
 const sessionBrowserPrefsStore = useSessionBrowserPrefsStore();
 const settingsStore = useSettingsStore();
+const artifactsStore = useArtifactsStore();
 const router = useRouter();
 const message = useMessage();
 const { t } = useI18n();
 
 const showDrawer = ref(false);
-const drawerActiveTab = ref<"terminal" | "files">("files");
+const drawerActiveTab = ref<"terminal" | "files" | "artifacts">("files");
 const showOutline = ref(false);
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
 const isFileDragOverChat = ref(false);
 let chatFileDragDepth = 0;
+
+watch(() => artifactsStore.openSequence, (openSequence) => {
+  if (openSequence <= 0) return;
+  drawerActiveTab.value = "artifacts";
+  showDrawer.value = true;
+});
 
 const currentMode = ref<"chat" | "live">("chat");
 
