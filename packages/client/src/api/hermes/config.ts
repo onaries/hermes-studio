@@ -12,6 +12,7 @@ export interface DisplayConfig {
   streaming?: boolean
   inline_diffs?: boolean
   show_cost?: boolean
+  show_live_tps?: boolean
   skin?: string
   mobile_enter_to_send?: boolean
 }

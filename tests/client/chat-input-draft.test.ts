@@ -4,6 +4,7 @@ import { mount } from '@vue/test-utils'
 import { createTestingPinia } from '@pinia/testing'
 import { nextTick } from 'vue'
 import { useChatStore } from '@/stores/hermes/chat'
+import { useSettingsStore } from '@/stores/hermes/settings'
 import ChatInput from '@/components/hermes/chat/ChatInput.vue'
 
 vi.mock('vue-i18n', () => ({
@@ -50,9 +51,15 @@ vi.mock('@/composables/useToolTraceVisibility', () => ({
   useToolTraceVisibility: () => ({ toolTraceVisible: { value: true }, toggleToolTraceVisible: vi.fn() }),
 }))
 
-function mountForSession(sessionId: string, sessionOverrides: Partial<ReturnType<typeof useChatStore>['sessions'][number]> = {}) {
+function mountForSession(
+  sessionId: string,
+  sessionOverrides: Partial<ReturnType<typeof useChatStore>['sessions'][number]> = {},
+  displayOverrides: Partial<ReturnType<typeof useSettingsStore>['display']> = {},
+) {
   const pinia = createTestingPinia({ stubActions: false, createSpy: vi.fn })
   const chatStore = useChatStore()
+  const settingsStore = useSettingsStore()
+  settingsStore.display = { ...settingsStore.display, ...displayOverrides }
   chatStore.sessions = [
     { id: sessionId, title: sessionId, source: 'cli', messages: [], createdAt: Date.now(), updatedAt: Date.now(), ...sessionOverrides },
   ]
@@ -142,6 +149,22 @@ describe('ChatInput draft persistence', () => {
     expect(wrapper.find('.context-info').text()).toBe('18.6 chat.liveTps')
     expect(wrapper.find('.live-tps').exists()).toBe(true)
     expect(wrapper.find('.context-bar').exists()).toBe(false)
+  })
+
+  it('hides live TPS when the display setting is disabled', async () => {
+    const wrapper = mountForSession('session-live-tps-disabled', {
+      inputTokens: 1200,
+      outputTokens: 300,
+      contextTokens: 1500,
+      liveTps: 18.6,
+    }, {
+      show_live_tps: false,
+    })
+    await nextTick()
+
+    expect(wrapper.find('.live-tps').exists()).toBe(false)
+    expect(wrapper.find('.context-info').text()).not.toContain('chat.liveTps')
+    expect(wrapper.find('.context-bar').exists()).toBe(true)
   })
 
   it('renders the context bar fill at the current usage width', async () => {

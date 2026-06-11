@@ -80,7 +80,7 @@ function itemTitle(item: TodoListItem): string {
   max-width: min(560px, calc(100% - 32px));
   box-sizing: border-box;
   flex-shrink: 0;
-  margin: 4px 16px 0;
+  margin: 16px 16px 0;
   padding: 5px 8px;
   border: 1px solid rgba(var(--accent-primary-rgb), 0.12);
   border-radius: $radius-sm;

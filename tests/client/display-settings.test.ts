@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 
 const mockSettingsStore = vi.hoisted(() => ({
@@ -8,6 +8,7 @@ const mockSettingsStore = vi.hoisted(() => ({
     compact: false,
     show_reasoning: true,
     show_cost: false,
+    show_live_tps: undefined,
     inline_diffs: true,
     bell_on_complete: false,
     notify_on_complete: false,
@@ -48,8 +49,13 @@ vi.mock('naive-ui', async () => {
 import DisplaySettings from '@/components/hermes/settings/DisplaySettings.vue'
 
 describe('DisplaySettings', () => {
-  it('does not expose the unwired busy input mode toggle', () => {
-    const wrapper = mount(DisplaySettings, {
+  beforeEach(() => {
+    mockSettingsStore.saveSection.mockReset()
+    mockSettingsStore.display.show_live_tps = undefined
+  })
+
+  function mountDisplaySettings() {
+    return mount(DisplaySettings, {
       global: {
         stubs: {
           SettingRow: {
@@ -57,12 +63,40 @@ describe('DisplaySettings', () => {
             template: '<div class="setting-row"><div class="setting-row-label">{{ label }}</div><div class="setting-row-hint">{{ hint }}</div><slot /></div>',
           },
           NSelect: true,
-          NSwitch: true,
+          NSwitch: {
+            props: ['value'],
+            emits: ['update:value'],
+            template: '<button type="button" class="switch-stub" :data-value="String(value)" @click="$emit(\'update:value\', !value)"></button>',
+          },
+          'n-switch': {
+            props: ['value'],
+            emits: ['update:value'],
+            template: '<button type="button" class="switch-stub" :data-value="String(value)" @click="$emit(\'update:value\', !value)"></button>',
+          },
         },
       },
     })
+  }
+
+  it('does not expose the unwired busy input mode toggle', () => {
+    const wrapper = mountDisplaySettings()
 
     expect(wrapper.text()).not.toContain('settings.display.busyInputMode')
     expect(wrapper.text()).not.toContain('settings.display.busyInputModeHint')
+  })
+
+  it('exposes a live TPS display toggle that defaults on and saves changes', async () => {
+    mockSettingsStore.saveSection.mockResolvedValue(undefined)
+    const wrapper = mountDisplaySettings()
+
+    const rows = wrapper.findAll('.setting-row')
+    const liveTpsRow = rows.find(row => row.text().includes('settings.display.showLiveTps'))
+    expect(liveTpsRow?.text()).toContain('settings.display.showLiveTpsHint')
+    const toggle = liveTpsRow?.find('[role="switch"]')
+    expect(toggle?.attributes('aria-checked')).toBe('true')
+
+    await toggle?.trigger('click')
+
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_live_tps: false })
   })
 })

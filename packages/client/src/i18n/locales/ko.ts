@@ -1139,6 +1139,8 @@ export default {
       showReasoningHint: '모델의 생각 과정 표시',
       showCost: '비용 표시',
       showCostHint: '응답에 토큰 사용량 표시',
+      showLiveTps: '실시간 TPS 표시',
+      showLiveTpsHint: '스트리밍 중 채팅 입력창에 추정 토큰/초를 표시합니다',
       inlineDiffs: '인라인 변경사항',
       inlineDiffsHint: '코드 변경사항을 인라인으로 표시',
       bellOnComplete: '완료 알림음',
