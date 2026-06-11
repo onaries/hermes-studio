@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { Message } from '@/stores/hermes/chat'
 import {
+  buildToolAggregateDurationSeconds,
   buildToolAggregateSummary,
+  formatToolAggregateDuration,
   groupToolTraceMessages,
   isToolTraceGroup,
 } from '@/utils/tool-aggregate-summary'
@@ -34,6 +36,10 @@ const t = (key: string, params?: Record<string, unknown>) => {
     'chat.toolAggregate.usedComputerMany': 'used computer {count} times',
     'chat.toolAggregate.usedToolsOne': 'used 1 tool',
     'chat.toolAggregate.usedToolsMany': 'used {count} tools',
+    'chat.toolAggregate.durationLessThanSecond': '<1s',
+    'chat.toolAggregate.durationSeconds': '{count}s',
+    'chat.toolAggregate.durationMinutes': '{minutes}m {seconds}s',
+    'chat.toolAggregate.durationHours': '{hours}h {minutes}m',
   }
   let out = templates[key] || key
   for (const [param, value] of Object.entries(params || {})) {
@@ -42,7 +48,7 @@ const t = (key: string, params?: Record<string, unknown>) => {
   return out
 }
 
-function tool(id: string, toolName: string, toolArgs?: unknown): Message {
+function tool(id: string, toolName: string, toolArgs?: unknown, toolDuration?: number): Message {
   return {
     id,
     role: 'tool',
@@ -51,6 +57,7 @@ function tool(id: string, toolName: string, toolArgs?: unknown): Message {
     toolName,
     toolArgs,
     toolStatus: 'done',
+    toolDuration,
   }
 }
 
@@ -97,5 +104,19 @@ describe('tool aggregate summary', () => {
 
     expect(grouped.map(item => item.id)).toEqual(['t1', 't2', 't3'])
     expect(grouped.some(isToolTraceGroup)).toBe(false)
+  })
+
+  it('sums and formats completed tool durations', () => {
+    const duration = buildToolAggregateDurationSeconds([
+      tool('t1', 'terminal', undefined, 0.4),
+      tool('t2', 'read_file', undefined, 12.2),
+      tool('t3', 'web_search', undefined, 62.7),
+      tool('t4', 'search_files'),
+    ])
+
+    expect(duration).toBeCloseTo(75.3)
+    expect(formatToolAggregateDuration(duration, t)).toBe('1m 15s')
+    expect(formatToolAggregateDuration(0.4, t)).toBe('<1s')
+    expect(formatToolAggregateDuration(null, t)).toBe('')
   })
 })

@@ -614,6 +614,11 @@ export default {
       usedComputerMany: '컴퓨터 제어 {count}회 사용',
       usedToolsOne: '도구 1개 사용',
       usedToolsMany: '도구 {count}개 사용',
+      elapsedDuration: '소요 {duration}',
+      durationLessThanSecond: '<1초',
+      durationSeconds: '{count}초',
+      durationMinutes: '{minutes}분 {seconds}초',
+      durationHours: '{hours}시간 {minutes}분',
     },
 
     todoToolName: 'Todo',

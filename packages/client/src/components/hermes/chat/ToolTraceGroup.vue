@@ -2,7 +2,11 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Message } from '@/stores/hermes/chat'
-import { buildToolAggregateSummary } from '@/utils/tool-aggregate-summary'
+import {
+  buildToolAggregateDurationSeconds,
+  buildToolAggregateSummary,
+  formatToolAggregateDuration,
+} from '@/utils/tool-aggregate-summary'
 import MessageItem from './MessageItem.vue'
 
 const props = defineProps<{
@@ -14,6 +18,7 @@ const props = defineProps<{
 const { t } = useI18n()
 const expanded = ref(false)
 const summary = computed(() => buildToolAggregateSummary(props.tools, t))
+const durationLabel = computed(() => formatToolAggregateDuration(buildToolAggregateDurationSeconds(props.tools), t))
 const toolCount = computed(() => props.tools.length)
 
 function toggleExpanded() {
@@ -36,6 +41,9 @@ function toggleExpanded() {
     >
       <span class="tool-summary-dot" aria-hidden="true"></span>
       <span class="tool-summary-text">{{ summary }}</span>
+      <span v-if="durationLabel" class="tool-summary-duration" :title="t('chat.toolAggregate.elapsedDuration', { duration: durationLabel })">
+        {{ durationLabel }}
+      </span>
       <span class="tool-summary-count">{{ toolCount }}</span>
       <svg
         width="12"
@@ -136,6 +144,15 @@ function toggleExpanded() {
   font-variant-numeric: tabular-nums;
 }
 
+.tool-summary-duration {
+  flex: 0 0 auto;
+  padding: 0 2px;
+  color: $text-muted;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .tool-summary-chevron {
   flex: 0 0 auto;
   opacity: 0.65;
@@ -168,6 +185,10 @@ function toggleExpanded() {
 
   .tool-summary-count {
     display: none;
+  }
+
+  .tool-summary-duration {
+    font-size: 10px;
   }
 }
 </style>

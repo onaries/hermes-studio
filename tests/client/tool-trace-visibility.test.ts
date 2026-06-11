@@ -153,10 +153,10 @@ describe('tool trace visibility', () => {
   it('summarizes large tool batches only in the transcript, not the live panel', () => {
     const messages: Message[] = [
       { id: 'user-1', role: 'user', content: 'do many things', timestamp: 1 },
-      { id: 'tool-1', role: 'tool', content: '', timestamp: 2, toolName: 'terminal', toolArgs: { command: 'npm test' }, toolStatus: 'done' },
-      { id: 'tool-2', role: 'tool', content: '', timestamp: 3, toolName: 'terminal', toolArgs: { command: 'npm run build' }, toolStatus: 'done' },
-      { id: 'tool-3', role: 'tool', content: '', timestamp: 4, toolName: 'search_files', toolArgs: { pattern: 'tool', target: 'content' }, toolStatus: 'done' },
-      { id: 'tool-4', role: 'tool', content: '', timestamp: 5, toolName: 'web_search', toolArgs: { query: 'Hermes' }, toolStatus: 'done' },
+      { id: 'tool-1', role: 'tool', content: '', timestamp: 2, toolName: 'terminal', toolArgs: { command: 'npm test' }, toolStatus: 'done', toolDuration: 0.4 },
+      { id: 'tool-2', role: 'tool', content: '', timestamp: 3, toolName: 'terminal', toolArgs: { command: 'npm run build' }, toolStatus: 'done', toolDuration: 1.1 },
+      { id: 'tool-3', role: 'tool', content: '', timestamp: 4, toolName: 'search_files', toolArgs: { pattern: 'tool', target: 'content' }, toolStatus: 'done', toolDuration: 2.2 },
+      { id: 'tool-4', role: 'tool', content: '', timestamp: 5, toolName: 'web_search', toolArgs: { query: 'Hermes' }, toolStatus: 'done', toolDuration: 60.5 },
       { id: 'assistant-1', role: 'assistant', content: 'done', timestamp: 6 },
     ]
 
@@ -165,6 +165,7 @@ describe('tool trace visibility', () => {
     const transcriptGroup = transcriptWrapper.find('.tool-trace-group')
     expect(transcriptGroup.exists()).toBe(true)
     expect(transcriptGroup.text()).toContain('chat.toolAggregate.ranCommandsMany')
+    expect(transcriptWrapper.find('.tool-summary-duration').text()).toBe('chat.toolAggregate.durationMinutes')
     expect(transcriptWrapper.findAll('.stub-message').map(node => node.attributes('data-id'))).toEqual([
       'user-1',
       'assistant-1',

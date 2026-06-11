@@ -666,6 +666,11 @@ export default {
       usedComputerMany: 'used computer {count} times',
       usedToolsOne: 'used 1 tool',
       usedToolsMany: 'used {count} tools',
+      elapsedDuration: 'Elapsed {duration}',
+      durationLessThanSecond: '<1s',
+      durationSeconds: '{count}s',
+      durationMinutes: '{minutes}m {seconds}s',
+      durationHours: '{hours}h {minutes}m',
     },
 
     todoToolName: 'Todo',

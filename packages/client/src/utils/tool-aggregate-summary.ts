@@ -17,7 +17,7 @@ type ToolCategory =
   | 'usedComputer'
   | 'usedTools'
 
-export type ToolTraceLike = Pick<Message, 'id' | 'role' | 'toolName' | 'toolArgs' | 'timestamp'>
+export type ToolTraceLike = Pick<Message, 'id' | 'role' | 'toolName' | 'toolArgs' | 'timestamp' | 'toolDuration'>
 
 export type ToolTraceGroup = {
   id: string
@@ -164,4 +164,33 @@ export function buildToolAggregateSummary(tools: ToolTraceLike[], t: Translator)
     })
     .filter(Boolean)
     .join(', ')
+}
+
+export function buildToolAggregateDurationSeconds(tools: ToolTraceLike[]): number | null {
+  let total = 0
+  let hasDuration = false
+
+  for (const tool of tools) {
+    if (typeof tool.toolDuration !== 'number' || !Number.isFinite(tool.toolDuration) || tool.toolDuration < 0) continue
+    total += tool.toolDuration
+    hasDuration = true
+  }
+
+  return hasDuration ? total : null
+}
+
+export function formatToolAggregateDuration(seconds: number | null, t: Translator): string {
+  if (seconds === null || !Number.isFinite(seconds) || seconds < 0) return ''
+  if (seconds > 0 && seconds < 1) return t('chat.toolAggregate.durationLessThanSecond')
+
+  const rounded = Math.max(1, Math.round(seconds))
+  if (rounded < 60) return t('chat.toolAggregate.durationSeconds', { count: rounded })
+
+  const minutes = Math.floor(rounded / 60)
+  const remainingSeconds = rounded % 60
+  if (minutes < 60) return t('chat.toolAggregate.durationMinutes', { minutes, seconds: remainingSeconds })
+
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  return t('chat.toolAggregate.durationHours', { hours, minutes: remainingMinutes })
 }
