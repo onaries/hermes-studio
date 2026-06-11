@@ -382,6 +382,7 @@ export default {
   drawer: {
     terminal: 'Terminal',
     artifacts: 'Artifacts',
+    resize: 'Redimensionar gaveta',
     files: 'Espaço de trabalho',
     todo: {
       tab: 'Todo',

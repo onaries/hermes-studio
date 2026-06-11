@@ -37,9 +37,17 @@ watch(
   },
 )
 
-watch(selectedArtifact, (artifact) => {
-  if (!artifact) mobileDetailOpen.value = false
-})
+watch(
+  () => artifactsStore.selectedArtifactId,
+  (id) => {
+    if (!id) {
+      mobileDetailOpen.value = false
+      return
+    }
+    void artifactsStore.ensureArtifactContent(id)
+  },
+  { immediate: true },
+)
 
 async function handleDownload(item: ArtifactItem | null): Promise<void> {
   if (!item?.path) return

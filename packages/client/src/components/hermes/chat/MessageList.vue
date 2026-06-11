@@ -150,6 +150,34 @@ const visibleToolCalls = computed(() =>
   currentToolCalls.value.filter((tool) => !!tool.toolName),
 );
 
+const enteringToolCallIds = ref<Set<string>>(new Set());
+const enteringToolCallTimers = new Map<string, number>();
+
+function markToolCallEntering(id: string) {
+  window.clearTimeout(enteringToolCallTimers.get(id));
+  enteringToolCallIds.value = new Set(enteringToolCallIds.value).add(id);
+  enteringToolCallTimers.set(id, window.setTimeout(() => {
+    enteringToolCallTimers.delete(id);
+    const nextIds = new Set(enteringToolCallIds.value);
+    nextIds.delete(id);
+    enteringToolCallIds.value = nextIds;
+  }, 900));
+}
+
+function isToolCallEntering(tool: Message): boolean {
+  return enteringToolCallIds.value.has(tool.id);
+}
+
+watch(
+  () => visibleToolCalls.value.map((tool) => tool.id),
+  (toolIds, previousToolIds = []) => {
+    const previousIds = new Set(previousToolIds);
+    for (const id of toolIds) {
+      if (!previousIds.has(id)) markToolCallEntering(id);
+    }
+  },
+);
+
 const emptyState = computed(() => {
   const session = chatStore.activeSession;
   const codingAgentId = session?.codingAgentId || (session?.agent === "codex" ? "codex" : session?.agent === "claude" ? "claude-code" : undefined);
@@ -364,6 +392,10 @@ watch(
 
 onBeforeUnmount(() => {
   saveSessionScrollPosition(chatStore.activeSessionId);
+  for (const timer of enteringToolCallTimers.values()) {
+    window.clearTimeout(timer);
+  }
+  enteringToolCallTimers.clear();
 });
 
 defineExpose({
@@ -502,76 +534,84 @@ defineExpose({
               ></span>
             </div>
             <!-- Tool calls -->
-            <div
-              v-for="tc in visibleToolCalls"
-              :key="tc.id"
-              class="tool-call-item"
-              :title="toolCallTitle(tc)"
-            >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                class="tool-call-icon"
+            <TransitionGroup appear name="tool-call-list" tag="div" class="tool-call-list">
+              <div
+                v-for="tc in visibleToolCalls"
+                :key="tc.id"
+                class="tool-call-item"
+                :class="{
+                  'tool-call-item--entering': isToolCallEntering(tc),
+                  'tool-call-item--running': tc.toolStatus === 'running',
+                  'tool-call-item--done': tc.toolStatus === 'done',
+                  'tool-call-item--error': tc.toolStatus === 'error',
+                }"
+                :title="toolCallTitle(tc)"
               >
-                <path
-                  d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
-                />
-              </svg>
-              <span class="tool-call-name">{{ tc.toolName }}</span>
-              <span v-if="toolCallPreview(tc)" class="tool-call-preview">{{
-                toolCallPreview(tc)
-              }}</span>
-              <span
-                v-if="tc.toolDuration && tc.toolStatus !== 'running'"
-                class="tool-call-duration"
-                :title="t('chat.executionDuration')"
-              >{{ formatToolDuration(tc.toolDuration) }}</span
-              >
-              <svg
-                v-if="tc.toolStatus === 'done'"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                class="tool-call-success-icon"
-              >
-                <circle cx="12" cy="12" r="10" fill="currentColor" fill-opacity="0.15"/>
-                <path
-                  d="M8 12L11 15L16 9"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
                   fill="none"
-                />
-              </svg>
-              <span
-                v-if="tc.toolStatus === 'running'"
-                class="tool-call-spinner"
-              ></span>
-              <svg
-                v-if="tc.toolStatus === 'error'"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                class="tool-call-error-icon"
-              >
-                <circle cx="12" cy="12" r="10" fill="currentColor" fill-opacity="0.15"/>
-                <path
-                  d="M15 9L9 15M9 9L15 15"
                   stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  class="tool-call-icon"
+                >
+                  <path
+                    d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
+                  />
+                </svg>
+                <span class="tool-call-name">{{ tc.toolName }}</span>
+                <span v-if="toolCallPreview(tc)" class="tool-call-preview">{{
+                  toolCallPreview(tc)
+                }}</span>
+                <span
+                  v-if="tc.toolDuration && tc.toolStatus !== 'running'"
+                  class="tool-call-duration"
+                  :title="t('chat.executionDuration')"
+                >{{ formatToolDuration(tc.toolDuration) }}</span
+                >
+                <svg
+                  v-if="tc.toolStatus === 'done'"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
                   fill="none"
-                />
-              </svg>
-            </div>
+                  class="tool-call-success-icon"
+                >
+                  <circle cx="12" cy="12" r="10" fill="currentColor" fill-opacity="0.15"/>
+                  <path
+                    d="M8 12L11 15L16 9"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    fill="none"
+                  />
+                </svg>
+                <span
+                  v-if="tc.toolStatus === 'running'"
+                  class="tool-call-spinner"
+                ></span>
+                <svg
+                  v-if="tc.toolStatus === 'error'"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  class="tool-call-error-icon"
+                >
+                  <circle cx="12" cy="12" r="10" fill="currentColor" fill-opacity="0.15"/>
+                  <path
+                    d="M15 9L9 15M9 9L15 15"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    fill="none"
+                  />
+                </svg>
+              </div>
+            </TransitionGroup>
           </div>
         </div>
         </Transition>
@@ -901,17 +941,57 @@ defineExpose({
   }
 }
 
+.tool-call-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tool-call-list-enter-active,
+.tool-call-list-appear-active {
+  animation: tool-call-row-enter 0.46s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.tool-call-list-leave-active {
+  transition:
+    opacity 0.24s ease,
+    transform 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 0.24s ease;
+}
+
+.tool-call-list-enter-from,
+.tool-call-list-appear-from {
+  opacity: 0;
+  filter: saturate(1.35);
+  transform: translateY(-8px) scale(0.985);
+}
+
+.tool-call-list-leave-to {
+  opacity: 0;
+  transform: translateY(4px) scale(0.985);
+}
+
+.tool-call-list-move {
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .tool-call-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 11px;
   color: $text-secondary;
-  padding: 3px 8px;
+  padding: 3px 8px 3px 10px;
   background: rgba(0, 0, 0, 0.03);
   border-radius: $radius-sm;
-  border: 0;
+  border: 1px solid transparent;
   text-align: left;
+  overflow: hidden;
+  transition:
+    background $transition-fast,
+    border-color $transition-fast,
+    box-shadow $transition-fast;
 
   .dark & {
     background: rgba(255, 255, 255, 0.06);
@@ -920,6 +1000,48 @@ defineExpose({
   &.compression-item {
     color: $text-muted;
     font-size: 10px;
+  }
+
+  &.tool-call-item--entering {
+    animation: tool-call-row-enter-highlight 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  &.tool-call-item--running {
+    background: rgba(var(--accent-primary-rgb), 0.08);
+    border-color: rgba(var(--accent-primary-rgb), 0.2);
+    box-shadow: 0 0 0 1px rgba(var(--accent-primary-rgb), 0.04) inset;
+
+    .tool-call-icon,
+    .tool-call-name {
+      color: $accent-primary;
+    }
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      left: 4px;
+      width: 2px;
+      border-radius: 999px;
+      background: $accent-primary;
+      animation: tool-running-pulse 1.15s ease-in-out infinite;
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(
+        100deg,
+        transparent 0%,
+        rgba(var(--accent-primary-rgb), 0.14) 45%,
+        transparent 70%
+      );
+      transform: translateX(-120%);
+      animation: tool-running-sweep 1.8s ease-in-out infinite;
+    }
   }
 
   .tool-call-icon {
@@ -990,9 +1112,101 @@ defineExpose({
   justify-content: center;
 }
 
+@keyframes tool-call-row-enter {
+  0% {
+    opacity: 0;
+    filter: saturate(1.3);
+    transform: translateY(-12px) scale(0.96);
+  }
+  65% {
+    opacity: 1;
+    filter: saturate(1.12);
+    transform: translateY(1px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    filter: none;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes tool-call-row-enter-highlight {
+  0% {
+    opacity: 0;
+    filter: saturate(1.35);
+    transform: translateY(-14px) scale(0.96);
+    box-shadow:
+      0 0 0 1px rgba(var(--accent-primary-rgb), 0.22) inset,
+      0 12px 28px rgba(var(--accent-primary-rgb), 0.18);
+  }
+  45% {
+    opacity: 1;
+    filter: saturate(1.18);
+    transform: translateY(0) scale(1.015);
+    box-shadow:
+      0 0 0 1px rgba(var(--accent-primary-rgb), 0.24) inset,
+      0 8px 20px rgba(var(--accent-primary-rgb), 0.14);
+  }
+  100% {
+    opacity: 1;
+    filter: none;
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 1px rgba(var(--accent-primary-rgb), 0.04) inset;
+  }
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes tool-running-pulse {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scaleY(0.7);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes tool-running-sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  55%, 100% {
+    transform: translateX(120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-call-list-enter-active,
+  .tool-call-list-appear-active,
+  .tool-call-list-leave-active,
+  .tool-call-list-move {
+    transition: none;
+    animation: none;
+  }
+
+  .tool-call-list-enter-from,
+  .tool-call-list-appear-from,
+  .tool-call-list-leave-to {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+
+  .tool-call-item--entering,
+  .tool-call-item--running::before,
+  .tool-call-item--running::after,
+  .tool-call-spinner {
+    animation: none;
+  }
+
+  .tool-call-item--running::after {
+    display: none;
   }
 }
 </style>

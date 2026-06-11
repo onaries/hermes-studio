@@ -382,6 +382,7 @@ export default {
   drawer: {
     terminal: 'Terminal',
     artifacts: 'Artifacts',
+    resize: 'Redimensionner le tiroir',
     files: 'Espace de travail',
     todo: {
       tab: 'Todo',

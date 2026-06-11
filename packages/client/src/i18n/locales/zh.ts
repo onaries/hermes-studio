@@ -382,6 +382,7 @@ export default {
   drawer: {
     terminal: '终端',
     artifacts: 'Artifacts',
+    resize: '调整抽屉大小',
     files: '工作区',
     todo: {
       tab: '待办',

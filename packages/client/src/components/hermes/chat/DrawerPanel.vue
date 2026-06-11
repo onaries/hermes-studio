@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import TerminalPanel from './TerminalPanel.vue'
 import FilesPanel from './FilesPanel.vue'
@@ -21,7 +21,34 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>()
 const { t } = useI18n()
 
+const DRAWER_MIN_WIDTH = 420
+const DRAWER_DEFAULT_WIDTH = 1180
+const DRAWER_MAX_VIEWPORT_RATIO = 0.88
+const DRAWER_WIDTH_STORAGE_KEY = 'hermes_drawer_width'
+
 const activeTab = ref<'terminal' | 'files' | 'artifacts'>(props.activeTab)
+const isResizing = ref(false)
+
+function getMaxDrawerWidth(): number {
+  if (typeof window === 'undefined') return DRAWER_DEFAULT_WIDTH
+  return Math.max(DRAWER_MIN_WIDTH, Math.floor(window.innerWidth * DRAWER_MAX_VIEWPORT_RATIO))
+}
+
+function clampDrawerWidth(width: number): number {
+  return Math.min(Math.max(Math.round(width), DRAWER_MIN_WIDTH), getMaxDrawerWidth())
+}
+
+function loadDrawerWidth(): number {
+  if (typeof window === 'undefined') return DRAWER_DEFAULT_WIDTH
+  const saved = Number(window.localStorage.getItem(DRAWER_WIDTH_STORAGE_KEY))
+  return clampDrawerWidth(Number.isFinite(saved) && saved > 0 ? saved : DRAWER_DEFAULT_WIDTH)
+}
+
+const drawerWidth = ref(loadDrawerWidth())
+const drawerStyle = computed(() => ({
+  '--drawer-width': `${drawerWidth.value}px`,
+  '--drawer-offscreen': `-${drawerWidth.value}px`,
+}))
 
 watch(() => props.activeTab, (newVal) => {
   if (newVal) activeTab.value = newVal
@@ -30,12 +57,86 @@ watch(() => props.activeTab, (newVal) => {
 function handleClose() {
   emit('update:show', false)
 }
+
+function persistDrawerWidth(): void {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(DRAWER_WIDTH_STORAGE_KEY, String(drawerWidth.value))
+}
+
+function setDrawerWidth(width: number, persist = false): void {
+  drawerWidth.value = clampDrawerWidth(width)
+  if (persist) persistDrawerWidth()
+}
+
+function handlePointerMove(event: PointerEvent): void {
+  if (!isResizing.value || typeof window === 'undefined') return
+  setDrawerWidth(window.innerWidth - event.clientX)
+}
+
+function stopResize(): void {
+  if (!isResizing.value) return
+  isResizing.value = false
+  document.removeEventListener('pointermove', handlePointerMove)
+  document.removeEventListener('pointerup', stopResize)
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+  persistDrawerWidth()
+}
+
+function startResize(event: PointerEvent): void {
+  if (typeof window === 'undefined' || window.innerWidth <= 640) return
+  event.preventDefault()
+  isResizing.value = true
+  document.addEventListener('pointermove', handlePointerMove)
+  document.addEventListener('pointerup', stopResize)
+  document.body.style.cursor = 'ew-resize'
+  document.body.style.userSelect = 'none'
+  handlePointerMove(event)
+}
+
+function handleResizeKeydown(event: KeyboardEvent): void {
+  const step = event.shiftKey ? 80 : 40
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    setDrawerWidth(drawerWidth.value + step, true)
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    setDrawerWidth(drawerWidth.value - step, true)
+  } else if (event.key === 'Home') {
+    event.preventDefault()
+    setDrawerWidth(DRAWER_MIN_WIDTH, true)
+  } else if (event.key === 'End') {
+    event.preventDefault()
+    setDrawerWidth(getMaxDrawerWidth(), true)
+  }
+}
+
+function handleViewportResize(): void {
+  setDrawerWidth(drawerWidth.value, true)
+}
+
+onMounted(() => {
+  window.addEventListener('resize', handleViewportResize)
+})
+
+onBeforeUnmount(() => {
+  stopResize()
+  window.removeEventListener('resize', handleViewportResize)
+})
 </script>
 
 <template>
   <Teleport to="body">
     <div v-if="show" class="drawer-overlay" @click="handleClose"></div>
-    <div :class="['drawer-panel', { show }]">
+    <div :class="['drawer-panel', { show, resizing: isResizing }]" :style="drawerStyle">
+      <button
+        type="button"
+        class="drawer-resize-handle"
+        :aria-label="t('drawer.resize')"
+        :title="t('drawer.resize')"
+        @pointerdown="startResize"
+        @keydown="handleResizeKeydown"
+      ></button>
       <div class="drawer-header">
         <div class="drawer-tabs">
           <button
@@ -96,8 +197,10 @@ function handleClose() {
 .drawer-panel {
   position: fixed;
   top: 0;
-  right: min(-1180px, -88vw);
-  width: min(1180px, 88vw);
+  right: var(--drawer-offscreen, min(-1180px, -88vw));
+  width: var(--drawer-width, min(1180px, 88vw));
+  min-width: 420px;
+  max-width: 88vw;
   height: calc(100 * var(--vh));
   max-height: calc(100 * var(--vh));
   background: $bg-card;
@@ -105,19 +208,63 @@ function handleClose() {
   display: flex;
   flex-direction: column;
   z-index: 1000;
-  transition: right 0.3s ease;
+  transition: right 0.3s ease, width 0.12s ease;
 
   &.show {
     right: 0;
   }
 
+  &.resizing {
+    transition: none;
+  }
+
   @media (max-width: $breakpoint-mobile) {
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
     right: -100%;
 
     &.show {
       right: 0;
     }
+  }
+}
+
+.drawer-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -5px;
+  width: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: ew-resize;
+  z-index: 2;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 4px;
+    width: 2px;
+    background: transparent;
+    transition: background 0.15s ease;
+  }
+
+  &:hover::after,
+  &:focus-visible::after {
+    background: rgba(var(--accent-primary-rgb), 0.45);
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(var(--accent-primary-rgb), 0.45);
+    outline-offset: -2px;
+  }
+
+  @media (max-width: $breakpoint-mobile) {
+    display: none;
   }
 }
 

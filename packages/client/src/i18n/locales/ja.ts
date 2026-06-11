@@ -382,6 +382,7 @@ export default {
   drawer: {
     terminal: 'ターミナル',
     artifacts: 'Artifacts',
+    resize: 'ドロワーのサイズを変更',
     files: 'ワークスペース',
     todo: {
       tab: 'Todo',

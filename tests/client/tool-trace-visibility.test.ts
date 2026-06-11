@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { defineComponent } from 'vue'
+import { defineComponent, nextTick } from 'vue'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -182,6 +182,50 @@ describe('tool trace visibility', () => {
       'terminal',
       'terminal',
     ])
+  })
+
+  it('marks running live tools for entry/progress animation', () => {
+    const messages: Message[] = [
+      { id: 'user-1', role: 'user', content: 'inspect repo', timestamp: 1 },
+      { id: 'tool-running', role: 'tool', content: '', timestamp: 2, toolName: 'search_files', toolArgs: { pattern: 'DrawerPanel' }, toolStatus: 'running' },
+    ]
+
+    const wrapper = mountLiveList(messages)
+    const toolList = wrapper.find('.tool-call-list')
+    const runningTool = wrapper.find('.tool-call-item--running')
+
+    expect(toolList.exists()).toBe(true)
+    expect(runningTool.exists()).toBe(true)
+    expect(runningTool.find('.tool-call-spinner').exists()).toBe(true)
+    expect(runningTool.text()).toContain('search_files')
+  })
+
+  it('keeps a visible entry animation class on newly added live tool rows', async () => {
+    vi.useFakeTimers()
+    try {
+      const messages: Message[] = [
+        { id: 'user-1', role: 'user', content: 'inspect repo', timestamp: 1 },
+      ]
+      const wrapper = mountLiveList(messages)
+      const chatStore = useChatStore()
+
+      const nextMessages: Message[] = [
+        ...messages,
+        { id: 'tool-running', role: 'tool', content: '', timestamp: 2, toolName: 'search_files', toolArgs: { pattern: 'DrawerPanel' }, toolStatus: 'running' },
+      ]
+      chatStore.activeSession = makeSession(nextMessages)
+      await nextTick()
+
+      expect(wrapper.find('.tool-call-item--entering').exists()).toBe(true)
+      expect(wrapper.find('.tool-call-item--entering').text()).toContain('search_files')
+
+      vi.advanceTimersByTime(901)
+      await nextTick()
+
+      expect(wrapper.find('.tool-call-item--entering').exists()).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('renders the current todo panel below the live tool panel', () => {

@@ -382,6 +382,7 @@ export default {
   drawer: {
     terminal: 'Terminal',
     artifacts: 'Artifacts',
+    resize: 'Cambiar tamaño del panel',
     files: 'Espacio de trabajo',
     todo: {
       tab: 'Todo',
