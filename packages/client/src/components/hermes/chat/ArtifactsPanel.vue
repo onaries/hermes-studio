@@ -15,6 +15,10 @@ const selectedArtifact = computed(() => artifactsStore.selectedArtifact)
 const canDownload = computed(() => !!selectedArtifact.value?.path)
 const selectedIsMarkdown = computed(() => selectedArtifact.value?.kind === 'markdown')
 const selectedIsText = computed(() => selectedArtifact.value?.kind === 'text')
+const selectedCanRenderText = computed(() =>
+  (selectedIsText.value || selectedArtifact.value?.kind === 'file')
+  && selectedArtifact.value?.content !== undefined,
+)
 const selectedIsImage = computed(() => selectedArtifact.value?.kind === 'image')
 const selectedIsMedia = computed(() => selectedArtifact.value?.kind === 'media')
 const selectedIsVideo = computed(() => /\.(mp4|webm|mov)$/i.test(selectedArtifact.value?.name || selectedArtifact.value?.path || ''))
@@ -157,7 +161,7 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
         <div v-else-if="selectedIsMarkdown && selectedArtifact.content !== undefined" class="artifact-markdown">
           <MarkdownRenderer :content="selectedArtifact.content" />
         </div>
-        <pre v-else-if="selectedIsText && selectedArtifact.content !== undefined" class="artifact-text">{{ selectedArtifact.content }}</pre>
+        <pre v-else-if="selectedCanRenderText" class="artifact-text">{{ selectedArtifact.content }}</pre>
         <img v-else-if="selectedIsImage" class="artifact-image" :src="artifactsStore.artifactUrl(selectedArtifact)" :alt="selectedArtifact.name" />
         <div v-else-if="selectedIsMedia" class="artifact-media">
           <video v-if="selectedIsVideo" class="artifact-video" controls :src="artifactsStore.artifactUrl(selectedArtifact)"></video>
