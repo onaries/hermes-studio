@@ -309,6 +309,7 @@ export default {
   drawer: {
     terminal: 'Терминал',
     artifacts: 'Artifacts',
+    resize: 'Изменить размер панели',
     files: 'Рабочая область',
     todo: {
       tab: 'Todo',

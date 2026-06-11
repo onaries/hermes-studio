@@ -293,11 +293,26 @@ function handleShortcutKey(key: { data?: string; toggle?: string }) {
   sendTerminalInput(key.data || "");
 }
 
-function setMobileShortcutHidden(hidden: boolean) {
-  mobileShortcutHidden.value = hidden;
+function clearMobileShortcutState() {
   ctrlLatchActive.value = false;
   shiftLatchActive.value = false;
-  activeTerm?.focus();
+  touchScrollLastY = null;
+  touchScrollRemainder = 0;
+}
+
+function blurActiveTerminal() {
+  activeTerm?.blur();
+  const terminalElement = activeTerm?.element;
+  const focusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  if (focusedElement && terminalElement?.contains(focusedElement)) {
+    focusedElement.blur();
+  }
+}
+
+function setMobileShortcutHidden(hidden: boolean) {
+  mobileShortcutHidden.value = hidden;
+  clearMobileShortcutState();
+  if (props.visible) activeTerm?.focus();
 }
 
 // ─── Control message handlers ──────────────────────────────────
@@ -541,7 +556,14 @@ watch(() => props.visible, (visible) => {
     hasConnected = true;
     connect();
   }
-  if (visible) updateMobileShortcutBottomOffset();
+  if (visible) {
+    updateMobileShortcutBottomOffset();
+  } else {
+    showSidebar.value = false;
+    clearMobileShortcutState();
+    mobileShortcutBottomOffset.value = 0;
+    blurActiveTerminal();
+  }
 }, { immediate: true });
 
 onMounted(() => {
@@ -697,6 +719,7 @@ onUnmounted(() => {
           @touchcancel="handleTerminalTouchEnd"
         />
         <div
+          v-if="visible"
           v-show="!mobileShortcutHidden"
           class="mobile-shortcut-bar"
           :aria-label="t('terminal.mobileShortcutBar')"
@@ -733,6 +756,7 @@ onUnmounted(() => {
           </div>
         </div>
         <button
+          v-if="visible"
           v-show="mobileShortcutHidden"
           type="button"
           class="mobile-shortcut-toggle mobile-shortcut-show"
