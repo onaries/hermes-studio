@@ -18,6 +18,9 @@ const mockSettingsStore = vi.hoisted(() => ({
     terminal_font_size: 14,
     terminal_font_family: 'Menlo, Monaco, "Courier New", monospace',
   },
+  saveSection: vi.fn(async (_section: string, values: Record<string, unknown>) => {
+    Object.assign(mockSettingsStore.display, values)
+  }),
 }))
 
 vi.mock('@/stores/hermes/settings', () => ({
@@ -37,6 +40,27 @@ vi.mock('naive-ui', async () => {
     NPopconfirm: passthrough('span'),
     NTooltip: passthrough('span'),
     NSelect: defineComponent({ setup: () => () => h('select') }),
+    NInputNumber: defineComponent({
+      name: 'NInputNumber',
+      props: ['value'],
+      emits: ['update:value'],
+      setup: (props, { emit, attrs }) => () => h('input', {
+        ...attrs,
+        type: 'number',
+        value: props.value,
+        onInput: (event: Event) => emit('update:value', Number((event.target as HTMLInputElement).value)),
+      }),
+    }),
+    NInput: defineComponent({
+      name: 'NInput',
+      props: ['value'],
+      emits: ['update:value'],
+      setup: (props, { emit, attrs }) => () => h('input', {
+        ...attrs,
+        value: props.value,
+        onInput: (event: Event) => emit('update:value', (event.target as HTMLInputElement).value),
+      }),
+    }),
   }
 })
 
@@ -114,6 +138,16 @@ const globalStubs = {
   NPopconfirm: { template: '<span><slot name="trigger" /><slot /></span>' },
   NTooltip: { template: '<span><slot name="trigger" /><slot /></span>' },
   NSelect: { template: '<select />' },
+  NInputNumber: {
+    name: 'NInputNumber',
+    props: ['value'],
+    template: '<input type="number" :value="value" @input="$emit(\'update:value\', Number($event.target.value))" />',
+  },
+  NInput: {
+    name: 'NInput',
+    props: ['value'],
+    template: '<input :value="value" @input="$emit(\'update:value\', $event.target.value)" />',
+  },
 }
 
 import TerminalPanel from '@/components/hermes/chat/TerminalPanel.vue'
@@ -143,6 +177,7 @@ describe('TerminalPanel mobile shortcuts visibility', () => {
     })
     mockSettingsStore.display.terminal_font_size = 14
     mockSettingsStore.display.terminal_font_family = 'Menlo, Monaco, "Courier New", monospace'
+    mockSettingsStore.saveSection.mockClear()
   })
 
   it('does not render fixed mobile shortcut controls while the drawer is hidden', async () => {
@@ -190,5 +225,15 @@ describe('TerminalPanel mobile shortcuts visibility', () => {
 
     expect(terminalInstances[0].options.fontSize).toBe(18)
     expect(terminalInstances[0].options.fontFamily).toBe('JetBrains Mono, monospace')
+  })
+
+  it('saves terminal font settings from the terminal panel header', async () => {
+    const wrapper = mountPanel(true)
+
+    await wrapper.find('.terminal-font-size-input').setValue('20')
+    await wrapper.find('.terminal-font-family-input').setValue('Fira Code, monospace')
+
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { terminal_font_size: 20 })
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { terminal_font_family: 'Fira Code, monospace' })
   })
 })

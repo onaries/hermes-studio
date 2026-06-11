@@ -6,7 +6,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import { getApiKey, getBaseUrlValue } from "@/api/client";
 import { useSettingsStore } from "@/stores/hermes/settings";
-import { NButton, NPopconfirm, NTooltip, NSelect, useMessage } from "naive-ui";
+import { NButton, NInput, NInputNumber, NPopconfirm, NTooltip, NSelect, useMessage } from "naive-ui";
 import { useI18n } from "vue-i18n";
 import type { ITheme } from "@xterm/xterm";
 
@@ -147,6 +147,18 @@ const terminalFontFamily = computed(() => {
   const raw = settingsStore.display.terminal_font_family;
   return typeof raw === "string" && raw.trim() ? raw.trim() : DEFAULT_TERMINAL_FONT_FAMILY;
 });
+
+function handleTerminalFontSizeChange(value: number | null): void {
+  if (value == null) return;
+  const nextValue = Math.min(32, Math.max(9, Math.round(value)));
+  void settingsStore.saveSection('display', { terminal_font_size: nextValue });
+}
+
+function handleTerminalFontFamilyChange(value: string): void {
+  void settingsStore.saveSection('display', {
+    terminal_font_family: value.trim() || DEFAULT_TERMINAL_FONT_FAMILY,
+  });
+}
 
 const mobileShortcutKeyRows = [
   [
@@ -728,6 +740,30 @@ onUnmounted(() => {
             class="theme-select"
             @update:value="applyTheme"
           />
+          <div class="terminal-font-controls" :aria-label="t('settings.display.terminalFontSize')">
+            <span class="terminal-font-label" aria-hidden="true">Aa</span>
+            <NInputNumber
+              :value="terminalFontSize"
+              :min="9"
+              :max="32"
+              :step="1"
+              size="small"
+              class="terminal-font-size-input"
+              :title="t('settings.display.terminalFontSize')"
+              :aria-label="t('settings.display.terminalFontSize')"
+              @update:value="handleTerminalFontSizeChange"
+            />
+            <NInput
+              :value="terminalFontFamily"
+              size="small"
+              class="terminal-font-family-input"
+              :placeholder="DEFAULT_TERMINAL_FONT_FAMILY"
+              :title="t('settings.display.terminalFontFamily')"
+              :aria-label="t('settings.display.terminalFontFamily')"
+              clearable
+              @update:value="handleTerminalFontFamilyChange"
+            />
+          </div>
           <NButton size="small" @click="createSession">
             <template #icon>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1034,6 +1070,31 @@ onUnmounted(() => {
   width: 120px;
 }
 
+.terminal-font-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.terminal-font-label {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: $text-muted;
+  letter-spacing: 0.02em;
+}
+
+.terminal-font-size-input {
+  width: 76px;
+  flex: 0 0 auto;
+}
+
+.terminal-font-family-input {
+  width: clamp(140px, 18vw, 240px);
+  min-width: 0;
+}
+
 .sidebar-toggle {
   @media (min-width: $breakpoint-mobile + 1) {
     display: none;
@@ -1151,6 +1212,19 @@ onUnmounted(() => {
 
   .theme-select {
     width: 96px;
+  }
+
+  .terminal-font-controls {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .terminal-font-size-input {
+    width: 68px;
+  }
+
+  .terminal-font-family-input {
+    display: none;
   }
 
   .terminal-container {
