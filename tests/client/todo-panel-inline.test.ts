@@ -4,6 +4,7 @@ import { mount } from '@vue/test-utils'
 import { createI18n } from 'vue-i18n'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import TodoPanel from '@/components/hermes/chat/TodoPanel.vue'
+import todoPanelSource from '@/components/hermes/chat/TodoPanel.vue?raw'
 
 const chatStore = vi.hoisted(() => ({
   activeSession: null as null | { messages: any[] },
@@ -102,6 +103,10 @@ describe('TodoPanel inline chat display', () => {
     await toggle.trigger('click')
     expect(wrapper.find('.todo-items-wrap').exists()).toBe(false)
     expect(wrapper.find('.todo-toggle').attributes('aria-label')).toBe('Show Todo')
+  })
+
+  it('keeps visual breathing room above the inline todo panel', () => {
+    expect(todoPanelSource).toContain('margin: 16px 16px 0;')
   })
 
   it('hides previous todo state when the latest turn did not use todo', () => {
