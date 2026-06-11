@@ -315,7 +315,7 @@ export default {
 
   drawer: {
     terminal: 'Терминал',
-    artifacts: 'Artifacts',
+    artifacts: 'Артефакты',
     resize: 'Изменить размер панели',
     files: 'Рабочая область',
     todo: {
@@ -1898,14 +1898,14 @@ export default {
   },
   
   artifacts: {
-    list: 'Artifacts',
+    list: 'Артефакты',
     backToList: 'К списку',
     scrollToTop: 'Наверх',
     download: 'Скачать',
-    remove: 'Удалить artifact',
-    emptyTitle: 'Пока нет artifacts',
+    remove: 'Удалить артефакт',
+    emptyTitle: 'Пока нет артефактов',
     emptyDescription: 'Откройте созданный в чате Markdown- или текстовый файл, чтобы посмотреть его здесь отдельно.',
-    loadFailed: 'Не удалось загрузить artifact',
+    loadFailed: 'Не удалось загрузить артефакт',
     unsupported: 'Предпросмотр этого файла недоступен. Скачайте его, чтобы открыть локально.',
   },
 

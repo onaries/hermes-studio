@@ -388,7 +388,7 @@ export default {
   // 서랍
   drawer: {
     terminal: '터미널',
-    artifacts: 'Artifacts',
+    artifacts: '아티팩트',
     resize: 'Drawer 크기 조절',
     files: '작업 공간',
     todo: {
@@ -2074,14 +2074,14 @@ export default {
   },
 
   artifacts: {
-    list: 'Artifacts',
+    list: '아티팩트',
     backToList: '목록으로',
     scrollToTop: '맨 위로',
     download: '다운로드',
-    remove: 'Artifact 제거',
-    emptyTitle: '아직 Artifact가 없습니다',
+    remove: '아티팩트 제거',
+    emptyTitle: '아직 아티팩트가 없습니다',
     emptyDescription: '채팅에서 생성된 Markdown/텍스트 파일을 열면 여기에서 따로 볼 수 있습니다.',
-    loadFailed: 'Artifact를 불러오지 못했습니다',
+    loadFailed: '아티팩트를 불러오지 못했습니다',
     unsupported: '이 파일은 미리 볼 수 없습니다. 다운로드해서 로컬에서 열어주세요.',
   },
 

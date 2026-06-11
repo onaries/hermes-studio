@@ -388,7 +388,7 @@ export default {
   // ドロワー
   drawer: {
     terminal: 'ターミナル',
-    artifacts: 'Artifacts',
+    artifacts: '成果物',
     resize: 'ドロワーのサイズを変更',
     files: 'ワークスペース',
     todo: {
@@ -2075,14 +2075,14 @@ export default {
 
   // ダウンロード
   artifacts: {
-    list: 'Artifacts',
+    list: '成果物',
     backToList: '一覧へ',
     scrollToTop: '先頭へ',
     download: 'ダウンロード',
-    remove: 'Artifactを削除',
-    emptyTitle: 'Artifactはまだありません',
+    remove: '成果物を削除',
+    emptyTitle: '成果物はまだありません',
     emptyDescription: 'チャットで生成されたMarkdownまたはテキストファイルを開くと、ここで個別にプレビューできます。',
-    loadFailed: 'Artifactの読み込みに失敗しました',
+    loadFailed: '成果物の読み込みに失敗しました',
     unsupported: 'このファイルはプレビューできません。ダウンロードしてローカルで開いてください。',
   },
 

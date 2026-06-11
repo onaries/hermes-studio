@@ -388,7 +388,7 @@ export default {
   // Drawer
   drawer: {
     terminal: 'Konsole',
-    artifacts: 'Artifacts',
+    artifacts: 'Artefakte',
     resize: 'Drawer-Größe ändern',
     files: 'Arbeitsbereich',
     todo: {
@@ -2066,14 +2066,14 @@ jobTriggered: 'Job ausgelost',
 
   // Download
   artifacts: {
-    list: 'Artifacts',
+    list: 'Artefakte',
     backToList: 'Zurück zur Liste',
     scrollToTop: 'Nach oben',
     download: 'Herunterladen',
-    remove: 'Artifact entfernen',
-    emptyTitle: 'Noch keine Artifacts',
+    remove: 'Artefakt entfernen',
+    emptyTitle: 'Noch keine Artefakte',
     emptyDescription: 'Öffne eine generierte Markdown- oder Textdatei aus dem Chat, um sie hier separat anzusehen.',
-    loadFailed: 'Artifact konnte nicht geladen werden',
+    loadFailed: 'Artefakt konnte nicht geladen werden',
     unsupported: 'Diese Datei kann nicht in der Vorschau angezeigt werden. Lade sie herunter, um sie lokal zu öffnen.',
   },
 

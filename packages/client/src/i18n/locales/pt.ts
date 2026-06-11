@@ -388,7 +388,7 @@ export default {
   // Gaveta
   drawer: {
     terminal: 'Terminal',
-    artifacts: 'Artifacts',
+    artifacts: 'Artefatos',
     resize: 'Redimensionar gaveta',
     files: 'Espaço de trabalho',
     todo: {
@@ -2076,14 +2076,14 @@ jobTriggered: 'Job acionado',
 
   // Download
   artifacts: {
-    list: 'Artifacts',
+    list: 'Artefatos',
     backToList: 'Voltar à lista',
     scrollToTop: 'Topo',
     download: 'Baixar',
-    remove: 'Remover artifact',
-    emptyTitle: 'Ainda não há artifacts',
+    remove: 'Remover artefato',
+    emptyTitle: 'Ainda não há artefatos',
     emptyDescription: 'Abra um arquivo Markdown ou de texto gerado no chat para visualizá-lo aqui separadamente.',
-    loadFailed: 'Falha ao carregar o artifact',
+    loadFailed: 'Falha ao carregar o artefato',
     unsupported: 'Este arquivo não pode ser visualizado. Baixe para abrir localmente.',
   },
 

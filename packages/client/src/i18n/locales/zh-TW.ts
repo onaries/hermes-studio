@@ -388,7 +388,7 @@ export default {
   // 抽屜
   drawer: {
     terminal: '終端機',
-    artifacts: 'Artifacts',
+    artifacts: '產出檔案',
     resize: '調整抽屜大小',
     files: '工作區',
     todo: {
@@ -2149,14 +2149,14 @@ export default {
 
   // 下載
   artifacts: {
-    list: 'Artifacts',
+    list: '產出檔案',
     backToList: '返回列表',
     scrollToTop: '回到頂部',
     download: '下載',
-    remove: '移除 Artifact',
-    emptyTitle: '尚無 Artifact',
+    remove: '移除產出檔案',
+    emptyTitle: '尚無產出檔案',
     emptyDescription: '從聊天中開啟產生的 Markdown 或文字檔後，可在這裡單獨預覽。',
-    loadFailed: 'Artifact 載入失敗',
+    loadFailed: '產出檔案載入失敗',
     unsupported: '此檔案無法預覽。請下載後在本機開啟。',
   },
 
