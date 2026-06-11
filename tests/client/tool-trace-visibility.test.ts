@@ -184,6 +184,22 @@ describe('tool trace visibility', () => {
     ])
   })
 
+  it('marks running live tools for entry/progress animation', () => {
+    const messages: Message[] = [
+      { id: 'user-1', role: 'user', content: 'inspect repo', timestamp: 1 },
+      { id: 'tool-running', role: 'tool', content: '', timestamp: 2, toolName: 'search_files', toolArgs: { pattern: 'DrawerPanel' }, toolStatus: 'running' },
+    ]
+
+    const wrapper = mountLiveList(messages)
+    const toolList = wrapper.find('.tool-call-list')
+    const runningTool = wrapper.find('.tool-call-item--running')
+
+    expect(toolList.exists()).toBe(true)
+    expect(runningTool.exists()).toBe(true)
+    expect(runningTool.find('.tool-call-spinner').exists()).toBe(true)
+    expect(runningTool.text()).toContain('search_files')
+  })
+
   it('renders the current todo panel below the live tool panel', () => {
     const messages: Message[] = [
       { id: 'user-1', role: 'user', content: 'do the thing', timestamp: 1 },
