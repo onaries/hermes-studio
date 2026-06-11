@@ -95,16 +95,6 @@ const VirtualMessageListStub = defineComponent({
   `,
 })
 
-const ToolTraceGroupStub = defineComponent({
-  name: 'ToolTraceGroup',
-  props: {
-    id: { type: String, required: true },
-    tools: { type: Array, default: () => [] },
-    highlight: { type: Boolean, default: false },
-  },
-  template: '<div class="stub-tool-group" :data-id="id">{{ tools.length }} tools</div>',
-})
-
 function makeSession(messages: Message[]): Session {
   return {
     id: 'session-1',
@@ -140,7 +130,6 @@ describe('tool trace visibility', () => {
       global: {
         stubs: {
           MessageItem: MessageItemStub,
-          ToolTraceGroup: ToolTraceGroupStub,
           VirtualMessageList: VirtualMessageListStub,
           Transition: false,
         },
@@ -216,7 +205,7 @@ describe('tool trace visibility', () => {
     const wrapper = mount(HistoryMessageList, {
       props: { session: makeSession(sampleMessages) },
       global: {
-        stubs: { MessageItem: MessageItemStub, ToolTraceGroup: ToolTraceGroupStub, VirtualMessageList: VirtualMessageListStub },
+        stubs: { MessageItem: MessageItemStub, VirtualMessageList: VirtualMessageListStub },
       },
     })
 
@@ -234,7 +223,7 @@ describe('tool trace visibility', () => {
 
     const wrapper = mount(HistoryMessageList, {
       global: {
-        stubs: { MessageItem: MessageItemStub, ToolTraceGroup: ToolTraceGroupStub, VirtualMessageList: VirtualMessageListStub },
+        stubs: { MessageItem: MessageItemStub, VirtualMessageList: VirtualMessageListStub },
       },
     })
 
@@ -254,7 +243,7 @@ describe('tool trace visibility', () => {
     const historyWrapper = mount(HistoryMessageList, {
       props: { session: makeSession(sampleMessages) },
       global: {
-        stubs: { MessageItem: MessageItemStub, ToolTraceGroup: ToolTraceGroupStub, VirtualMessageList: VirtualMessageListStub },
+        stubs: { MessageItem: MessageItemStub, VirtualMessageList: VirtualMessageListStub },
       },
     })
     expect(historyWrapper.findAll('.stub-message').map(node => node.attributes('data-id'))).toEqual([
