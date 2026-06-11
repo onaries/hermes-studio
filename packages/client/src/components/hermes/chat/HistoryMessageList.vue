@@ -14,9 +14,15 @@ import { ref, computed, nextTick, onBeforeUnmount, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import VirtualMessageList from "./VirtualMessageList.vue";
 import MessageItem from "./MessageItem.vue";
+import ToolTraceGroup from "./ToolTraceGroup.vue";
 import { useChatStore } from "@/stores/hermes/chat";
 import { useToolTraceVisibility } from "@/composables/useToolTraceVisibility";
-import type { Session } from "@/stores/hermes/chat";
+import type { Message, Session } from "@/stores/hermes/chat";
+import {
+  groupToolTraceMessages,
+  isToolTraceGroup,
+  type ToolTraceDisplayItem,
+} from "@/utils/tool-aggregate-summary";
 
 const props = defineProps<{
   session?: Session | null; // Optional: use this session instead of chatStore.activeSession
@@ -31,15 +37,16 @@ const pendingInitialScrollSessionId = ref<string | null>(null);
 const activeSession = computed(() => props.session || null);
 const listInstanceKey = computed(() => activeSession.value?.id ? `history-${activeSession.value.id}` : "history-empty");
 
-const displayMessages = computed(() =>
-  (activeSession.value?.messages || []).filter((m) => {
+const displayMessages = computed<ToolTraceDisplayItem[]>(() => {
+  const visibleMessages: Message[] = (activeSession.value?.messages || []).filter((m) => {
     // Tool messages without a name are internal use only and remain hidden.
     if (m.role === 'tool') return toolTraceVisible.value && !!m.toolName
     // Filter out messages with empty content.
     if (!m.content?.trim()) return false
     return true
-  }),
-);
+  })
+  return groupToolTraceMessages(visibleMessages)
+});
 
 function isNearBottom(threshold = 200): boolean {
   return listRef.value?.isNearBottom(threshold) ?? true;
@@ -175,7 +182,14 @@ defineExpose({
       </div>
     </template>
     <template #item="{ message: msg }">
+      <ToolTraceGroup
+        v-if="isToolTraceGroup(msg)"
+        :id="msg.id"
+        :tools="msg.tools"
+        :highlight="chatStore.focusMessageId === msg.id"
+      />
       <MessageItem
+        v-else
         :message="msg"
         :highlight="chatStore.focusMessageId === msg.id"
       />
