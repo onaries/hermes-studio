@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NSpin, useMessage } from 'naive-ui'
 import { useArtifactsStore, type ArtifactItem } from '@/stores/hermes/artifacts'
@@ -17,6 +17,15 @@ const selectedIsText = computed(() => selectedArtifact.value?.kind === 'text')
 const selectedIsImage = computed(() => selectedArtifact.value?.kind === 'image')
 const selectedIsMedia = computed(() => selectedArtifact.value?.kind === 'media')
 const selectedIsVideo = computed(() => /\.(mp4|webm|mov)$/i.test(selectedArtifact.value?.name || selectedArtifact.value?.path || ''))
+
+watch(
+  () => artifactsStore.selectedArtifactId,
+  (id) => {
+    if (!id) return
+    void artifactsStore.ensureArtifactContent(id)
+  },
+  { immediate: true },
+)
 
 async function handleDownload(item: ArtifactItem | null): Promise<void> {
   if (!item?.path) return
