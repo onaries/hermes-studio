@@ -381,6 +381,7 @@ export default {
   // ドロワー
   drawer: {
     terminal: 'ターミナル',
+    artifacts: 'Artifacts',
     files: 'ワークスペース',
     todo: {
       tab: 'Todo',
@@ -1994,6 +1995,16 @@ export default {
   },
 
   // ダウンロード
+  artifacts: {
+    list: 'Artifacts',
+    download: 'ダウンロード',
+    remove: 'Artifactを削除',
+    emptyTitle: 'Artifactはまだありません',
+    emptyDescription: 'チャットで生成されたMarkdownまたはテキストファイルを開くと、ここで個別にプレビューできます。',
+    loadFailed: 'Artifactの読み込みに失敗しました',
+    unsupported: 'このファイルはプレビューできません。ダウンロードしてローカルで開いてください。',
+  },
+
   download: {
     downloading: 'ダウンロード中...',
     downloadFailed: 'ダウンロードに失敗しました',

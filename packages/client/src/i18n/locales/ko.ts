@@ -381,6 +381,7 @@ export default {
   // 서랍
   drawer: {
     terminal: '터미널',
+    artifacts: 'Artifacts',
     files: '작업 공간',
     todo: {
       tab: 'Todo',
@@ -1991,6 +1992,16 @@ export default {
     compressNow: '지금 압축',
     compressingInProgress: '압축 진행 중',
     compressionSaved: '압축 설정이 저장되었습니다',
+  },
+
+  artifacts: {
+    list: 'Artifacts',
+    download: '다운로드',
+    remove: 'Artifact 제거',
+    emptyTitle: '아직 Artifact가 없습니다',
+    emptyDescription: '채팅에서 생성된 Markdown/텍스트 파일을 열면 여기에서 따로 볼 수 있습니다.',
+    loadFailed: 'Artifact를 불러오지 못했습니다',
+    unsupported: '이 파일은 미리 볼 수 없습니다. 다운로드해서 로컬에서 열어주세요.',
   },
 
   // 다운로드

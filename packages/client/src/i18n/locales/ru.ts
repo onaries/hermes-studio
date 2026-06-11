@@ -308,6 +308,7 @@ export default {
 
   drawer: {
     terminal: 'Терминал',
+    artifacts: 'Artifacts',
     files: 'Рабочая область',
     todo: {
       tab: 'Todo',
@@ -1817,6 +1818,16 @@ export default {
     saveFile: 'Сохранить',
   },
   
+  artifacts: {
+    list: 'Artifacts',
+    download: 'Скачать',
+    remove: 'Удалить artifact',
+    emptyTitle: 'Пока нет artifacts',
+    emptyDescription: 'Откройте созданный в чате Markdown- или текстовый файл, чтобы посмотреть его здесь отдельно.',
+    loadFailed: 'Не удалось загрузить artifact',
+    unsupported: 'Предпросмотр этого файла недоступен. Скачайте его, чтобы открыть локально.',
+  },
+
   download: {
     downloading: 'Скачивание...',
     downloadFailed: 'Ошибка скачивания',

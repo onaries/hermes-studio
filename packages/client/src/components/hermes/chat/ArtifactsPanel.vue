@@ -1,0 +1,341 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { NSpin, useMessage } from 'naive-ui'
+import { useArtifactsStore, type ArtifactItem } from '@/stores/hermes/artifacts'
+import MarkdownRenderer from './MarkdownRenderer.vue'
+
+const { t } = useI18n()
+const message = useMessage()
+const artifactsStore = useArtifactsStore()
+
+const selectedArtifact = computed(() => artifactsStore.selectedArtifact)
+
+const canDownload = computed(() => !!selectedArtifact.value?.path)
+const selectedIsMarkdown = computed(() => selectedArtifact.value?.kind === 'markdown')
+const selectedIsText = computed(() => selectedArtifact.value?.kind === 'text')
+const selectedIsImage = computed(() => selectedArtifact.value?.kind === 'image')
+const selectedIsMedia = computed(() => selectedArtifact.value?.kind === 'media')
+const selectedIsVideo = computed(() => /\.(mp4|webm|mov)$/i.test(selectedArtifact.value?.name || selectedArtifact.value?.path || ''))
+
+async function handleDownload(item: ArtifactItem | null): Promise<void> {
+  if (!item?.path) return
+  try {
+    await artifactsStore.downloadArtifact(item)
+  } catch (err: any) {
+    message.error(err?.message || t('download.downloadFailed'))
+  }
+}
+</script>
+
+<template>
+  <div class="artifacts-panel">
+    <aside v-if="artifactsStore.artifacts.length > 0" class="artifact-list" :aria-label="t('artifacts.list')">
+      <button
+        v-for="artifact in artifactsStore.artifacts"
+        :key="artifact.id"
+        type="button"
+        class="artifact-list-item"
+        :class="{ active: artifact.id === artifactsStore.selectedArtifactId }"
+        @click="artifactsStore.selectArtifact(artifact.id)"
+      >
+        <span class="artifact-icon" aria-hidden="true">
+          <svg v-if="artifact.kind === 'markdown' || artifact.kind === 'text'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="8" y1="13" x2="16" y2="13" />
+            <line x1="8" y1="17" x2="14" y2="17" />
+          </svg>
+          <svg v-else-if="artifact.kind === 'image'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <path d="M21 15l-5-5L5 21" />
+          </svg>
+          <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+          </svg>
+        </span>
+        <span class="artifact-list-text">
+          <span class="artifact-list-name">{{ artifact.name }}</span>
+          <span v-if="artifact.path" class="artifact-list-path">{{ artifact.path }}</span>
+        </span>
+        <button
+          type="button"
+          class="artifact-remove"
+          :title="t('artifacts.remove')"
+          :aria-label="t('artifacts.remove')"
+          @click.stop="artifactsStore.closeArtifact(artifact.id)"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </button>
+    </aside>
+
+    <section class="artifact-viewer">
+      <div v-if="selectedArtifact" class="artifact-toolbar">
+        <div class="artifact-title-group">
+          <h3 class="artifact-title">{{ selectedArtifact.name }}</h3>
+          <p v-if="selectedArtifact.path" class="artifact-path" :title="selectedArtifact.path">{{ selectedArtifact.path }}</p>
+        </div>
+        <button
+          v-if="canDownload"
+          type="button"
+          class="artifact-download"
+          @click="handleDownload(selectedArtifact)"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          {{ t('artifacts.download') }}
+        </button>
+      </div>
+
+      <div v-if="!selectedArtifact" class="artifact-empty">
+        <div class="artifact-empty-icon" aria-hidden="true">▣</div>
+        <h3>{{ t('artifacts.emptyTitle') }}</h3>
+        <p>{{ t('artifacts.emptyDescription') }}</p>
+      </div>
+
+      <NSpin v-else :show="selectedArtifact.status === 'loading'" class="artifact-spin">
+        <div v-if="selectedArtifact.status === 'error'" class="artifact-error">
+          {{ selectedArtifact.error || t('artifacts.loadFailed') }}
+        </div>
+        <div v-else-if="selectedIsMarkdown && selectedArtifact.content !== undefined" class="artifact-markdown">
+          <MarkdownRenderer :content="selectedArtifact.content" />
+        </div>
+        <pre v-else-if="selectedIsText && selectedArtifact.content !== undefined" class="artifact-text">{{ selectedArtifact.content }}</pre>
+        <img v-else-if="selectedIsImage" class="artifact-image" :src="artifactsStore.artifactUrl(selectedArtifact)" :alt="selectedArtifact.name" />
+        <div v-else-if="selectedIsMedia" class="artifact-media">
+          <video v-if="selectedIsVideo" class="artifact-video" controls :src="artifactsStore.artifactUrl(selectedArtifact)"></video>
+          <audio v-else class="artifact-audio" controls :src="artifactsStore.artifactUrl(selectedArtifact)"></audio>
+        </div>
+        <div v-else class="artifact-unsupported">
+          <p>{{ t('artifacts.unsupported') }}</p>
+          <button v-if="canDownload" type="button" class="artifact-download secondary" @click="handleDownload(selectedArtifact)">
+            {{ t('artifacts.download') }}
+          </button>
+        </div>
+      </NSpin>
+    </section>
+  </div>
+</template>
+
+<style scoped lang="scss">
+@use "@/styles/variables" as *;
+
+.artifacts-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  background: $bg-primary;
+
+  @media (max-width: $breakpoint-mobile) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.artifact-list {
+  border-right: 1px solid $border-color;
+  background: $bg-secondary;
+  overflow: auto;
+  min-height: 0;
+  padding: 8px;
+
+  @media (max-width: $breakpoint-mobile) {
+    max-height: 168px;
+    border-right: 0;
+    border-bottom: 1px solid $border-color;
+  }
+}
+
+.artifact-list-item {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: $text-primary;
+  border-radius: $radius-md;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover,
+  &.active {
+    background: rgba(var(--accent-primary-rgb), 0.08);
+    border-color: rgba(var(--accent-primary-rgb), 0.18);
+  }
+}
+
+.artifact-icon {
+  color: $text-secondary;
+  display: inline-flex;
+}
+
+.artifact-list-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.artifact-list-name,
+.artifact-list-path,
+.artifact-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artifact-list-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.artifact-list-path {
+  font-size: 11px;
+  color: $text-muted;
+}
+
+.artifact-remove {
+  border: 0;
+  background: transparent;
+  color: $text-muted;
+  border-radius: $radius-sm;
+  padding: 4px;
+  display: inline-flex;
+  cursor: pointer;
+
+  &:hover {
+    color: $text-primary;
+    background: rgba(var(--accent-primary-rgb), 0.12);
+  }
+}
+
+.artifact-viewer {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.artifact-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid $border-color;
+  background: $bg-card;
+  flex-shrink: 0;
+}
+
+.artifact-title-group {
+  min-width: 0;
+}
+
+.artifact-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.artifact-path {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: $text-muted;
+  max-width: min(70vw, 720px);
+}
+
+.artifact-download {
+  border: 1px solid rgba(var(--accent-primary-rgb), 0.22);
+  background: rgba(var(--accent-primary-rgb), 0.1);
+  color: var(--accent-primary);
+  border-radius: $radius-md;
+  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover {
+    background: rgba(var(--accent-primary-rgb), 0.16);
+  }
+
+  &.secondary {
+    margin-top: 8px;
+  }
+}
+
+.artifact-spin {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.artifact-markdown,
+.artifact-text,
+.artifact-error,
+.artifact-unsupported,
+.artifact-empty,
+.artifact-media {
+  padding: 20px;
+}
+
+.artifact-markdown {
+  max-width: 940px;
+}
+
+.artifact-text {
+  margin: 0;
+  min-height: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: $font-code;
+  font-size: 13px;
+  color: $text-primary;
+  background: transparent;
+}
+
+.artifact-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.artifact-video,
+.artifact-audio {
+  width: min(100%, 900px);
+}
+
+.artifact-error {
+  color: $error;
+}
+
+.artifact-empty,
+.artifact-unsupported {
+  color: $text-secondary;
+  text-align: center;
+  margin: auto;
+  max-width: 360px;
+}
+
+.artifact-empty-icon {
+  font-size: 30px;
+  color: $text-muted;
+  margin-bottom: 8px;
+}
+</style>

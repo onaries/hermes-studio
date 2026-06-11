@@ -381,6 +381,7 @@ export default {
   // Drawer
   drawer: {
     terminal: 'Terminal',
+    artifacts: 'Artifacts',
     files: 'Workspace',
     todo: {
       tab: 'Todo',
@@ -2075,6 +2076,16 @@ export default {
     saveFile: 'Save',
   },
   // Download
+  artifacts: {
+    list: 'Artifacts',
+    download: 'Download',
+    remove: 'Remove artifact',
+    emptyTitle: 'No artifacts yet',
+    emptyDescription: 'Open a generated markdown or text file from chat to preview it here.',
+    loadFailed: 'Failed to load artifact',
+    unsupported: 'This file cannot be previewed. Download it to open locally.',
+  },
+
   download: {
     downloading: 'Downloading...',
     downloadFailed: 'Download failed',

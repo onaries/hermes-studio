@@ -243,6 +243,88 @@ describe('chat store session.command fanout', () => {
     }
   })
 
+  it('does not show a huge completed TPS from a single streamed chunk', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(1_000)
+      const store = useChatStore()
+      const session = makeSession()
+      store.sessions = [session]
+      store.activeSessionId = 'session-1'
+      store.activeSession = session
+
+      chatApi.sessionCommandHandlers[0]({
+        event: 'session.command',
+        session_id: 'session-1',
+        command: 'goal',
+        action: 'resume',
+        message: 'Goal resumed',
+        started: true,
+        terminal: false,
+      })
+
+      const handlers = chatApi.registerSessionHandlers.mock.calls[0]?.[1]
+      handlers.onRunStarted({ event: 'run.started', session_id: 'session-1' })
+      vi.setSystemTime(2_000)
+      handlers.onMessageDelta({ event: 'message.delta', session_id: 'session-1', delta: 'one chunk' })
+      vi.setSystemTime(2_100)
+      handlers.onRunCompleted({
+        event: 'run.completed',
+        session_id: 'session-1',
+        queue_remaining: 0,
+        output: 'one chunk',
+        inputTokens: 50,
+        outputTokens: 3_416,
+      })
+
+      expect(session.liveTps).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('falls back to streamed token estimates when completed usage is implausibly cumulative', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(1_000)
+      const store = useChatStore()
+      const session = makeSession()
+      store.sessions = [session]
+      store.activeSessionId = 'session-1'
+      store.activeSession = session
+
+      chatApi.sessionCommandHandlers[0]({
+        event: 'session.command',
+        session_id: 'session-1',
+        command: 'goal',
+        action: 'resume',
+        message: 'Goal resumed',
+        started: true,
+        terminal: false,
+      })
+
+      const handlers = chatApi.registerSessionHandlers.mock.calls[0]?.[1]
+      handlers.onRunStarted({ event: 'run.started', session_id: 'session-1' })
+      vi.setSystemTime(2_000)
+      handlers.onMessageDelta({ event: 'message.delta', session_id: 'session-1', delta: 'abcdefghijklmnopqrst' })
+      vi.setSystemTime(4_000)
+      handlers.onMessageDelta({ event: 'message.delta', session_id: 'session-1', delta: 'abcdefghijklmnopqrst' })
+      vi.setSystemTime(6_000)
+      handlers.onRunCompleted({
+        event: 'run.completed',
+        session_id: 'session-1',
+        queue_remaining: 0,
+        output: 'short stream',
+        inputTokens: 50,
+        outputTokens: 3_416,
+      })
+
+      expect(session.liveTps).toBeLessThan(100)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('does not let long tool gaps depress live TPS when reasoning resumes', () => {
     vi.useFakeTimers()
     try {

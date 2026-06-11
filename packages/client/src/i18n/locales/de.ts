@@ -381,6 +381,7 @@ export default {
   // Drawer
   drawer: {
     terminal: 'Konsole',
+    artifacts: 'Artifacts',
     files: 'Arbeitsbereich',
     todo: {
       tab: 'Todo',
@@ -1985,6 +1986,16 @@ jobTriggered: 'Job ausgelost',
   },
 
   // Download
+  artifacts: {
+    list: 'Artifacts',
+    download: 'Herunterladen',
+    remove: 'Artifact entfernen',
+    emptyTitle: 'Noch keine Artifacts',
+    emptyDescription: 'Öffne eine generierte Markdown- oder Textdatei aus dem Chat, um sie hier separat anzusehen.',
+    loadFailed: 'Artifact konnte nicht geladen werden',
+    unsupported: 'Diese Datei kann nicht in der Vorschau angezeigt werden. Lade sie herunter, um sie lokal zu öffnen.',
+  },
+
   download: {
     downloading: 'Wird heruntergeladen...',
     downloadFailed: 'Download fehlgeschlagen',

@@ -381,6 +381,7 @@ export default {
   // Gaveta
   drawer: {
     terminal: 'Terminal',
+    artifacts: 'Artifacts',
     files: 'Espaço de trabalho',
     todo: {
       tab: 'Todo',
@@ -1995,6 +1996,16 @@ jobTriggered: 'Job acionado',
   },
 
   // Download
+  artifacts: {
+    list: 'Artifacts',
+    download: 'Baixar',
+    remove: 'Remover artifact',
+    emptyTitle: 'Ainda não há artifacts',
+    emptyDescription: 'Abra um arquivo Markdown ou de texto gerado no chat para visualizá-lo aqui separadamente.',
+    loadFailed: 'Falha ao carregar o artifact',
+    unsupported: 'Este arquivo não pode ser visualizado. Baixe para abrir localmente.',
+  },
+
   download: {
     downloading: 'Baixando...',
     downloadFailed: 'Falha no download',

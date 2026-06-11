@@ -381,6 +381,7 @@ export default {
   // Drawer
   drawer: {
     terminal: 'Terminal',
+    artifacts: 'Artifacts',
     files: 'Espace de travail',
     todo: {
       tab: 'Todo',
@@ -1995,6 +1996,16 @@ jobTriggered: 'Job declenche',
   },
 
   // Telechargement
+  artifacts: {
+    list: 'Artifacts',
+    download: 'Télécharger',
+    remove: 'Supprimer l’artifact',
+    emptyTitle: 'Aucun artifact pour le moment',
+    emptyDescription: 'Ouvrez un fichier Markdown ou texte généré depuis le chat pour le prévisualiser ici.',
+    loadFailed: 'Impossible de charger l’artifact',
+    unsupported: 'Ce fichier ne peut pas être prévisualisé. Téléchargez-le pour l’ouvrir localement.',
+  },
+
   download: {
     downloading: 'Telechargement...',
     downloadFailed: 'Echec du telechargement',
