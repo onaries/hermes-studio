@@ -1831,6 +1831,7 @@ export default {
   artifacts: {
     list: 'Artifacts',
     backToList: 'К списку',
+    scrollToTop: 'Наверх',
     download: 'Скачать',
     remove: 'Удалить artifact',
     emptyTitle: 'Пока нет artifacts',

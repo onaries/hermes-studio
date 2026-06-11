@@ -2082,6 +2082,7 @@ export default {
   artifacts: {
     list: 'Artifacts',
     backToList: '返回列表',
+    scrollToTop: '回到頂部',
     download: '下載',
     remove: '移除 Artifact',
     emptyTitle: '尚無 Artifact',

@@ -9,6 +9,8 @@ const { t } = useI18n()
 const message = useMessage()
 const artifactsStore = useArtifactsStore()
 const mobileDetailOpen = ref(false)
+const artifactListRef = ref<HTMLElement | null>(null)
+const artifactContentRef = ref<HTMLElement | null>(null)
 
 const selectedArtifact = computed(() => artifactsStore.selectedArtifact)
 
@@ -30,6 +32,20 @@ function handleSelectArtifact(id: string): void {
 
 function showArtifactList(): void {
   mobileDetailOpen.value = false
+}
+
+function scrollElementToTop(element: HTMLElement | null): void {
+  if (!element) return
+  if (typeof element.scrollTo === 'function') {
+    element.scrollTo({ top: 0, behavior: 'smooth' })
+    return
+  }
+  element.scrollTop = 0
+}
+
+function scrollArtifactsToTop(): void {
+  scrollElementToTop(artifactListRef.value)
+  scrollElementToTop(artifactContentRef.value)
 }
 
 watch(
@@ -71,7 +87,7 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
       'artifacts-panel--mobile-detail': mobileDetailOpen && !!selectedArtifact,
     }"
   >
-    <aside v-if="artifactsStore.artifacts.length > 0" class="artifact-list" :aria-label="t('artifacts.list')">
+    <aside v-if="artifactsStore.artifacts.length > 0" ref="artifactListRef" class="artifact-list" :aria-label="t('artifacts.list')">
       <button
         v-for="artifact in artifactsStore.artifacts"
         :key="artifact.id"
@@ -133,19 +149,35 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
           <h3 class="artifact-title">{{ selectedArtifact.name }}</h3>
           <p v-if="selectedArtifact.path" class="artifact-path" :title="selectedArtifact.path">{{ selectedArtifact.path }}</p>
         </div>
-        <button
-          v-if="canDownload"
-          type="button"
-          class="artifact-download"
-          @click="handleDownload(selectedArtifact)"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          {{ t('artifacts.download') }}
-        </button>
+        <div class="artifact-actions">
+          <button
+            type="button"
+            class="artifact-top"
+            :title="t('artifacts.scrollToTop')"
+            :aria-label="t('artifacts.scrollToTop')"
+            @click="scrollArtifactsToTop"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="18 15 12 9 6 15" />
+              <line x1="12" y1="9" x2="12" y2="21" />
+              <line x1="5" y1="3" x2="19" y2="3" />
+            </svg>
+            <span>{{ t('artifacts.scrollToTop') }}</span>
+          </button>
+          <button
+            v-if="canDownload"
+            type="button"
+            class="artifact-download"
+            @click="handleDownload(selectedArtifact)"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            {{ t('artifacts.download') }}
+          </button>
+        </div>
       </div>
 
       <div v-if="!selectedArtifact" class="artifact-empty">
@@ -154,26 +186,28 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
         <p>{{ t('artifacts.emptyDescription') }}</p>
       </div>
 
-      <NSpin v-else :show="selectedArtifact.status === 'loading'" class="artifact-spin">
-        <div v-if="selectedArtifact.status === 'error'" class="artifact-error">
-          {{ selectedArtifact.error || t('artifacts.loadFailed') }}
-        </div>
-        <div v-else-if="selectedIsMarkdown && selectedArtifact.content !== undefined" class="artifact-markdown">
-          <MarkdownRenderer :content="selectedArtifact.content" />
-        </div>
-        <pre v-else-if="selectedCanRenderText" class="artifact-text">{{ selectedArtifact.content }}</pre>
-        <img v-else-if="selectedIsImage" class="artifact-image" :src="artifactsStore.artifactUrl(selectedArtifact)" :alt="selectedArtifact.name" />
-        <div v-else-if="selectedIsMedia" class="artifact-media">
-          <video v-if="selectedIsVideo" class="artifact-video" controls :src="artifactsStore.artifactUrl(selectedArtifact)"></video>
-          <audio v-else class="artifact-audio" controls :src="artifactsStore.artifactUrl(selectedArtifact)"></audio>
-        </div>
-        <div v-else class="artifact-unsupported">
-          <p>{{ t('artifacts.unsupported') }}</p>
-          <button v-if="canDownload" type="button" class="artifact-download secondary" @click="handleDownload(selectedArtifact)">
-            {{ t('artifacts.download') }}
-          </button>
-        </div>
-      </NSpin>
+      <div v-else ref="artifactContentRef" class="artifact-content">
+        <NSpin :show="selectedArtifact.status === 'loading'" class="artifact-spin">
+          <div v-if="selectedArtifact.status === 'error'" class="artifact-error">
+            {{ selectedArtifact.error || t('artifacts.loadFailed') }}
+          </div>
+          <div v-else-if="selectedIsMarkdown && selectedArtifact.content !== undefined" class="artifact-markdown">
+            <MarkdownRenderer :content="selectedArtifact.content" />
+          </div>
+          <pre v-else-if="selectedCanRenderText" class="artifact-text">{{ selectedArtifact.content }}</pre>
+          <img v-else-if="selectedIsImage" class="artifact-image" :src="artifactsStore.artifactUrl(selectedArtifact)" :alt="selectedArtifact.name" />
+          <div v-else-if="selectedIsMedia" class="artifact-media">
+            <video v-if="selectedIsVideo" class="artifact-video" controls :src="artifactsStore.artifactUrl(selectedArtifact)"></video>
+            <audio v-else class="artifact-audio" controls :src="artifactsStore.artifactUrl(selectedArtifact)"></audio>
+          </div>
+          <div v-else class="artifact-unsupported">
+            <p>{{ t('artifacts.unsupported') }}</p>
+            <button v-if="canDownload" type="button" class="artifact-download secondary" @click="handleDownload(selectedArtifact)">
+              {{ t('artifacts.download') }}
+            </button>
+          </div>
+        </NSpin>
+      </div>
     </section>
   </div>
 </template>
@@ -328,8 +362,13 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
       display: none;
     }
 
-    .artifact-download {
+    .artifact-download,
+    .artifact-top {
       padding: 6px 8px;
+    }
+
+    .artifact-top span {
+      display: none;
     }
   }
 }
@@ -355,6 +394,14 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
 
 .artifact-title-group {
   min-width: 0;
+  flex: 1;
+}
+
+.artifact-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .artifact-title {
@@ -370,7 +417,8 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
   max-width: min(70vw, 720px);
 }
 
-.artifact-download {
+.artifact-download,
+.artifact-top {
   border: 1px solid rgba(var(--accent-primary-rgb), 0.22);
   background: rgba(var(--accent-primary-rgb), 0.1);
   color: var(--accent-primary);
@@ -385,16 +433,27 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
   &:hover {
     background: rgba(var(--accent-primary-rgb), 0.16);
   }
+}
 
+.artifact-top {
+  background: transparent;
+  color: $text-secondary;
+}
+
+.artifact-download {
   &.secondary {
     margin-top: 8px;
   }
 }
 
-.artifact-spin {
+.artifact-content {
   flex: 1;
   min-height: 0;
   overflow: auto;
+}
+
+.artifact-spin {
+  min-height: 100%;
 }
 
 .artifact-markdown,
