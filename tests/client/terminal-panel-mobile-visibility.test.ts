@@ -13,6 +13,17 @@ vi.mock('@/api/client', () => ({
   getBaseUrlValue: () => '',
 }))
 
+const mockSettingsStore = vi.hoisted(() => ({
+  display: {
+    terminal_font_size: 14,
+    terminal_font_family: 'Menlo, Monaco, "Courier New", monospace',
+  },
+}))
+
+vi.mock('@/stores/hermes/settings', () => ({
+  useSettingsStore: () => mockSettingsStore,
+}))
+
 vi.mock('naive-ui', async () => {
   const { defineComponent, h } = await import('vue')
   const passthrough = (tag = 'div') => defineComponent({
@@ -130,6 +141,8 @@ describe('TerminalPanel mobile shortcuts visibility', () => {
       writable: true,
       value: 800,
     })
+    mockSettingsStore.display.terminal_font_size = 14
+    mockSettingsStore.display.terminal_font_family = 'Menlo, Monaco, "Courier New", monospace'
   })
 
   it('does not render fixed mobile shortcut controls while the drawer is hidden', async () => {
@@ -163,5 +176,19 @@ describe('TerminalPanel mobile shortcuts visibility', () => {
     expect(terminal.blur).toHaveBeenCalled()
     expect(document.activeElement).not.toBe(textarea)
     expect(wrapper.find('.mobile-shortcut-bar').exists()).toBe(false)
+  })
+
+  it('creates xterm instances with configured terminal font settings', async () => {
+    mockSettingsStore.display.terminal_font_size = 18
+    mockSettingsStore.display.terminal_font_family = 'JetBrains Mono, monospace'
+    const wrapper = mountPanel(true)
+    const socket = websocketInstances[0]
+
+    socket.onopen?.()
+    socket.onmessage?.({ data: JSON.stringify({ type: 'created', id: 'term-1', shell: 'zsh', pid: 123 }) })
+    await wrapper.vm.$nextTick()
+
+    expect(terminalInstances[0].options.fontSize).toBe(18)
+    expect(terminalInstances[0].options.fontFamily).toBe('JetBrains Mono, monospace')
   })
 })

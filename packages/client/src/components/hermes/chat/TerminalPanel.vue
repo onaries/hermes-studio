@@ -5,12 +5,17 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import { getApiKey, getBaseUrlValue } from "@/api/client";
+import { useSettingsStore } from "@/stores/hermes/settings";
 import { NButton, NPopconfirm, NTooltip, NSelect, useMessage } from "naive-ui";
 import { useI18n } from "vue-i18n";
 import type { ITheme } from "@xterm/xterm";
 
 const { t } = useI18n();
 const message = useMessage();
+const settingsStore = useSettingsStore();
+
+const DEFAULT_TERMINAL_FONT_SIZE = 14;
+const DEFAULT_TERMINAL_FONT_FAMILY = 'Menlo, Monaco, "Courier New", monospace';
 
 const props = defineProps<{ visible?: boolean; initialCommand?: string }>();
 
@@ -131,6 +136,17 @@ const themeOptions = computed(() =>
 const terminalBg = computed(
   () => TERMINAL_THEMES[selectedTheme.value]?.theme.background ?? "#1a1a2e",
 );
+
+const terminalFontSize = computed(() => {
+  const raw = Number(settingsStore.display.terminal_font_size ?? DEFAULT_TERMINAL_FONT_SIZE);
+  if (!Number.isFinite(raw)) return DEFAULT_TERMINAL_FONT_SIZE;
+  return Math.min(32, Math.max(9, Math.round(raw)));
+});
+
+const terminalFontFamily = computed(() => {
+  const raw = settingsStore.display.terminal_font_family;
+  return typeof raw === "string" && raw.trim() ? raw.trim() : DEFAULT_TERMINAL_FONT_FAMILY;
+});
 
 const mobileShortcutKeyRows = [
   [
@@ -383,8 +399,8 @@ function getOrCreateTerm(id: string): { term: Terminal; fitAddon: FitAddon } {
   if (!entry) {
     const term = new Terminal({
       cursorBlink: true,
-      fontSize: 14,
-      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+      fontSize: terminalFontSize.value,
+      fontFamily: terminalFontFamily.value,
       theme: { ...TERMINAL_THEMES[selectedTheme.value].theme },
     });
     const fitAddon = new FitAddon();
@@ -476,6 +492,17 @@ function tryFit() {
   } catch {}
 }
 
+function applyTerminalFontSettings() {
+  for (const entry of termMap.values()) {
+    entry.term.options.fontSize = terminalFontSize.value;
+    entry.term.options.fontFamily = terminalFontFamily.value;
+    try {
+      entry.fitAddon.fit();
+    } catch {}
+  }
+  sendResize();
+}
+
 function sendResize() {
   if (!activeTerm || !ws || ws.readyState !== WebSocket.OPEN) return;
   try {
@@ -565,6 +592,10 @@ watch(() => props.visible, (visible) => {
     blurActiveTerminal();
   }
 }, { immediate: true });
+
+watch([terminalFontSize, terminalFontFamily], () => {
+  applyTerminalFontSettings();
+});
 
 onMounted(() => {
   updateMobileShortcutBottomOffset();
