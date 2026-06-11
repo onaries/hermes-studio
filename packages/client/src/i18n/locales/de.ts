@@ -382,6 +382,7 @@ export default {
   drawer: {
     terminal: 'Konsole',
     artifacts: 'Artifacts',
+    resize: 'Drawer-Größe ändern',
     files: 'Arbeitsbereich',
     todo: {
       tab: 'Todo',

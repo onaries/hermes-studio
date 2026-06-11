@@ -382,6 +382,7 @@ export default {
   drawer: {
     terminal: '終端機',
     artifacts: 'Artifacts',
+    resize: '調整抽屜大小',
     files: '工作區',
     todo: {
       tab: '待辦',
