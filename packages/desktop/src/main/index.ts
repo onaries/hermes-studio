@@ -223,9 +223,11 @@ function createWindow() {
           titleBarStyle: 'hiddenInset' as const,
           trafficLightPosition: { x: 16, y: 12 },
         }
-      : {
-          frame: false,
-        }),
+      : process.platform === 'win32'
+        ? {
+            frame: false,
+          }
+        : {}),
     ...(process.platform === 'linux' ? { icon: desktopIcon() } : {}),
     webPreferences: {
       preload: join(__dirname, '..', 'preload', 'index.js'),
