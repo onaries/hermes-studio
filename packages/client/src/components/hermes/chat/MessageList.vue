@@ -17,7 +17,6 @@ const sessionScrollPositions = new Map<string, SessionScrollSnapshot>();
 <script setup lang="ts">
 import { ref, computed, nextTick, onBeforeUnmount, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { NButton, NInput } from "naive-ui";
 import VirtualMessageList from "./VirtualMessageList.vue";
 import MessageItem from "./MessageItem.vue";
 import TodoPanel from "./TodoPanel.vue";
@@ -230,7 +229,6 @@ const queuedMessages = computed(() => {
 });
 const visibleApproval = computed(() => chatStore.activePendingApproval);
 const visibleClarify = computed(() => chatStore.activePendingClarify);
-const clarifyResponse = ref("");
 const hasFloatingPrompt = computed(() => !!visibleApproval.value || !!visibleClarify.value);
 const virtualListPadding = computed(() => {
   if (queuedMessages.value.length > 0 && hasFloatingPrompt.value) return "20px 20px 380px";
@@ -238,15 +236,6 @@ const virtualListPadding = computed(() => {
   return "20px";
 });
 
-function handleApproval(choice: "once" | "session" | "always" | "deny") {
-  chatStore.respondApproval(choice);
-}
-
-function handleClarify(response?: string) {
-  const finalResponse = response !== undefined ? response : clarifyResponse.value.trim();
-  chatStore.respondToClarify(finalResponse);
-  clarifyResponse.value = "";
-}
 
 function removeQueuedMessage(messageId: string) {
   const sid = chatStore.activeSessionId;
@@ -636,126 +625,9 @@ defineExpose({
       </template>
     </VirtualMessageList>
     <div
-      v-if="visibleApproval || visibleClarify || queuedMessages.length > 0"
+      v-if="queuedMessages.length > 0"
       class="message-float-stack"
     >
-      <Transition name="queue-float">
-        <div v-if="visibleApproval" class="approval-float-panel">
-          <div class="float-panel-header">
-            <span class="approval-float-icon" aria-hidden="true">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-                <path d="m9 12 2 2 4-4" />
-              </svg>
-            </span>
-            <span>{{ t("chat.approvalKicker") }}</span>
-          </div>
-          <div class="approval-float-title">{{ t("chat.approvalTitle") }}</div>
-          <div class="approval-float-desc">{{ visibleApproval.description }}</div>
-          <code class="approval-float-command">{{ visibleApproval.command }}</code>
-          <div class="approval-float-actions">
-            <NButton
-              v-if="visibleApproval.isMemoryWrite"
-              size="small"
-              type="primary"
-              @click="handleApproval('once')"
-            >
-              {{ t("chat.approvalAgree") }}
-            </NButton>
-            <NButton
-              v-if="!visibleApproval.isMemoryWrite && visibleApproval.choices.includes('once')"
-              size="small"
-              type="primary"
-              @click="handleApproval('once')"
-            >
-              {{ t("chat.approvalAllowOnce") }}
-            </NButton>
-            <NButton
-              v-if="!visibleApproval.isMemoryWrite && visibleApproval.choices.includes('session')"
-              size="small"
-              secondary
-              @click="handleApproval('session')"
-            >
-              {{ t("chat.approvalAllowSession") }}
-            </NButton>
-            <NButton
-              v-if="!visibleApproval.isMemoryWrite && visibleApproval.choices.includes('always')"
-              size="small"
-              secondary
-              @click="handleApproval('always')"
-            >
-              {{ t("chat.approvalAlways") }}
-            </NButton>
-            <NButton
-              v-if="visibleApproval.isMemoryWrite || visibleApproval.choices.includes('deny')"
-              size="small"
-              type="error"
-              secondary
-              @click="handleApproval('deny')"
-            >
-              {{ t("chat.approvalDeny") }}
-            </NButton>
-          </div>
-        </div>
-      </Transition>
-      <Transition name="queue-float">
-        <div v-if="!visibleApproval && visibleClarify" class="approval-float-panel">
-          <div class="float-panel-header">
-            <span class="approval-float-icon" aria-hidden="true">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-            </span>
-            <span>{{ t("chat.clarifyKicker") }}</span>
-          </div>
-          <div class="approval-float-title">{{ t("chat.clarifyTitle") }}</div>
-          <div class="approval-float-desc">{{ visibleClarify.question }}</div>
-          <div v-if="visibleClarify.choices && visibleClarify.choices.length" class="approval-float-actions">
-            <NButton
-              v-for="choice in visibleClarify.choices"
-              :key="choice"
-              size="small"
-              type="primary"
-              @click="handleClarify(choice)"
-            >
-              {{ choice }}
-            </NButton>
-            <NButton size="small" type="error" secondary @click="handleClarify('')">
-              {{ t("chat.clarifyDismiss") }}
-            </NButton>
-          </div>
-          <div v-else class="clarify-float-input-row">
-            <NInput
-              v-model:value="clarifyResponse"
-              size="small"
-              :placeholder="t('chat.clarifyPlaceholder')"
-            />
-            <NButton size="small" type="primary" @click="handleClarify()">
-              {{ t("chat.clarifySubmit") }}
-            </NButton>
-          </div>
-        </div>
-      </Transition>
       <Transition name="queue-float">
         <div v-if="queuedMessages.length > 0" class="queue-float-panel">
           <div class="queue-float-header">
