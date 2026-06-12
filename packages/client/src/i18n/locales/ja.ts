@@ -395,6 +395,8 @@ export default {
     terminal: 'ターミナル',
     artifacts: '成果物',
     resize: 'ドロワーのサイズを変更',
+    open: 'ドロワーを開く',
+    repositionHint: 'ドラッグしてドロワーボタンを上・中央・下にスナップ',
     files: 'ワークスペース',
     todo: {
       tab: 'Todo',

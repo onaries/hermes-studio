@@ -395,6 +395,8 @@ export default {
     terminal: 'Konsole',
     artifacts: 'Artefakte',
     resize: 'Drawer-Größe ändern',
+    open: 'Drawer öffnen',
+    repositionHint: 'Ziehen, um die Drawer-Schaltfläche oben, mittig oder unten einrasten zu lassen',
     files: 'Arbeitsbereich',
     todo: {
       tab: 'Todo',

@@ -395,6 +395,8 @@ export default {
     terminal: '终端',
     artifacts: '产出文件',
     resize: '调整抽屉大小',
+    open: '打开抽屉',
+    repositionHint: '拖动可将抽屉按钮吸附到顶部、中间或底部',
     files: '工作区',
     todo: {
       tab: '待办',

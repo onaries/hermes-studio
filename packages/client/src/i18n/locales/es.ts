@@ -395,6 +395,8 @@ export default {
     terminal: 'Terminal',
     artifacts: 'Artefactos',
     resize: 'Cambiar tamaño del panel',
+    open: 'Abrir panel',
+    repositionHint: 'Arrastra para fijar el botón del panel arriba, al centro o abajo',
     files: 'Espacio de trabajo',
     todo: {
       tab: 'Todo',

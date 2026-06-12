@@ -27,6 +27,13 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { copyToClipboard } from "@/utils/clipboard";
+import {
+  drawerButtonAnchorY,
+  loadDrawerButtonPosition,
+  saveDrawerButtonPosition,
+  snapDrawerButtonPosition,
+  type DrawerButtonPosition,
+} from "@/utils/drawer-button-position";
 import FolderPicker from "./FolderPicker.vue";
 import ChatInput from "./ChatInput.vue";
 import ConversationMonitorPane from "./ConversationMonitorPane.vue";
@@ -47,6 +54,15 @@ const { t } = useI18n();
 
 const showDrawer = ref(false);
 const drawerActiveTab = ref<"terminal" | "files" | "artifacts">("files");
+const chatPanelRef = ref<HTMLElement | null>(null);
+const drawerButtonPosition = ref<DrawerButtonPosition>(
+  loadDrawerButtonPosition(typeof window !== "undefined" ? window.localStorage : null),
+);
+const drawerButtonDragY = ref<number | null>(null);
+const isDrawerButtonDragging = ref(false);
+let drawerButtonPointerId: number | null = null;
+let drawerButtonStartY = 0;
+let suppressNextDrawerButtonClick = false;
 const showOutline = ref(false);
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
@@ -90,6 +106,86 @@ const notifiedCompletionIds = new Set<string>();
 
 const MARKDOWN_LOCAL_LINK_RE = /!?\[([^\]]*)\]\((<[^>]+>|[^)]+)\)/g;
 const HTML_LOCAL_LINK_RE = /<a\s+[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gi;
+
+const drawerButtonStyle = computed(() => {
+  if (drawerButtonDragY.value != null) {
+    return { top: `${drawerButtonDragY.value}px` };
+  }
+  if (drawerButtonPosition.value === "top") return { top: "88px" };
+  if (drawerButtonPosition.value === "bottom") return { top: "calc(100% - 96px)" };
+  return { top: "50%" };
+});
+
+function chatPanelHeight(): number {
+  return chatPanelRef.value?.getBoundingClientRect().height || window.innerHeight || 0;
+}
+
+function setDrawerButtonPosition(position: DrawerButtonPosition): void {
+  drawerButtonPosition.value = position;
+  saveDrawerButtonPosition(typeof window !== "undefined" ? window.localStorage : null, position);
+}
+
+function cleanupDrawerButtonDrag(): void {
+  document.removeEventListener("pointermove", handleDrawerButtonPointerMove);
+  document.removeEventListener("pointerup", handleDrawerButtonPointerUp);
+  document.body.classList.remove("drawer-button-dragging-body");
+  drawerButtonPointerId = null;
+  drawerButtonDragY.value = null;
+  isDrawerButtonDragging.value = false;
+}
+
+function handleDrawerButtonPointerDown(event: PointerEvent): void {
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+  const rect = chatPanelRef.value?.getBoundingClientRect();
+  if (!rect) return;
+  drawerButtonPointerId = event.pointerId;
+  drawerButtonStartY = event.clientY;
+  drawerButtonDragY.value = drawerButtonAnchorY(drawerButtonPosition.value, rect.height);
+  isDrawerButtonDragging.value = false;
+  document.body.classList.add("drawer-button-dragging-body");
+  document.addEventListener("pointermove", handleDrawerButtonPointerMove);
+  document.addEventListener("pointerup", handleDrawerButtonPointerUp);
+}
+
+function handleDrawerButtonPointerMove(event: PointerEvent): void {
+  if (drawerButtonPointerId !== event.pointerId) return;
+  const rect = chatPanelRef.value?.getBoundingClientRect();
+  if (!rect) return;
+  const y = Math.min(rect.height - 24, Math.max(24, event.clientY - rect.top));
+  drawerButtonDragY.value = y;
+  if (Math.abs(event.clientY - drawerButtonStartY) > 4) {
+    isDrawerButtonDragging.value = true;
+  }
+  event.preventDefault();
+}
+
+function handleDrawerButtonPointerUp(event: PointerEvent): void {
+  if (drawerButtonPointerId !== event.pointerId) return;
+  const wasDragging = isDrawerButtonDragging.value;
+  const y = drawerButtonDragY.value;
+  if (wasDragging && y != null) {
+    setDrawerButtonPosition(snapDrawerButtonPosition(y, chatPanelHeight()));
+    suppressNextDrawerButtonClick = true;
+    window.setTimeout(() => {
+      suppressNextDrawerButtonClick = false;
+    }, 0);
+  }
+  cleanupDrawerButtonDrag();
+}
+
+function handleDrawerButtonClick(): void {
+  if (suppressNextDrawerButtonClick) return;
+  showDrawer.value = true;
+}
+
+function nudgeDrawerButtonPosition(direction: "up" | "down"): void {
+  const order: DrawerButtonPosition[] = ["top", "middle", "bottom"];
+  const currentIndex = order.indexOf(drawerButtonPosition.value);
+  const nextIndex = direction === "up"
+    ? Math.max(0, currentIndex - 1)
+    : Math.min(order.length - 1, currentIndex + 1);
+  setDrawerButtonPosition(order[nextIndex]);
+}
 
 function stripHtml(value: string): string {
   return value.replace(/<[^>]+>/g, '').trim();
@@ -295,6 +391,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  cleanupDrawerButtonDrag();
   mobileQuery?.removeEventListener("change", handleMobileChange);
   if (approvalCountdownTimer !== null) {
     window.clearInterval(approvalCountdownTimer);
@@ -1162,7 +1259,7 @@ async function handleSessionModelCustomSubmit() {
 </script>
 
 <template>
-  <div class="chat-panel">
+  <div ref="chatPanelRef" class="chat-panel">
     <div
       v-if="currentMode === 'chat'"
       class="session-backdrop"
@@ -1917,8 +2014,21 @@ async function handleSessionModelCustomSubmit() {
     </div>
 
     <!-- Floating drawer button -->
-    <div class="drawer-button-wrapper">
-      <div class="drawer-button" @click="showDrawer = true">
+    <div
+      class="drawer-button-wrapper"
+      :class="[`drawer-button-wrapper--${drawerButtonPosition}`, { dragging: isDrawerButtonDragging }]"
+      :style="drawerButtonStyle"
+    >
+      <button
+        class="drawer-button"
+        type="button"
+        :aria-label="t('drawer.open')"
+        :title="t('drawer.repositionHint')"
+        @click="handleDrawerButtonClick"
+        @pointerdown="handleDrawerButtonPointerDown"
+        @keydown.up.prevent="nudgeDrawerButtonPosition('up')"
+        @keydown.down.prevent="nudgeDrawerButtonPosition('down')"
+      >
         <svg
           width="20"
           height="20"
@@ -1931,7 +2041,7 @@ async function handleSessionModelCustomSubmit() {
           <line x1="9" y1="3" x2="9" y2="21" />
           <line x1="15" y1="3" x2="15" y2="21" />
         </svg>
-      </div>
+      </button>
     </div>
 
     <DrawerPanel v-model:show="showDrawer" :active-tab="drawerActiveTab" />
@@ -2654,7 +2764,11 @@ async function handleSessionModelCustomSubmit() {
     0 0 10px rgba(255, 107, 107, 0.4),
     0 0 20px rgba(255, 107, 107, 0.2);
   animation: rainbow-glow 8s linear infinite;
-  transition: all $transition-fast;
+  touch-action: none;
+  transition:
+    top $transition-fast,
+    box-shadow $transition-fast,
+    transform $transition-fast;
 
   &:hover {
     animation-play-state: paused;
@@ -2662,6 +2776,22 @@ async function handleSessionModelCustomSubmit() {
       0 0 15px rgba(255, 107, 107, 0.6),
       0 0 30px rgba(255, 107, 107, 0.3);
   }
+
+  &.dragging {
+    animation-play-state: paused;
+    transition: none;
+    transform: translateY(-50%) scale(1.04);
+  }
+}
+
+:global(.drawer-button-dragging-body) {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.drawer-button-wrapper--top,
+.drawer-button-wrapper--bottom {
+  animation-duration: 10s;
 }
 
 .drawer-button {
@@ -2672,8 +2802,15 @@ async function handleSessionModelCustomSubmit() {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  cursor: grab;
+  border: 0;
+  padding: 0;
+  font: inherit;
   transition: all $transition-fast;
+
+  &:active {
+    cursor: grabbing;
+  }
 
   svg {
     width: 18px;

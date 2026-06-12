@@ -395,6 +395,8 @@ export default {
     terminal: '터미널',
     artifacts: '아티팩트',
     resize: 'Drawer 크기 조절',
+    open: '드로어 열기',
+    repositionHint: '드래그해서 드로어 버튼을 위, 가운데, 아래로 붙이기',
     files: '작업 공간',
     todo: {
       tab: 'Todo',

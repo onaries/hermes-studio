@@ -395,6 +395,8 @@ export default {
     terminal: 'Terminal',
     artifacts: 'Artifacts',
     resize: 'Resize drawer',
+    open: 'Open drawer',
+    repositionHint: 'Drag to snap the drawer button to the top, middle, or bottom',
     files: 'Workspace',
     todo: {
       tab: 'Todo',

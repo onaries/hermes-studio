@@ -395,6 +395,8 @@ export default {
     terminal: 'Terminal',
     artifacts: 'Artefacts',
     resize: 'Redimensionner le tiroir',
+    open: 'Ouvrir le panneau',
+    repositionHint: 'Faites glisser pour aimanter le bouton du panneau en haut, au milieu ou en bas',
     files: 'Espace de travail',
     todo: {
       tab: 'Todo',

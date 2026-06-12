@@ -395,6 +395,8 @@ export default {
     terminal: 'Terminal',
     artifacts: 'Artefatos',
     resize: 'Redimensionar gaveta',
+    open: 'Abrir gaveta',
+    repositionHint: 'Arraste para encaixar o botão da gaveta no topo, meio ou rodapé',
     files: 'Espaço de trabalho',
     todo: {
       tab: 'Todo',
