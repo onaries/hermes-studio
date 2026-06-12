@@ -1032,10 +1032,10 @@ function handleBtwEscape(event: KeyboardEvent) {
                     </template>
                   </div>
                 </div>
-                <MarkdownRenderer v-if="displayText" :content="displayText" />
+                <MarkdownRenderer v-if="displayText" :content="displayText" :artifact-links-enabled="false" />
               </template>
               <!-- Plain text format -->
-              <MarkdownRenderer v-else-if="message.content" :content="message.content" />
+              <MarkdownRenderer v-else-if="message.content" :content="message.content" :artifact-links-enabled="false" />
             </template>
 
             <!-- Render assistant message content -->

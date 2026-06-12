@@ -344,6 +344,22 @@ describe('MarkdownRenderer', () => {
     expect(wrapper.find('.n-drawer-stub').exists()).toBe(false)
   })
 
+  it('downloads previewable file cards instead of opening artifacts when artifact links are disabled', async () => {
+    const wrapper = mount(MarkdownRenderer, {
+      props: {
+        content: '[notes.txt](/tmp/notes.txt)',
+        artifactLinksEnabled: false,
+      },
+    })
+
+    await wrapper.find('.markdown-file-card').trigger('click')
+    await Promise.resolve()
+    await nextTick()
+
+    expect(artifactsStoreMock.openFileArtifact).not.toHaveBeenCalled()
+    expect(downloadApiMock.downloadFile).toHaveBeenCalledWith('/tmp/notes.txt', 'notes.txt')
+  })
+
   it('opens markdown file previews as artifacts', async () => {
     downloadApiMock.fetchFileText.mockResolvedValue('# Preview Title\n\n**bold text**')
     const wrapper = mount(MarkdownRenderer, {

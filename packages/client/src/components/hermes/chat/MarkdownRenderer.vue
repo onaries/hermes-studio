@@ -63,9 +63,11 @@ const props = withDefaults(defineProps<{
     content: string
     mentionNames?: string[]
     headingIdPrefix?: string
+    artifactLinksEnabled?: boolean
 }>(), {
     mentionNames: () => [],
     headingIdPrefix: '',
+    artifactLinksEnabled: true,
 })
 
 const { t } = useI18n()
@@ -411,7 +413,7 @@ async function handleMarkdownClick(event: MouseEvent): Promise<void> {
 
     if (path) {
       const ext = fileName?.split('.').pop()?.toLowerCase()
-      if (SUPPORT_PREVIEW_FILE_TYPES.includes(ext || '')) {
+      if (props.artifactLinksEnabled && SUPPORT_PREVIEW_FILE_TYPES.includes(ext || '')) {
         previewTextFile(path, fileName || '')
       } else { // Download file immediately
         downloadFile(path, fileName).catch((err: Error) => {
