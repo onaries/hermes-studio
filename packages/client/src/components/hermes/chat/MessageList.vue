@@ -1212,19 +1212,27 @@ defineExpose({
   flex-direction: column;
   gap: 4px;
   max-height: 213px;
-  overflow-y: auto;
+  overflow: hidden;
   padding-top: 4px;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  &::-webkit-scrollbar {
-    display: none;
-  }
+}
+
+.tool-calls-panel > .compression-item {
+  flex: 0 0 auto;
 }
 
 .tool-call-list {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 4px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .tool-call-entry {
