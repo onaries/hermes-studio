@@ -18,6 +18,9 @@ const mockSettingsStore = vi.hoisted(() => ({
     terminal_font_size: 14,
     terminal_font_family: 'Menlo, Monaco, "Courier New", monospace',
   },
+  updateLocal: vi.fn((_section: string, values: Record<string, unknown>) => {
+    Object.assign(mockSettingsStore.display, values)
+  }),
   saveSection: vi.fn(async (_section: string, values: Record<string, unknown>) => {
     Object.assign(mockSettingsStore.display, values)
   }),
@@ -99,6 +102,7 @@ const { terminalInstances, FakeTerminal } = vi.hoisted(() => {
     loadAddon = vi.fn()
     onData = vi.fn()
     write = vi.fn()
+    refresh = vi.fn()
     scrollLines = vi.fn()
     dispose = vi.fn()
 
@@ -194,6 +198,7 @@ describe('TerminalPanel mobile shortcuts visibility', () => {
     mockSettingsStore.display.terminal_font_size = 14
     mockSettingsStore.display.terminal_font_family = 'Menlo, Monaco, "Courier New", monospace'
     mockSettingsStore.saveSection.mockClear()
+    mockSettingsStore.updateLocal.mockClear()
   })
 
   it('does not render fixed mobile shortcut controls while the drawer is hidden', async () => {
@@ -249,7 +254,30 @@ describe('TerminalPanel mobile shortcuts visibility', () => {
     await wrapper.find('.terminal-font-size-input').setValue('20')
     await wrapper.find('.terminal-font-family-input').setValue('"Fira Code", monospace')
 
+    expect(mockSettingsStore.updateLocal).toHaveBeenCalledWith('display', { terminal_font_size: 20 })
+    expect(mockSettingsStore.updateLocal).toHaveBeenCalledWith('display', { terminal_font_family: '"Fira Code", monospace' })
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { terminal_font_size: 20 })
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { terminal_font_family: '"Fira Code", monospace' })
+  })
+
+  it('applies terminal panel font changes to already-open xterm instances immediately', async () => {
+    const wrapper = mountPanel(true)
+    const socket = websocketInstances[0]
+
+    socket.onopen?.()
+    socket.onmessage?.({ data: JSON.stringify({ type: 'created', id: 'term-1', shell: 'zsh', pid: 123 }) })
+    await wrapper.vm.$nextTick()
+
+    const terminal = terminalInstances[0]
+    expect(terminal.options.fontSize).toBe(14)
+
+    await wrapper.find('.terminal-font-size-input').setValue('22')
+    await wrapper.find('.terminal-font-family-input').setValue('"JetBrains Mono", monospace')
+
+    expect(terminal.options.fontSize).toBe(22)
+    expect(terminal.options.fontFamily).toBe('"JetBrains Mono", monospace')
+    expect(terminal.element?.style.fontSize).toBe('22px')
+    expect(terminal.element?.style.fontFamily).toBe('"JetBrains Mono", monospace')
+    expect(terminal.refresh).toHaveBeenCalled()
   })
 })

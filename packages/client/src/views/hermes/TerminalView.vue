@@ -501,13 +501,36 @@ function tryFit() {
   } catch {}
 }
 
-function applyTerminalFontSettings() {
-  for (const entry of termMap.values()) {
-    entry.term.options.fontSize = terminalFontSize.value;
-    entry.term.options.fontFamily = terminalFontFamily.value;
+function applyTermFontOptions(entry: { term: Terminal; fitAddon: FitAddon }, fontSize: number, fontFamily: string) {
+  entry.term.options.fontSize = fontSize;
+  entry.term.options.fontFamily = fontFamily;
+  if (entry.term.element) {
+    entry.term.element.style.fontSize = `${fontSize}px`;
+    entry.term.element.style.fontFamily = fontFamily;
+  }
+  try {
+    entry.term.refresh(0, Math.max(0, entry.term.rows - 1));
+  } catch {}
+  try {
+    entry.fitAddon.fit();
+  } catch {}
+  requestAnimationFrame(() => {
     try {
       entry.fitAddon.fit();
     } catch {}
+    try {
+      entry.term.refresh(0, Math.max(0, entry.term.rows - 1));
+    } catch {}
+    sendResize();
+  });
+}
+
+function applyTerminalFontSettings(
+  fontSize = terminalFontSize.value,
+  fontFamily = terminalFontFamily.value,
+) {
+  for (const entry of termMap.values()) {
+    applyTermFontOptions(entry, fontSize, fontFamily);
   }
   sendResize();
 }

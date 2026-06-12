@@ -148,13 +148,44 @@ const terminalFontFamily = computed(() =>
   sanitizeTerminalFontFamily(settingsStore.display.terminal_font_family),
 );
 
+function currentAppliedFontSize(): number {
+  return sanitizeTerminalFontSize(
+    typeof activeTerm?.options.fontSize === "number"
+      ? activeTerm.options.fontSize
+      : terminalFontSize.value,
+  );
+}
+
+function currentAppliedFontFamily(): string {
+  return sanitizeTerminalFontFamily(
+    typeof activeTerm?.options.fontFamily === "string"
+      ? activeTerm.options.fontFamily
+      : terminalFontFamily.value,
+  );
+}
+
+function saveTerminalFontSetting(values: Record<string, number | string>): void {
+  const nextSize = typeof values.terminal_font_size === "number"
+    ? sanitizeTerminalFontSize(values.terminal_font_size)
+    : currentAppliedFontSize();
+  const nextFamily = typeof values.terminal_font_family === "string"
+    ? sanitizeTerminalFontFamily(values.terminal_font_family)
+    : currentAppliedFontFamily();
+
+  settingsStore.updateLocal('display', values);
+  applyTerminalFontSettings(nextSize, nextFamily);
+  void settingsStore.saveSection('display', values).catch((err: any) => {
+    message.error(err?.message || t('common.saveFailed'));
+  });
+}
+
 function handleTerminalFontSizeChange(value: number | null): void {
   if (value == null) return;
-  void settingsStore.saveSection('display', { terminal_font_size: sanitizeTerminalFontSize(value) });
+  saveTerminalFontSetting({ terminal_font_size: sanitizeTerminalFontSize(value) });
 }
 
 function handleTerminalFontFamilyChange(value: string | null): void {
-  void settingsStore.saveSection('display', {
+  saveTerminalFontSetting({
     terminal_font_family: sanitizeTerminalFontFamily(value),
   });
 }
@@ -503,13 +534,36 @@ function tryFit() {
   } catch {}
 }
 
-function applyTerminalFontSettings() {
-  for (const entry of termMap.values()) {
-    entry.term.options.fontSize = terminalFontSize.value;
-    entry.term.options.fontFamily = terminalFontFamily.value;
+function applyTermFontOptions(entry: { term: Terminal; fitAddon: FitAddon }, fontSize: number, fontFamily: string) {
+  entry.term.options.fontSize = fontSize;
+  entry.term.options.fontFamily = fontFamily;
+  if (entry.term.element) {
+    entry.term.element.style.fontSize = `${fontSize}px`;
+    entry.term.element.style.fontFamily = fontFamily;
+  }
+  try {
+    entry.term.refresh(0, Math.max(0, entry.term.rows - 1));
+  } catch {}
+  try {
+    entry.fitAddon.fit();
+  } catch {}
+  requestAnimationFrame(() => {
     try {
       entry.fitAddon.fit();
     } catch {}
+    try {
+      entry.term.refresh(0, Math.max(0, entry.term.rows - 1));
+    } catch {}
+    sendResize();
+  });
+}
+
+function applyTerminalFontSettings(
+  fontSize = terminalFontSize.value,
+  fontFamily = terminalFontFamily.value,
+) {
+  for (const entry of termMap.values()) {
+    applyTermFontOptions(entry, fontSize, fontFamily);
   }
   sendResize();
 }
