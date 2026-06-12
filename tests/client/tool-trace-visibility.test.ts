@@ -63,6 +63,7 @@ vi.mock('@/components/hermes/chat/VirtualMessageList.vue', () => ({
 import MessageList from '@/components/hermes/chat/MessageList.vue'
 import HistoryMessageList from '@/components/hermes/chat/HistoryMessageList.vue'
 import { useChatStore, type Message, type Session } from '@/stores/hermes/chat'
+import { useSettingsStore } from '@/stores/hermes/settings'
 import { useToolTraceVisibility } from '@/composables/useToolTraceVisibility'
 
 const MessageItemStub = defineComponent({
@@ -116,6 +117,8 @@ describe('tool trace visibility', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     localStorage.removeItem('hermes_show_tool_calls')
+    const settingsStore = useSettingsStore()
+    settingsStore.display = { show_tool_mascot: undefined }
     useToolTraceVisibility().setToolTraceVisible(true)
   })
 
@@ -145,9 +148,21 @@ describe('tool trace visibility', () => {
       'tool-named',
       'assistant-1',
     ])
+    expect(wrapper.find('.thinking-video').exists()).toBe(true)
     expect(wrapper.findAll('.tool-call-name').map(node => node.text())).toContain('read_file')
     const readFileTool = wrapper.findAll('.tool-call-item').find(node => node.text().includes('read_file'))
     expect(readFileTool?.attributes('title')).toContain('/Users/safemotion/Documents/projects/safemotion/clip/really/long/file/path/that/does/not/fit/on/one/line.ts')
+  })
+
+  it('hides the live tool mascot when disabled in display settings', () => {
+    const settingsStore = useSettingsStore()
+    settingsStore.display = { show_tool_mascot: false }
+
+    const wrapper = mountLiveList()
+
+    expect(wrapper.find('.thinking-video').exists()).toBe(false)
+    expect(wrapper.find('.streaming-indicator--no-mascot').exists()).toBe(true)
+    expect(wrapper.findAll('.tool-call-name').map(node => node.text())).toContain('read_file')
   })
 
   it('summarizes large tool batches only in the transcript, not the live panel', () => {

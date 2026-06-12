@@ -1353,6 +1353,8 @@ export default {
       showCostHint: '在回覆中顯示 token 使用量',
       showLiveTps: '顯示即時 TPS',
       showLiveTpsHint: '串流輸出時在聊天輸入列顯示估算的每秒 token 數',
+      showToolMascot: '顯示工具角色',
+      showToolMascotHint: '在即時工具呼叫旁顯示角色',
       inlineDiffs: '內嵌差異',
       inlineDiffsHint: '程式碼變更以內嵌方式顯示',
       bellOnComplete: '完成提示音',

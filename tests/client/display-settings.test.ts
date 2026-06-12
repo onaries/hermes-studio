@@ -9,6 +9,7 @@ const mockSettingsStore = vi.hoisted(() => ({
     show_reasoning: true,
     show_cost: false,
     show_live_tps: undefined,
+    show_tool_mascot: undefined,
     inline_diffs: true,
     bell_on_complete: false,
     notify_on_complete: false,
@@ -96,6 +97,7 @@ describe('DisplaySettings', () => {
   beforeEach(() => {
     mockSettingsStore.saveSection.mockReset()
     mockSettingsStore.display.show_live_tps = undefined
+    mockSettingsStore.display.show_tool_mascot = undefined
     mockSettingsStore.display.terminal_font_size = 14
     mockSettingsStore.display.terminal_font_family = 'Menlo, Monaco, "Courier New", monospace'
   })
@@ -173,6 +175,21 @@ describe('DisplaySettings', () => {
     await toggle?.trigger('click')
 
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_live_tps: false })
+  })
+
+  it('exposes a tool mascot toggle that defaults on and saves changes', async () => {
+    mockSettingsStore.saveSection.mockResolvedValue(undefined)
+    const wrapper = mountDisplaySettings()
+
+    const rows = wrapper.findAll('.setting-row')
+    const mascotRow = rows.find(row => row.text().includes('settings.display.showToolMascot'))
+    expect(mascotRow?.text()).toContain('settings.display.showToolMascotHint')
+    const toggle = mascotRow?.find('[role="switch"]')
+    expect(toggle?.attributes('aria-checked')).toBe('true')
+
+    await toggle?.trigger('click')
+
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_tool_mascot: false })
   })
 
   it('exposes terminal font controls and saves changes', async () => {

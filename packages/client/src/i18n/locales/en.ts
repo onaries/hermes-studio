@@ -1373,6 +1373,8 @@ export default {
       showCostHint: 'Show token usage in replies',
       showLiveTps: 'Show live TPS',
       showLiveTpsHint: 'Show estimated tokens per second in the chat input while streaming',
+      showToolMascot: 'Show tool mascot',
+      showToolMascotHint: 'Show the character beside live tool calls',
       inlineDiffs: 'Inline Diffs',
       inlineDiffsHint: 'Show code changes inline',
       bellOnComplete: 'Completion Sound',

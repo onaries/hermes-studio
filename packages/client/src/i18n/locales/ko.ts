@@ -1222,6 +1222,8 @@ export default {
       showCostHint: '응답에 토큰 사용량 표시',
       showLiveTps: '실시간 TPS 표시',
       showLiveTpsHint: '스트리밍 중 채팅 입력창에 추정 토큰/초를 표시합니다',
+      showToolMascot: '툴 캐릭터 표시',
+      showToolMascotHint: '실시간 툴 호출 왼쪽의 캐릭터를 표시합니다',
       inlineDiffs: '인라인 변경사항',
       inlineDiffsHint: '코드 변경사항을 인라인으로 표시',
       bellOnComplete: '완료 알림음',

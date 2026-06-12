@@ -13,6 +13,7 @@ export interface DisplayConfig {
   inline_diffs?: boolean
   show_cost?: boolean
   show_live_tps?: boolean
+  show_tool_mascot?: boolean
   skin?: string
   mobile_enter_to_send?: boolean
   terminal_font_size?: number

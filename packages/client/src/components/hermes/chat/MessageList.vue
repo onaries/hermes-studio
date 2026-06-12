@@ -22,6 +22,7 @@ import MessageItem from "./MessageItem.vue";
 import TodoPanel from "./TodoPanel.vue";
 import ToolTraceGroup from "./ToolTraceGroup.vue";
 import { useChatStore, type Message } from "@/stores/hermes/chat";
+import { useSettingsStore } from "@/stores/hermes/settings";
 import {
   extractUnifiedDiffPayload,
   handleCodeBlockCopyClick,
@@ -39,9 +40,11 @@ import { useTheme } from "@/composables/useTheme";
 import { useToolTraceVisibility } from "@/composables/useToolTraceVisibility";
 
 const chatStore = useChatStore();
+const settingsStore = useSettingsStore();
 const { t } = useI18n();
 const { isDark } = useTheme();
 const { toolTraceVisible } = useToolTraceVisibility();
+const showToolMascot = computed(() => settingsStore.display.show_tool_mascot !== false);
 const listRef = ref<InstanceType<typeof VirtualMessageList> | null>(null);
 const pendingInitialScrollSessionId = ref<string | null>(null);
 const initialBottomScrollOptions = { frames: 8, keepAliveMs: 1200 };
@@ -553,8 +556,13 @@ defineExpose({
       </template>
       <template #after>
         <Transition name="fade">
-        <div v-if="chatStore.isRunActive || chatStore.abortState" class="streaming-indicator">
+        <div
+          v-if="chatStore.isRunActive || chatStore.abortState"
+          class="streaming-indicator"
+          :class="{ 'streaming-indicator--no-mascot': !showToolMascot }"
+        >
           <img
+            v-if="showToolMascot"
             :src="isDark ? thinkingImageDark : thinkingImageLight"
             alt=""
             aria-hidden="true"
@@ -1204,6 +1212,11 @@ defineExpose({
     border-radius: $radius-md;
     object-fit: contain;
     flex-shrink: 0;
+  }
+
+  &.streaming-indicator--no-mascot {
+    gap: 0;
+    padding-left: 0;
   }
 }
 
