@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment node
 import { readFileSync } from 'fs'
 import { describe, expect, it } from 'vitest'
 
@@ -16,6 +16,11 @@ describe('chat message mobile layout guards', () => {
     expect(chatPanel).toContain('min-width: 0;')
     expect(chatPanel).toContain('.chat-content-wrapper')
     expect(chatPanel).toContain('max-width: 100%;')
+    expect(chatPanel).toContain('class="header-title-stack"')
+    expect(chatPanel).toContain("'header-title-stack--with-workspace'")
+    expect(chatPanel).toContain('.header-title-stack--with-workspace .header-session-title')
+    expect(chatPanel).toContain('font-size: 13px;')
+    expect(chatPanel).toContain('font-size: 10px;')
 
     expect(virtualList).toContain('.virtual-message-list-host')
     expect(virtualList).toContain('.virtual-row')

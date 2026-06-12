@@ -377,6 +377,12 @@ const headerTitle = computed(() =>
     ? t("chat.liveSessions")
     : activeSessionTitle.value,
 );
+const activeWorkspace = computed(() => chatStore.activeSession?.workspace || "");
+const activeWorkspaceLabel = computed(() => {
+  const workspace = activeWorkspace.value;
+  if (!workspace) return "";
+  return workspace.split(/[\\/]/).filter(Boolean).pop() || workspace;
+});
 
 const activeApproval = computed(() => chatStore.activePendingApproval);
 const visibleApproval = computed(() => activeApproval.value);
@@ -1648,17 +1654,19 @@ async function handleSessionModelCustomSubmit() {
               </svg>
             </template>
           </NButton>
-          <span class="header-session-title">{{ headerTitle }}</span>
-          <span
-            v-if="chatStore.activeSession?.workspace"
-            class="workspace-badge"
-            :title="chatStore.activeSession.workspace"
-            >📁
-            {{
-              chatStore.activeSession.workspace.split("/").pop() ||
-              chatStore.activeSession.workspace
-            }}</span
+          <div
+            class="header-title-stack"
+            :class="{ 'header-title-stack--with-workspace': !!activeWorkspace }"
           >
+            <div class="header-title-line">
+              <span class="header-session-title" :title="headerTitle">{{ headerTitle }}</span>
+            </div>
+            <span
+              v-if="activeWorkspace"
+              class="workspace-badge"
+              :title="activeWorkspace"
+            >📁 {{ activeWorkspaceLabel }}</span>
+          </div>
         </div>
         <div class="header-actions">
           <!-- chat/live mode toggle hidden -->
@@ -2614,7 +2622,24 @@ async function handleSessionModelCustomSubmit() {
   min-width: 0;
 }
 
+.header-title-stack {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.header-title-line {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .header-session-title {
+  min-width: 0;
   font-size: 16px;
   font-weight: 600;
   color: $text-primary;
@@ -2648,12 +2673,6 @@ async function handleSessionModelCustomSubmit() {
   margin-right: 4px;
 }
 
-@media (max-width: $breakpoint-mobile) {
-  .chat-header {
-    padding: 16px 12px 16px 52px;
-  }
-}
-
 .workspace-badge {
   font-size: 11px;
   color: $text-muted;
@@ -2665,6 +2684,43 @@ async function handleSessionModelCustomSubmit() {
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: default;
+}
+
+@media (max-width: $breakpoint-mobile) {
+  .chat-header {
+    align-items: center;
+    padding: 12px 10px 12px 52px;
+  }
+
+  .header-left {
+    gap: 7px;
+  }
+
+  .header-title-stack {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2px;
+    line-height: 1.15;
+  }
+
+  .header-title-line {
+    max-width: 100%;
+  }
+
+  .header-title-stack--with-workspace .header-session-title {
+    font-size: 13px;
+    line-height: 16px;
+  }
+
+  .workspace-badge {
+    max-width: 100%;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    font-size: 10px;
+    line-height: 12px;
+  }
 }
 
 // ─── Drawer button ─────────────────────────────────────────────
