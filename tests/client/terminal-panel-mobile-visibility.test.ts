@@ -39,7 +39,18 @@ vi.mock('naive-ui', async () => {
     NButton: passthrough('button'),
     NPopconfirm: passthrough('span'),
     NTooltip: passthrough('span'),
-    NSelect: defineComponent({ setup: () => () => h('select') }),
+    NSelect: defineComponent({
+      name: 'NSelect',
+      props: ['value', 'options'],
+      emits: ['update:value'],
+      setup: (props, { emit, attrs }) => () => h('select', {
+        ...attrs,
+        value: props.value,
+        onChange: (event: Event) => emit('update:value', (event.target as HTMLSelectElement).value),
+      }, (props.options ?? []).map((option: { label: string; value: string }) => h('option', {
+        value: option.value,
+      }, option.label))),
+    }),
     NInputNumber: defineComponent({
       name: 'NInputNumber',
       props: ['value'],
@@ -137,7 +148,12 @@ const globalStubs = {
   NButton: { template: '<button><slot name="icon" /><slot /></button>' },
   NPopconfirm: { template: '<span><slot name="trigger" /><slot /></span>' },
   NTooltip: { template: '<span><slot name="trigger" /><slot /></span>' },
-  NSelect: { template: '<select />' },
+  NSelect: {
+    name: 'NSelect',
+    props: ['value', 'options'],
+    emits: ['update:value'],
+    template: '<select :value="value" @change="$emit(\'update:value\', $event.target.value)"><option v-for="option in options" :key="option.value" :value="option.value">{{ option.label }}</option></select>',
+  },
   NInputNumber: {
     name: 'NInputNumber',
     props: ['value'],
@@ -231,9 +247,9 @@ describe('TerminalPanel mobile shortcuts visibility', () => {
     const wrapper = mountPanel(true)
 
     await wrapper.find('.terminal-font-size-input').setValue('20')
-    await wrapper.find('.terminal-font-family-input').setValue('Fira Code, monospace')
+    await wrapper.find('.terminal-font-family-input').setValue('"Fira Code", monospace')
 
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { terminal_font_size: 20 })
-    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { terminal_font_family: 'Fira Code, monospace' })
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { terminal_font_family: '"Fira Code", monospace' })
   })
 })

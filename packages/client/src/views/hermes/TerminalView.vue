@@ -9,13 +9,14 @@ import { useSettingsStore } from "@/stores/hermes/settings";
 import { NButton, NPopconfirm, NTooltip, NSelect, useMessage } from "naive-ui";
 import { useI18n } from "vue-i18n";
 import type { ITheme } from "@xterm/xterm";
+import {
+  sanitizeTerminalFontFamily,
+  sanitizeTerminalFontSize,
+} from "@/utils/terminal-font-options";
 
 const { t } = useI18n();
 const message = useMessage();
 const settingsStore = useSettingsStore();
-
-const DEFAULT_TERMINAL_FONT_SIZE = 14;
-const DEFAULT_TERMINAL_FONT_FAMILY = 'Menlo, Monaco, "Courier New", monospace';
 
 // ─── Terminal themes ────────────────────────────────────────────
 
@@ -271,16 +272,13 @@ const terminalBg = computed(
   () => TERMINAL_THEMES[selectedTheme.value]?.theme.background ?? "#1a1a2e",
 );
 
-const terminalFontSize = computed(() => {
-  const raw = Number(settingsStore.display.terminal_font_size ?? DEFAULT_TERMINAL_FONT_SIZE);
-  if (!Number.isFinite(raw)) return DEFAULT_TERMINAL_FONT_SIZE;
-  return Math.min(32, Math.max(9, Math.round(raw)));
-});
+const terminalFontSize = computed(() =>
+  sanitizeTerminalFontSize(settingsStore.display.terminal_font_size),
+);
 
-const terminalFontFamily = computed(() => {
-  const raw = settingsStore.display.terminal_font_family;
-  return typeof raw === "string" && raw.trim() ? raw.trim() : DEFAULT_TERMINAL_FONT_FAMILY;
-});
+const terminalFontFamily = computed(() =>
+  sanitizeTerminalFontFamily(settingsStore.display.terminal_font_family),
+);
 
 // ─── WebSocket ──────────────────────────────────────────────────
 

@@ -1,18 +1,22 @@
 <script setup lang="ts">
-import { NButton, NSwitch, NSelect, NInput, NInputNumber, useMessage } from 'naive-ui'
+import { NButton, NSwitch, NSelect, NInputNumber, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/hermes/settings'
 import { useTheme, type BrightnessMode } from '@/composables/useTheme'
 import { requestCompletionNotificationPermission, showCompletionNotification, type CompletionNotificationPermissionResult } from '@/utils/completion-notification'
+import {
+  DEFAULT_TERMINAL_FONT_FAMILY,
+  DEFAULT_TERMINAL_FONT_SIZE,
+  TERMINAL_FONT_FAMILY_OPTIONS,
+  sanitizeTerminalFontFamily,
+  sanitizeTerminalFontSize,
+} from '@/utils/terminal-font-options'
 import SettingRow from './SettingRow.vue'
 
 const settingsStore = useSettingsStore()
 const message = useMessage()
 const { t } = useI18n()
 const { brightness, setBrightness } = useTheme()
-
-const DEFAULT_TERMINAL_FONT_SIZE = 14
-const DEFAULT_TERMINAL_FONT_FAMILY = 'Menlo, Monaco, "Courier New", monospace'
 
 const themeOptions = [
   { label: t('settings.display.themeLight'), value: 'light' },
@@ -35,13 +39,13 @@ function handleThemeChange(val: string) {
   save({ skin: m })
 }
 
-function handleTerminalFontFamilyChange(value: string) {
-  save({ terminal_font_family: value.trim() || DEFAULT_TERMINAL_FONT_FAMILY })
+function handleTerminalFontFamilyChange(value: string | null) {
+  save({ terminal_font_family: sanitizeTerminalFontFamily(value) })
 }
 
 function handleTerminalFontSizeChange(value: number | null) {
   if (value == null) return
-  save({ terminal_font_size: value })
+  save({ terminal_font_size: sanitizeTerminalFontSize(value) })
 }
 
 function notificationPermissionErrorKey(result: CompletionNotificationPermissionResult): string {
@@ -138,11 +142,15 @@ async function testCompletionNotification() {
       />
     </SettingRow>
     <SettingRow :label="t('settings.display.terminalFontFamily')" :hint="t('settings.display.terminalFontFamilyHint')">
-      <NInput
-        :value="settingsStore.display.terminal_font_family || DEFAULT_TERMINAL_FONT_FAMILY"
+      <NSelect
+        :value="sanitizeTerminalFontFamily(settingsStore.display.terminal_font_family)"
+        :options="TERMINAL_FONT_FAMILY_OPTIONS"
         size="small"
         class="input-md"
         :placeholder="DEFAULT_TERMINAL_FONT_FAMILY"
+        :consistent-menu-width="false"
+        filterable
+        tag
         clearable
         @update:value="handleTerminalFontFamilyChange"
       />

@@ -38,12 +38,54 @@ vi.mock('vue-i18n', () => ({
 }))
 
 vi.mock('naive-ui', async () => {
-  const actual = await vi.importActual<any>('naive-ui')
+  const { defineComponent, h } = await import('vue')
   return {
-    ...actual,
     useMessage: () => ({
       success: vi.fn(),
       error: vi.fn(),
+    }),
+    NButton: defineComponent({
+      name: 'NButton',
+      emits: ['click'],
+      setup: (_, { emit, slots, attrs }) => () => h('button', {
+        ...attrs,
+        type: 'button',
+        onClick: () => emit('click'),
+      }, slots.default?.()),
+    }),
+    NSwitch: defineComponent({
+      name: 'NSwitch',
+      props: ['value'],
+      emits: ['update:value'],
+      setup: (props, { emit }) => () => h('button', {
+        type: 'button',
+        role: 'switch',
+        'aria-checked': String(!!props.value),
+        onClick: () => emit('update:value', !props.value),
+      }),
+    }),
+    NSelect: defineComponent({
+      name: 'NSelect',
+      props: ['value', 'options'],
+      emits: ['update:value'],
+      setup: (props, { emit, attrs }) => () => h('select', {
+        ...attrs,
+        value: props.value,
+        onChange: (event: Event) => emit('update:value', (event.target as HTMLSelectElement).value),
+      }, (props.options ?? []).map((option: { label: string; value: string }) => h('option', {
+        value: option.value,
+      }, option.label))),
+    }),
+    NInputNumber: defineComponent({
+      name: 'NInputNumber',
+      props: ['value'],
+      emits: ['update:value'],
+      setup: (props, { emit, attrs }) => () => h('input', {
+        ...attrs,
+        type: 'number',
+        value: props.value,
+        onInput: (event: Event) => emit('update:value', Number((event.target as HTMLInputElement).value)),
+      }),
     }),
   }
 })
@@ -66,7 +108,16 @@ describe('DisplaySettings', () => {
             props: ['label', 'hint'],
             template: '<div class="setting-row"><div class="setting-row-label">{{ label }}</div><div class="setting-row-hint">{{ hint }}</div><slot /></div>',
           },
-          NSelect: true,
+          NSelect: {
+            props: ['value', 'options'],
+            emits: ['update:value'],
+            template: '<select class="select-stub" :value="value" @change="$emit(\'update:value\', $event.target.value)"><option v-for="option in options" :key="option.value" :value="option.value">{{ option.label }}</option></select>',
+          },
+          'n-select': {
+            props: ['value', 'options'],
+            emits: ['update:value'],
+            template: '<select class="select-stub" :value="value" @change="$emit(\'update:value\', $event.target.value)"><option v-for="option in options" :key="option.value" :value="option.value">{{ option.label }}</option></select>',
+          },
           NInputNumber: {
             props: ['value'],
             emits: ['update:value'],
@@ -90,12 +141,12 @@ describe('DisplaySettings', () => {
           NSwitch: {
             props: ['value'],
             emits: ['update:value'],
-            template: '<button type="button" class="switch-stub" :data-value="String(value)" @click="$emit(\'update:value\', !value)"></button>',
+            template: '<button type="button" role="switch" class="switch-stub" :aria-checked="String(!!value)" :data-value="String(value)" @click="$emit(\'update:value\', !value)"></button>',
           },
           'n-switch': {
             props: ['value'],
             emits: ['update:value'],
-            template: '<button type="button" class="switch-stub" :data-value="String(value)" @click="$emit(\'update:value\', !value)"></button>',
+            template: '<button type="button" role="switch" class="switch-stub" :aria-checked="String(!!value)" :data-value="String(value)" @click="$emit(\'update:value\', !value)"></button>',
           },
         },
       },
@@ -137,11 +188,12 @@ describe('DisplaySettings', () => {
 
     const fontFamilyRow = rows.find(row => row.text().includes('settings.display.terminalFontFamily'))
     expect(fontFamilyRow?.text()).toContain('settings.display.terminalFontFamilyHint')
-    const textInput = fontFamilyRow?.find('input')
-    expect(textInput?.exists()).toBe(true)
-    await textInput?.setValue('JetBrains Mono, monospace')
+    const fontSelect = fontFamilyRow?.find('select')
+    expect(fontSelect?.exists()).toBe(true)
+    expect(fontFamilyRow?.findAll('option').map(option => option.attributes('value'))).toContain('"JetBrains Mono", monospace')
+    await fontSelect?.setValue('"Fira Code", monospace')
 
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { terminal_font_size: 18 })
-    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { terminal_font_family: 'JetBrains Mono, monospace' })
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { terminal_font_family: '"Fira Code", monospace' })
   })
 })

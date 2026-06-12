@@ -6,16 +6,19 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import { getApiKey, getBaseUrlValue } from "@/api/client";
 import { useSettingsStore } from "@/stores/hermes/settings";
-import { NButton, NInput, NInputNumber, NPopconfirm, NTooltip, NSelect, useMessage } from "naive-ui";
+import { NButton, NInputNumber, NPopconfirm, NTooltip, NSelect, useMessage } from "naive-ui";
 import { useI18n } from "vue-i18n";
 import type { ITheme } from "@xterm/xterm";
+import {
+  DEFAULT_TERMINAL_FONT_FAMILY,
+  TERMINAL_FONT_FAMILY_OPTIONS,
+  sanitizeTerminalFontFamily,
+  sanitizeTerminalFontSize,
+} from "@/utils/terminal-font-options";
 
 const { t } = useI18n();
 const message = useMessage();
 const settingsStore = useSettingsStore();
-
-const DEFAULT_TERMINAL_FONT_SIZE = 14;
-const DEFAULT_TERMINAL_FONT_FAMILY = 'Menlo, Monaco, "Courier New", monospace';
 
 const props = defineProps<{ visible?: boolean; initialCommand?: string }>();
 
@@ -137,26 +140,22 @@ const terminalBg = computed(
   () => TERMINAL_THEMES[selectedTheme.value]?.theme.background ?? "#1a1a2e",
 );
 
-const terminalFontSize = computed(() => {
-  const raw = Number(settingsStore.display.terminal_font_size ?? DEFAULT_TERMINAL_FONT_SIZE);
-  if (!Number.isFinite(raw)) return DEFAULT_TERMINAL_FONT_SIZE;
-  return Math.min(32, Math.max(9, Math.round(raw)));
-});
+const terminalFontSize = computed(() =>
+  sanitizeTerminalFontSize(settingsStore.display.terminal_font_size),
+);
 
-const terminalFontFamily = computed(() => {
-  const raw = settingsStore.display.terminal_font_family;
-  return typeof raw === "string" && raw.trim() ? raw.trim() : DEFAULT_TERMINAL_FONT_FAMILY;
-});
+const terminalFontFamily = computed(() =>
+  sanitizeTerminalFontFamily(settingsStore.display.terminal_font_family),
+);
 
 function handleTerminalFontSizeChange(value: number | null): void {
   if (value == null) return;
-  const nextValue = Math.min(32, Math.max(9, Math.round(value)));
-  void settingsStore.saveSection('display', { terminal_font_size: nextValue });
+  void settingsStore.saveSection('display', { terminal_font_size: sanitizeTerminalFontSize(value) });
 }
 
-function handleTerminalFontFamilyChange(value: string): void {
+function handleTerminalFontFamilyChange(value: string | null): void {
   void settingsStore.saveSection('display', {
-    terminal_font_family: value.trim() || DEFAULT_TERMINAL_FONT_FAMILY,
+    terminal_font_family: sanitizeTerminalFontFamily(value),
   });
 }
 
@@ -753,13 +752,17 @@ onUnmounted(() => {
               :aria-label="t('settings.display.terminalFontSize')"
               @update:value="handleTerminalFontSizeChange"
             />
-            <NInput
+            <NSelect
               :value="terminalFontFamily"
+              :options="TERMINAL_FONT_FAMILY_OPTIONS"
               size="small"
               class="terminal-font-family-input"
               :placeholder="DEFAULT_TERMINAL_FONT_FAMILY"
               :title="t('settings.display.terminalFontFamily')"
               :aria-label="t('settings.display.terminalFontFamily')"
+              :consistent-menu-width="false"
+              filterable
+              tag
               clearable
               @update:value="handleTerminalFontFamilyChange"
             />
