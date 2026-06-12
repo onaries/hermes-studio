@@ -569,6 +569,7 @@ export default {
     tool: 'Outil',
     arguments: 'Arguments',
     result: 'Resultat',
+    patchChanges: 'Modifications du patch',
     truncated: '... (tronque)',
     unchangedLines: '{count} lignes inchangées',
     executionDuration: 'Temps d’exécution',

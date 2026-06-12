@@ -253,6 +253,41 @@ describe('tool trace visibility', () => {
     }
   })
 
+  it('expands live patch tools to show the changed diff', async () => {
+    const messages: Message[] = [
+      { id: 'user-1', role: 'user', content: 'patch file', timestamp: 1 },
+      {
+        id: 'tool-patch',
+        role: 'tool',
+        content: '',
+        timestamp: 2,
+        toolName: 'patch',
+        toolArgs: { path: 'src/example.ts' },
+        toolResult: {
+          diff: '--- a/src/example.ts\n+++ b/src/example.ts\n@@ -1,2 +1,2 @@\n-const answer = 41\n+const answer = 42',
+        },
+        toolStatus: 'done',
+      },
+    ]
+    const wrapper = mountLiveList(messages)
+
+    const patchTool = wrapper.find('.tool-call-item--expandable')
+    expect(patchTool.exists()).toBe(true)
+    expect(patchTool.attributes('role')).toBe('button')
+    expect(patchTool.attributes('aria-expanded')).toBe('false')
+
+    await patchTool.trigger('click')
+    await nextTick()
+
+    const expandedPatchTool = wrapper.find('.tool-call-item--expandable')
+    const details = wrapper.find('.tool-call-patch-details')
+    expect(expandedPatchTool.attributes('aria-expanded')).toBe('true')
+    expect(details.exists()).toBe(true)
+    expect(details.text()).toContain('chat.patchChanges')
+    expect(details.text()).toContain('-const answer = 41')
+    expect(details.text()).toContain('+const answer = 42')
+  })
+
   it('renders the current todo panel below the live tool panel', () => {
     const messages: Message[] = [
       { id: 'user-1', role: 'user', content: 'do the thing', timestamp: 1 },

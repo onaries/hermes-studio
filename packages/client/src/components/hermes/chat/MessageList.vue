@@ -23,6 +23,12 @@ import TodoPanel from "./TodoPanel.vue";
 import ToolTraceGroup from "./ToolTraceGroup.vue";
 import { useChatStore, type Message } from "@/stores/hermes/chat";
 import {
+  extractUnifiedDiffPayload,
+  handleCodeBlockCopyClick,
+  inferStructuredLanguage,
+  renderHighlightedCodeBlock,
+} from "./highlight";
+import {
   groupToolTraceMessages,
   isToolTraceGroup,
   type ToolTraceDisplayItem,
@@ -58,6 +64,7 @@ type ToolCallLike = {
   toolName?: string
   toolPreview?: string
   toolArgs?: unknown
+  toolResult?: unknown
   toolDuration?: number
   toolStatus?: string
 }
@@ -125,10 +132,96 @@ function toolCallPreview(tool: ToolCallLike): string {
 
 function toolCallTitle(tool: ToolCallLike): string {
   const parts = [tool.toolName, fullToolPreview(tool)]
+  if (isPatchTool(tool)) parts.push(t('chat.patchChanges'))
   if (tool.toolDuration && tool.toolStatus !== 'running') parts.push(formatToolDuration(tool.toolDuration))
   if (tool.toolStatus === 'done') parts.push('✓')
   if (tool.toolStatus === 'error') parts.push('✕')
   return parts.filter(Boolean).join(' ')
+}
+
+const expandedPatchToolIds = ref<Set<string>>(new Set());
+
+function isPatchTool(tool: ToolCallLike): boolean {
+  const name = (tool.toolName || '').toLowerCase();
+  return name === 'patch' || name.endsWith('.patch') || name.endsWith('_patch') || name.includes('functions.patch');
+}
+
+function togglePatchToolDetails(tool: Message): void {
+  if (!isPatchTool(tool)) return;
+  const nextIds = new Set(expandedPatchToolIds.value);
+  if (nextIds.has(tool.id)) nextIds.delete(tool.id);
+  else nextIds.add(tool.id);
+  expandedPatchToolIds.value = nextIds;
+}
+
+function isPatchToolExpanded(tool: Message): boolean {
+  return expandedPatchToolIds.value.has(tool.id);
+}
+
+function normalizePayloadText(raw: unknown): string {
+  if (raw === null || raw === undefined || raw === '') return '';
+  if (typeof raw === 'string') return raw;
+  try {
+    const serialized = JSON.stringify(raw);
+    if (serialized !== undefined) return serialized;
+  } catch {}
+  return String(raw);
+}
+
+function parsePayloadJson(raw: unknown): unknown | null {
+  const text = normalizePayloadText(raw).trim();
+  if (!text || !/^[{[]/.test(text)) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function extractDiffPayload(raw: unknown): string {
+  const parsed = parsePayloadJson(raw);
+  if (parsed) {
+    const extracted = extractUnifiedDiffPayload(parsed);
+    if (extracted) return extracted;
+  }
+  const text = normalizePayloadText(raw).trim();
+  if (text && inferStructuredLanguage(text) === 'diff') return text;
+  return '';
+}
+
+function buildPatchArgsPreview(tool: ToolCallLike): string {
+  const args = parseToolArgs(tool.toolArgs);
+  if (!isRecord(args)) return '';
+  const patchText = firstRawString(args, ['patch']);
+  if (patchText) return patchText;
+  const oldString = firstRawString(args, ['old_string']);
+  const newString = firstRawString(args, ['new_string']);
+  if (!oldString && !newString) return '';
+  const path = firstRawString(args, ['path']);
+  const lines = [
+    path ? `*** Update File: ${path}` : '*** Update File',
+    '@@',
+    ...oldString.split(/\r?\n/).map((line) => `-${line}`),
+    ...newString.split(/\r?\n/).map((line) => `+${line}`),
+  ];
+  return lines.join('\n');
+}
+
+function livePatchDiff(tool: ToolCallLike): string {
+  return extractDiffPayload(tool.toolResult) || buildPatchArgsPreview(tool);
+}
+
+function renderedLivePatchDiff(tool: ToolCallLike): string {
+  const diff = livePatchDiff(tool);
+  if (!diff) return '';
+  return renderHighlightedCodeBlock(diff, 'diff', t('common.copy'), {
+    maxHighlightLength: 20_000,
+    formatDiffFoldLabel: (hiddenCount) => t('chat.unchangedLines', { count: hiddenCount }),
+  });
+}
+
+async function handleLivePatchDetailClick(event: MouseEvent): Promise<void> {
+  await handleCodeBlockCopyClick(event);
 }
 
 const currentToolCalls = computed(() => {
@@ -177,6 +270,14 @@ watch(
     const previousIds = new Set(previousToolIds);
     for (const id of toolIds) {
       if (!previousIds.has(id)) markToolCallEntering(id);
+    }
+    const currentIds = new Set(toolIds);
+    const expandedIds = new Set(expandedPatchToolIds.value);
+    for (const id of expandedIds) {
+      if (!currentIds.has(id)) expandedIds.delete(id);
+    }
+    if (expandedIds.size !== expandedPatchToolIds.value.size) {
+      expandedPatchToolIds.value = expandedIds;
     }
   },
 );
@@ -547,78 +648,112 @@ defineExpose({
               <div
                 v-for="tc in visibleToolCalls"
                 :key="tc.id"
-                class="tool-call-item"
-                :class="{
-                  'tool-call-item--entering': isToolCallEntering(tc),
-                  'tool-call-item--running': tc.toolStatus === 'running',
-                  'tool-call-item--done': tc.toolStatus === 'done',
-                  'tool-call-item--error': tc.toolStatus === 'error',
-                }"
-                :title="toolCallTitle(tc)"
+                class="tool-call-entry"
               >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  class="tool-call-icon"
+                <div
+                  class="tool-call-item"
+                  :class="{
+                    'tool-call-item--entering': isToolCallEntering(tc),
+                    'tool-call-item--running': tc.toolStatus === 'running',
+                    'tool-call-item--done': tc.toolStatus === 'done',
+                    'tool-call-item--error': tc.toolStatus === 'error',
+                    'tool-call-item--expandable': isPatchTool(tc),
+                    'tool-call-item--expanded': isPatchToolExpanded(tc),
+                  }"
+                  :title="toolCallTitle(tc)"
+                  :role="isPatchTool(tc) ? 'button' : undefined"
+                  :tabindex="isPatchTool(tc) ? 0 : undefined"
+                  :aria-expanded="isPatchTool(tc) ? isPatchToolExpanded(tc) : undefined"
+                  @click="togglePatchToolDetails(tc)"
+                  @keydown.enter.prevent="togglePatchToolDetails(tc)"
+                  @keydown.space.prevent="togglePatchToolDetails(tc)"
                 >
-                  <path
-                    d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
-                  />
-                </svg>
-                <span class="tool-call-name">{{ tc.toolName }}</span>
-                <span v-if="toolCallPreview(tc)" class="tool-call-preview">{{
-                  toolCallPreview(tc)
-                }}</span>
-                <span
-                  v-if="tc.toolDuration && tc.toolStatus !== 'running'"
-                  class="tool-call-duration"
-                  :title="t('chat.executionDuration')"
-                >{{ formatToolDuration(tc.toolDuration) }}</span
-                >
-                <svg
-                  v-if="tc.toolStatus === 'done'"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  class="tool-call-success-icon"
-                >
-                  <circle cx="12" cy="12" r="10" fill="currentColor" fill-opacity="0.15"/>
-                  <path
-                    d="M8 12L11 15L16 9"
+                  <svg
+                    v-if="isPatchTool(tc)"
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
                     stroke="currentColor"
                     stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
+                    class="tool-call-chevron"
+                    :class="{ rotated: isPatchToolExpanded(tc) }"
+                    aria-hidden="true"
+                  >
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
                     fill="none"
-                  />
-                </svg>
-                <span
-                  v-if="tc.toolStatus === 'running'"
-                  class="tool-call-spinner"
-                ></span>
-                <svg
-                  v-if="tc.toolStatus === 'error'"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  class="tool-call-error-icon"
-                >
-                  <circle cx="12" cy="12" r="10" fill="currentColor" fill-opacity="0.15"/>
-                  <path
-                    d="M15 9L9 15M9 9L15 15"
                     stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                    class="tool-call-icon"
+                  >
+                    <path
+                      d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
+                    />
+                  </svg>
+                  <span class="tool-call-name">{{ tc.toolName }}</span>
+                  <span v-if="toolCallPreview(tc)" class="tool-call-preview">{{
+                    toolCallPreview(tc)
+                  }}</span>
+                  <span
+                    v-if="tc.toolDuration && tc.toolStatus !== 'running'"
+                    class="tool-call-duration"
+                    :title="t('chat.executionDuration')"
+                  >{{ formatToolDuration(tc.toolDuration) }}</span
+                  >
+                  <svg
+                    v-if="tc.toolStatus === 'done'"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
                     fill="none"
-                  />
-                </svg>
+                    class="tool-call-success-icon"
+                  >
+                    <circle cx="12" cy="12" r="10" fill="currentColor" fill-opacity="0.15"/>
+                    <path
+                      d="M8 12L11 15L16 9"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      fill="none"
+                    />
+                  </svg>
+                  <span
+                    v-if="tc.toolStatus === 'running'"
+                    class="tool-call-spinner"
+                  ></span>
+                  <svg
+                    v-if="tc.toolStatus === 'error'"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    class="tool-call-error-icon"
+                  >
+                    <circle cx="12" cy="12" r="10" fill="currentColor" fill-opacity="0.15"/>
+                    <path
+                      d="M15 9L9 15M9 9L15 15"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      fill="none"
+                    />
+                  </svg>
+                </div>
+                <div
+                  v-if="isPatchToolExpanded(tc) && livePatchDiff(tc)"
+                  class="tool-call-patch-details"
+                  @click.stop="handleLivePatchDetailClick"
+                >
+                  <div class="tool-call-patch-label">{{ t('chat.patchChanges') }}</div>
+                  <div class="tool-call-patch-code" v-html="renderedLivePatchDiff(tc)"></div>
+                </div>
               </div>
             </TransitionGroup>
           </div>
@@ -1092,6 +1227,13 @@ defineExpose({
   gap: 4px;
 }
 
+.tool-call-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
 .tool-call-list-enter-active,
 .tool-call-list-appear-active {
   animation: tool-call-row-enter 0.22s ease-out both;
@@ -1150,6 +1292,17 @@ defineExpose({
     animation: tool-call-row-enter-highlight 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
+  &.tool-call-item--expandable {
+    cursor: pointer;
+  }
+
+  &.tool-call-item--expanded,
+  &.tool-call-item--expandable:focus-visible {
+    border-color: rgba(var(--accent-primary-rgb), 0.24);
+    box-shadow: 0 0 0 1px rgba(var(--accent-primary-rgb), 0.08) inset;
+    outline: none;
+  }
+
   &.tool-call-item--running {
     background: rgba(var(--accent-primary-rgb), 0.08);
     border-color: rgba(var(--accent-primary-rgb), 0.2);
@@ -1193,6 +1346,16 @@ defineExpose({
     color: $text-muted;
   }
 
+  .tool-call-chevron {
+    flex-shrink: 0;
+    color: $text-muted;
+    transition: transform 0.15s ease;
+
+    &.rotated {
+      transform: rotate(90deg);
+    }
+  }
+
   .tool-call-name {
     font-family: $font-code;
     flex-shrink: 0;
@@ -1217,6 +1380,39 @@ defineExpose({
     max-width: min(760px, 72vw);
     overflow-wrap: anywhere;
     color: $text-secondary;
+  }
+}
+
+.tool-call-patch-details {
+  margin-left: 18px;
+  border-left: 2px solid rgba(var(--accent-primary-rgb), 0.18);
+  padding-left: 8px;
+  max-width: min(760px, 74vw);
+}
+
+.tool-call-patch-label {
+  margin-bottom: 3px;
+  color: $text-muted;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.tool-call-patch-code {
+  :deep(.hljs-code-block) {
+    margin: 0;
+  }
+
+  :deep(.code-header) {
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  :deep(code.hljs) {
+    max-height: 240px;
+    overflow: auto;
+    font-size: 10.5px;
+    white-space: pre;
   }
 }
 

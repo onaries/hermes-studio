@@ -530,6 +530,7 @@ export default {
     tool: 'Инструмент',
     arguments: 'Аргументы',
     result: 'Результат',
+    patchChanges: 'Изменения патча',
     truncated: '... (обрезано)',
     unchangedLines: '{count} строк без изменений',
     executionDuration: 'Длительность выполнения',

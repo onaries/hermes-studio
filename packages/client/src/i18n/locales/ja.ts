@@ -569,6 +569,7 @@ export default {
     tool: 'ツール',
     arguments: '引数',
     result: '結果',
+    patchChanges: 'パッチの変更内容',
     truncated: '... (省略)',
     unchangedLines: '変更なし {count} 行',
     executionDuration: '実行時間',

@@ -569,6 +569,7 @@ export default {
     tool: '도구',
     arguments: '인수',
     result: '결과',
+    patchChanges: '패치 변경 내용',
     truncated: '... (잘림)',
     unchangedLines: '변경 없음 {count}줄',
     executionDuration: '실행 시간',

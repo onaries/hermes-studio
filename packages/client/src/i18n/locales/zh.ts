@@ -621,6 +621,7 @@ export default {
     tool: '工具',
     arguments: '参数',
     result: '结果',
+    patchChanges: '补丁变更',
     truncated: '... (已截断)',
     unchangedLines: '{count} 行未修改',
     executionDuration: '执行时间',

@@ -621,6 +621,7 @@ export default {
     tool: 'Tool',
     arguments: 'Arguments',
     result: 'Result',
+    patchChanges: 'Patch changes',
     truncated: '... (truncated)',
     unchangedLines: '{count} unchanged lines',
     executionDuration: 'Execution time',

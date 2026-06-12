@@ -569,6 +569,7 @@ export default {
     tool: 'Werkzeug',
     arguments: 'Argumente',
     result: 'Ergebnis',
+    patchChanges: 'Patch-Änderungen',
     truncated: '... (abgeschnitten)',
     unchangedLines: '{count} unveränderte Zeilen',
     executionDuration: 'Ausführungszeit',

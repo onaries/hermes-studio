@@ -613,6 +613,7 @@ export default {
     tool: '工具',
     arguments: '參數',
     result: '結果',
+    patchChanges: '修補變更',
     truncated: '... (已截斷)',
     unchangedLines: '{count} 行未修改',
     executionDuration: '執行時長',
