@@ -171,6 +171,7 @@ const globalStubs = {
 }
 
 import TerminalPanel from '@/components/hermes/chat/TerminalPanel.vue'
+import terminalPanelSource from '@/components/hermes/chat/TerminalPanel.vue?raw'
 
 function mountPanel(visible: boolean) {
   return mount(TerminalPanel, {
@@ -258,6 +259,18 @@ describe('TerminalPanel mobile shortcuts visibility', () => {
     expect(mockSettingsStore.updateLocal).toHaveBeenCalledWith('display', { terminal_font_family: '"Fira Code", monospace' })
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { terminal_font_size: 20 })
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { terminal_font_family: '"Fira Code", monospace' })
+  })
+
+  it('keeps mobile terminal header actions horizontally scrollable instead of squeezing font controls', () => {
+    const source = terminalPanelSource
+
+    expect(source).toContain('@media (max-width: $breakpoint-mobile)')
+    expect(source).toContain('overflow-x: auto;')
+    expect(source).toContain('touch-action: pan-x;')
+    expect(source).toContain('-webkit-overflow-scrolling: touch;')
+    expect(source).toContain('> * {\n      flex: 0 0 auto;')
+    expect(source).toContain('min-width: max-content;')
+    expect(source).toContain('width: 96px;')
   })
 
   it('applies terminal panel font changes to already-open xterm instances immediately', async () => {

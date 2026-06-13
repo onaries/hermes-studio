@@ -1263,21 +1263,40 @@ onUnmounted(() => {
 
   .header-actions {
     width: 100%;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap;
+    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    > * {
+      flex: 0 0 auto;
+    }
   }
 
   .theme-select {
-    width: 96px;
+    width: 112px;
   }
 
   .terminal-font-controls {
-    flex: 1 1 auto;
-    min-width: 0;
+    flex: 0 0 auto;
+    min-width: max-content;
   }
 
   .terminal-font-size-input {
-    width: 68px;
+    width: 96px;
+
+    :deep(.n-input__input-el) {
+      min-width: 2.5ch;
+      text-align: center;
+    }
   }
 
   .terminal-font-family-input {
