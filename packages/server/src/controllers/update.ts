@@ -1,7 +1,7 @@
 import { execFile, execFileSync, spawn, type ChildProcess } from 'child_process'
-import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { appendFileSync, closeSync, cpSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { createServer } from 'net'
-import { delimiter, dirname, extname, join, resolve } from 'path'
+import { delimiter, dirname, extname, join, relative, resolve } from 'path'
 import { getWebUiHome } from '../config'
 
 let updateInProgress = false
@@ -19,6 +19,18 @@ const PREVIEW_FRONTEND_URL = `http://localhost:${PREVIEW_FRONTEND_PORT}`
 const PREVIEW_TAG_REF_PATTERN = /^[A-Za-z0-9._/-]+$/
 const PREVIEW_MAIN_REF = 'main'
 const PREVIEW_TAGS_CACHE_MS = 5 * 60 * 1000
+const DESKTOP_ACTIVE_VERSION_NAME = 'active-version.json'
+
+type DesktopActiveVersion = {
+  schema?: unknown
+  hermesRuntimeVersion?: unknown
+  webUiVersion?: unknown
+  runtimeDirectory?: unknown
+  webUiDirectory?: unknown
+  platform?: unknown
+  updatedAt?: unknown
+  previewRef?: unknown
+}
 
 type PreviewTagRef = { name: string; sha: string }
 type PreviewTagsCache = { expiresAt: number; tags: PreviewTagRef[] }
@@ -529,6 +541,7 @@ function getPreviewStatus() {
     action_log_path: getPreviewActionLogPath(),
     dev_log_path: getPreviewLogPath(),
     webui_home: getPreviewHomeDir(),
+    is_desktop: isDesktopRuntime(),
   }
 }
 
@@ -1023,6 +1036,129 @@ function getPreviewPackDir() {
   return join(getPreviewDir(), '.internal-update-pack')
 }
 
+function isDesktopRuntime() {
+  return process.env.HERMES_DESKTOP === 'true'
+}
+
+function getDesktopRuntimeRoot() {
+  return join(getWebUiHome(), 'desktop-runtime')
+}
+
+function getDesktopActiveVersionPath() {
+  return join(getDesktopRuntimeRoot(), DESKTOP_ACTIVE_VERSION_NAME)
+}
+
+function getDesktopWebUiInstallRoot() {
+  return join(getDesktopRuntimeRoot(), 'webui')
+}
+
+function desktopRuntimePlatformKey() {
+  const osLabel = process.platform === 'win32' ? 'win' : process.platform === 'darwin' ? 'mac' : process.platform
+  return `${osLabel}-${process.arch}`
+}
+
+function readJsonFile<T>(path: string): T | null {
+  if (!existsSync(path)) return null
+  try {
+    return JSON.parse(readFileSync(path, 'utf-8')) as T
+  } catch {
+    return null
+  }
+}
+
+function readPreviewPackageInfo(): PackageInfo | null {
+  const pkg = readJsonFile<{ name?: unknown; version?: unknown; repository?: unknown }>(getPreviewPackagePath())
+  if (!pkg?.name || !pkg?.version) return null
+  const repository = typeof pkg.repository === 'string'
+    ? pkg.repository
+    : typeof (pkg.repository as { url?: unknown } | null)?.url === 'string'
+      ? String((pkg.repository as { url: string }).url)
+      : ''
+  return {
+    name: String(pkg.name),
+    version: String(pkg.version),
+    repositoryUrl: repository,
+  }
+}
+
+function readDesktopActiveVersion(): DesktopActiveVersion | null {
+  return readJsonFile<DesktopActiveVersion>(getDesktopActiveVersionPath())
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function sanitizeDesktopPathSegment(value: string) {
+  return value.trim().replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'preview'
+}
+
+function desktopWebUiTargetDir() {
+  const pkg = readPreviewPackageInfo()
+  const version = sanitizeDesktopPathSegment(pkg?.version || 'unknown')
+  const ref = sanitizeDesktopPathSegment(getCurrentPreviewTag() || PREVIEW_MAIN_REF)
+  const stamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14)
+  return join(getDesktopWebUiInstallRoot(), `${version}-${ref}-${stamp}`)
+}
+
+function previewCopyFilter(source: string) {
+  const rel = relative(getPreviewDir(), source)
+  if (!rel) return true
+  const parts = rel.split(/[\\/]+/)
+  return ![
+    '.git',
+    '.internal-update-pack',
+    'preview-dev.log',
+    'preview-action.log',
+  ].includes(parts[0])
+}
+
+function materializePreviewForDesktop(): string {
+  assertPreviewPackage()
+  const targetDir = desktopWebUiTargetDir()
+  appendPreviewActionLog(`materialize desktop WebUI runtime: ${targetDir}`)
+  rmSync(targetDir, { recursive: true, force: true })
+  mkdirSync(dirname(targetDir), { recursive: true })
+  cpSync(getPreviewDir(), targetDir, {
+    recursive: true,
+    dereference: true,
+    filter: previewCopyFilter,
+  })
+
+  const serverEntry = join(targetDir, 'dist', 'server', 'index.js')
+  if (!existsSync(serverEntry)) {
+    throw new Error(`Built desktop WebUI server entry not found: ${serverEntry}`)
+  }
+  return targetDir
+}
+
+function writeDesktopActiveWebUiVersion(webUiDirectory: string) {
+  const active = readDesktopActiveVersion()
+  const pkg = readPreviewPackageInfo()
+  const activeVersionPath = getDesktopActiveVersionPath()
+  const nextActiveVersion = {
+    schema: 1,
+    hermesRuntimeVersion: stringValue(active?.hermesRuntimeVersion) || stringValue(process.env.HERMES_VERSION),
+    webUiVersion: pkg?.version || stringValue(active?.webUiVersion) || readPackageInfo()?.version || '',
+    runtimeDirectory: stringValue(active?.runtimeDirectory) || stringValue(process.env.HERMES_DESKTOP_RUNTIME_DIR),
+    webUiDirectory,
+    platform: desktopRuntimePlatformKey(),
+    updatedAt: new Date().toISOString(),
+    previewRef: getCurrentPreviewTag() || PREVIEW_MAIN_REF,
+  }
+
+  mkdirSync(dirname(activeVersionPath), { recursive: true })
+  writeFileSync(activeVersionPath, JSON.stringify(nextActiveVersion, null, 2) + '\n')
+  appendPreviewActionLog(`desktop active WebUI version updated: ${activeVersionPath}`)
+}
+
+async function applyPreviewToDesktopRuntime() {
+  const targetDir = materializePreviewForDesktop()
+  writeDesktopActiveWebUiVersion(targetDir)
+  appendPreviewActionLog('desktop WebUI runtime prepared; requesting desktop shell restart')
+  return targetDir
+}
+
 async function buildPreviewPackage() {
   appendPreviewActionLog('build preview package requested')
   assertPreviewPackage()
@@ -1249,6 +1385,11 @@ export async function applyPreview(ctx: any) {
     appendPreviewActionLog('internal update requested from prepared preview code')
     await stopPreviewProcess()
     await buildPreviewPackage()
+    if (isDesktopRuntime()) {
+      const targetDir = await applyPreviewToDesktopRuntime()
+      return { success: true, message: `Desktop WebUI prepared at ${targetDir}. Restarting Hermes Studio WebUI...` }
+    }
+
     const tarballPath = await packPreviewPackage()
     await installPreviewPackageFromTarball(tarballPath)
     appendPreviewActionLog('internal update package installed; scheduling restart')

@@ -44,6 +44,7 @@ export interface PreviewStatus {
   webui_home: string
   action_log_path: string
   dev_log_path: string
+  is_desktop?: boolean
   active_action: string | null
   active_action_started_at: string | null
   last_action: string | null

@@ -18,6 +18,20 @@ import {
 const { t } = useI18n()
 const message = useMessage()
 
+type HermesDesktopBridge = {
+  isDesktop?: boolean
+  restartWebUi?: () => Promise<void>
+}
+
+type WindowWithHermesDesktop = Window & typeof globalThis & {
+  hermesDesktop?: HermesDesktopBridge
+}
+
+function desktopBridge(): HermesDesktopBridge | undefined {
+  if (typeof window === 'undefined') return undefined
+  return (window as WindowWithHermesDesktop).hermesDesktop
+}
+
 const loading = ref(false)
 const tagsLoading = ref(false)
 const actionLoading = ref('')
@@ -174,6 +188,16 @@ async function handleApply() {
   await runAction('apply', applyPreview, 'githubPreview.applySuccess')
 }
 
+async function restartDesktopAfterApply() {
+  const bridge = desktopBridge()
+  if (bridge?.isDesktop !== true || !bridge.restartWebUi) return
+  try {
+    await bridge.restartWebUi()
+  } catch (err: any) {
+    message.error(err?.message || t('githubPreview.actionFailed'))
+  }
+}
+
 async function handleStart() {
   await runAction('start', () => startPreview(selectedTag.value || undefined), 'githubPreview.startSuccess')
 }
@@ -217,6 +241,7 @@ watch(
     }
     const successKey = actionSuccessKeys[completedAction]
     if (successKey) message.success(t(successKey))
+    if (completedAction === 'apply') void restartDesktopAfterApply()
   },
 )
 </script>

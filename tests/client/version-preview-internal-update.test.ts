@@ -22,6 +22,26 @@ describe('version preview internal update wiring', () => {
     expect(controller).toContain('scheduleServerRestart()')
   })
 
+  it('materializes prepared preview code into the desktop active WebUI runtime', () => {
+    const controller = read('packages/server/src/controllers/update.ts')
+    const desktopMain = read('packages/desktop/src/main/index.ts')
+    const preload = read('packages/desktop/src/preload/index.ts')
+    const view = read('packages/client/src/components/hermes/settings/GithubPreviewSettings.vue')
+
+    expect(controller).toContain("process.env.HERMES_DESKTOP === 'true'")
+    expect(controller).toContain("join(getDesktopRuntimeRoot(), 'webui')")
+    expect(controller).toContain('writeDesktopActiveWebUiVersion')
+    expect(controller).toContain('webUiDirectory')
+    expect(controller).toContain('previewRef')
+    expect(controller).toContain('applyPreviewToDesktopRuntime')
+    expect(controller).toContain('if (isDesktopRuntime())')
+    expect(desktopMain).toContain('restartWebUiServerFromDesktopShell')
+    expect(desktopMain).toContain("ipcMain.handle('hermes-desktop:restart-webui'")
+    expect(preload).toContain('restartWebUi')
+    expect(view).toContain('restartDesktopAfterApply')
+    expect(view).toContain('bridge.restartWebUi')
+  })
+
   it('wires the Version Preview UI to the apply action', () => {
     const api = read('packages/client/src/api/hermes/system.ts')
     const view = read('packages/client/src/components/hermes/settings/GithubPreviewSettings.vue')

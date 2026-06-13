@@ -469,8 +469,25 @@ async function bootstrap(source?: RuntimeDownloadSource) {
   }
 }
 
+async function restartWebUiServerFromDesktopShell() {
+  if (isBootstrapping) return
+  isBootstrapping = true
+  try {
+    await stopWebUiServer().catch(() => undefined)
+    const url = await startWebUiServer(PORT)
+    serverUrl = url
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      await mainWindow.loadURL(url)
+      showWindowWithFade(true)
+    }
+  } finally {
+    isBootstrapping = false
+  }
+}
+
 ipcMain.handle('hermes-desktop:get-token', () => getToken())
 ipcMain.handle('hermes-desktop:show-window', () => showMainWindow())
+ipcMain.handle('hermes-desktop:restart-webui', () => restartWebUiServerFromDesktopShell())
 ipcMain.handle('hermes-desktop:get-window-state', () => windowState())
 ipcMain.handle('hermes-desktop:window-control', (_event, action?: unknown) => {
   if (action !== 'minimize' && action !== 'toggle-maximize' && action !== 'close') return windowState()
