@@ -10,6 +10,7 @@ const mockSettingsStore = vi.hoisted(() => ({
     show_cost: false,
     show_live_tps: undefined,
     show_tool_mascot: undefined,
+    show_drawer_rainbow: undefined,
     inline_diffs: true,
     bell_on_complete: false,
     notify_on_complete: false,
@@ -98,6 +99,7 @@ describe('DisplaySettings', () => {
     mockSettingsStore.saveSection.mockReset()
     mockSettingsStore.display.show_live_tps = undefined
     mockSettingsStore.display.show_tool_mascot = undefined
+    mockSettingsStore.display.show_drawer_rainbow = undefined
     mockSettingsStore.display.terminal_font_size = 14
     mockSettingsStore.display.terminal_font_family = 'Menlo, Monaco, "Courier New", monospace'
   })
@@ -190,6 +192,21 @@ describe('DisplaySettings', () => {
     await toggle?.trigger('click')
 
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_tool_mascot: false })
+  })
+
+  it('exposes a drawer rainbow glow toggle that defaults on and saves changes', async () => {
+    mockSettingsStore.saveSection.mockResolvedValue(undefined)
+    const wrapper = mountDisplaySettings()
+
+    const rows = wrapper.findAll('.setting-row')
+    const rainbowRow = rows.find(row => row.text().includes('settings.display.showDrawerRainbow'))
+    expect(rainbowRow?.text()).toContain('settings.display.showDrawerRainbowHint')
+    const toggle = rainbowRow?.find('[role="switch"]')
+    expect(toggle?.attributes('aria-checked')).toBe('true')
+
+    await toggle?.trigger('click')
+
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_drawer_rainbow: false })
   })
 
   it('exposes terminal font controls and saves changes', async () => {

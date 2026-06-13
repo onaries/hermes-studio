@@ -1224,6 +1224,8 @@ export default {
       showLiveTpsHint: 'ストリーミング中にチャット入力欄へ推定 tokens/sec を表示します',
       showToolMascot: 'ツールマスコットを表示',
       showToolMascotHint: 'ライブツール呼び出しの横にキャラクターを表示します',
+      showDrawerRainbow: 'ドロワーの虹色グローを表示',
+      showDrawerRainbowHint: 'ドロワーボタンの周りにアニメーションする虹色グローを表示します',
       inlineDiffs: 'インライン差分',
       inlineDiffsHint: 'コード変更をインラインで表示',
       bellOnComplete: '完了通知音',

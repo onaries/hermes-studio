@@ -1375,6 +1375,8 @@ export default {
       showLiveTpsHint: 'Show estimated tokens per second in the chat input while streaming',
       showToolMascot: 'Show tool mascot',
       showToolMascotHint: 'Show the character beside live tool calls',
+      showDrawerRainbow: 'Drawer rainbow glow',
+      showDrawerRainbowHint: 'Show the animated rainbow glow around the drawer button',
       inlineDiffs: 'Inline Diffs',
       inlineDiffsHint: 'Show code changes inline',
       bellOnComplete: 'Completion Sound',

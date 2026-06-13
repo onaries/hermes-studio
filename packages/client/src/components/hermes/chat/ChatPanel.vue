@@ -104,6 +104,7 @@ const browserNotificationPermission = ref<NotificationPermission | 'unsupported'
 const notifiedApprovalIds = new Set<string>();
 const notifiedClarifyIds = new Set<string>();
 const notifiedCompletionIds = new Set<string>();
+const showDrawerRainbow = computed(() => settingsStore.display.show_drawer_rainbow !== false);
 
 const drawerButtonStyle = computed(() => {
   if (drawerButtonDragY.value != null) {
@@ -1941,7 +1942,10 @@ async function handleSessionModelCustomSubmit() {
     <!-- Floating drawer button -->
     <div
       class="drawer-button-wrapper"
-      :class="[`drawer-button-wrapper--${drawerButtonPosition}`, { dragging: isDrawerButtonDragging }]"
+      :class="[
+        `drawer-button-wrapper--${drawerButtonPosition}`,
+        { dragging: isDrawerButtonDragging, 'drawer-button-wrapper--rainbow': showDrawerRainbow },
+      ]"
       :style="drawerButtonStyle"
     >
       <button
@@ -2734,9 +2738,8 @@ async function handleSessionModelCustomSubmit() {
   background: $bg-card;
   border-radius: 50%;
   box-shadow:
-    0 0 10px rgba(255, 107, 107, 0.4),
-    0 0 20px rgba(255, 107, 107, 0.2);
-  animation: rainbow-glow 8s linear infinite;
+    0 8px 20px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(var(--accent-primary-rgb), 0.22);
   touch-action: none;
   transition:
     top $transition-fast,
@@ -2744,16 +2747,32 @@ async function handleSessionModelCustomSubmit() {
     transform $transition-fast;
 
   &:hover {
-    animation-play-state: paused;
     box-shadow:
-      0 0 15px rgba(255, 107, 107, 0.6),
-      0 0 30px rgba(255, 107, 107, 0.3);
+      0 10px 24px rgba(0, 0, 0, 0.16),
+      0 0 0 2px rgba(var(--accent-primary-rgb), 0.28);
   }
 
   &.dragging {
-    animation-play-state: paused;
     transition: none;
     transform: translateY(-50%) scale(1.04);
+  }
+}
+
+.drawer-button-wrapper--rainbow {
+  box-shadow:
+    0 0 10px rgba(255, 107, 107, 0.4),
+    0 0 20px rgba(255, 107, 107, 0.2);
+  animation: rainbow-glow 8s linear infinite;
+
+  &:hover,
+  &.dragging {
+    animation-play-state: paused;
+  }
+
+  &:hover {
+    box-shadow:
+      0 0 15px rgba(255, 107, 107, 0.6),
+      0 0 30px rgba(255, 107, 107, 0.3);
   }
 }
 
@@ -2762,8 +2781,8 @@ async function handleSessionModelCustomSubmit() {
   user-select: none;
 }
 
-.drawer-button-wrapper--top,
-.drawer-button-wrapper--bottom {
+.drawer-button-wrapper--rainbow.drawer-button-wrapper--top,
+.drawer-button-wrapper--rainbow.drawer-button-wrapper--bottom {
   animation-duration: 10s;
 }
 

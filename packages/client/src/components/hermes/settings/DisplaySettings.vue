@@ -116,6 +116,9 @@ async function testCompletionNotification() {
     <SettingRow :label="t('settings.display.showToolMascot')" :hint="t('settings.display.showToolMascotHint')">
       <NSwitch :value="settingsStore.display.show_tool_mascot !== false" @update:value="v => save({ show_tool_mascot: v })" />
     </SettingRow>
+    <SettingRow :label="t('settings.display.showDrawerRainbow')" :hint="t('settings.display.showDrawerRainbowHint')">
+      <NSwitch :value="settingsStore.display.show_drawer_rainbow !== false" @update:value="v => save({ show_drawer_rainbow: v })" />
+    </SettingRow>
     <SettingRow :label="t('settings.display.inlineDiffs')" :hint="t('settings.display.inlineDiffsHint')">
       <NSwitch :value="settingsStore.display.inline_diffs" @update:value="v => save({ inline_diffs: v })" />
     </SettingRow>

@@ -1224,6 +1224,8 @@ export default {
       showLiveTpsHint: '스트리밍 중 채팅 입력창에 추정 토큰/초를 표시합니다',
       showToolMascot: '툴 캐릭터 표시',
       showToolMascotHint: '실시간 툴 호출 왼쪽의 캐릭터를 표시합니다',
+      showDrawerRainbow: 'Drawer 무지개빛 효과',
+      showDrawerRainbowHint: 'Drawer 버튼 주변의 움직이는 무지개빛 효과를 표시합니다',
       inlineDiffs: '인라인 변경사항',
       inlineDiffsHint: '코드 변경사항을 인라인으로 표시',
       bellOnComplete: '완료 알림음',

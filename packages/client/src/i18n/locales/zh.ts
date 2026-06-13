@@ -1367,6 +1367,8 @@ export default {
       showLiveTpsHint: '流式输出时在聊天输入栏显示估算的每秒 token 数',
       showToolMascot: '显示工具角色',
       showToolMascotHint: '在实时工具调用旁显示角色',
+      showDrawerRainbow: '显示抽屉彩虹光效',
+      showDrawerRainbowHint: '在抽屉按钮周围显示动态彩虹光效',
       inlineDiffs: '内联差异',
       inlineDiffsHint: '代码变更以内联方式显示',
       bellOnComplete: '完成提示音',
