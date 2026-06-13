@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { NAlert, NButton, NDescriptions, NDescriptionsItem, NSelect, NSpace, NTag, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import {
+  applyPreview,
   fetchPreviewStatus,
   fetchPreviewTags,
   installPreview,
@@ -38,6 +39,7 @@ const hasActiveAction = computed(() => Boolean(activeAction.value))
 const actionSuccessKeys: Record<string, string> = {
   prepare: 'githubPreview.prepareSuccess',
   install: 'githubPreview.installSuccess',
+  apply: 'githubPreview.applySuccess',
   start: 'githubPreview.startSuccess',
   stop: 'githubPreview.stopSuccess',
 }
@@ -168,6 +170,10 @@ async function handleInstall() {
   }, 'githubPreview.installSuccess')
 }
 
+async function handleApply() {
+  await runAction('apply', applyPreview, 'githubPreview.applySuccess')
+}
+
 async function handleStart() {
   await runAction('start', () => startPreview(selectedTag.value || undefined), 'githubPreview.startSuccess')
 }
@@ -233,6 +239,9 @@ watch(
           </NButton>
           <NButton :loading="activeAction === 'install'" :disabled="hasActiveAction || !status?.has_package" @click="handleInstall">
             {{ t('githubPreview.install') }}
+          </NButton>
+          <NButton type="warning" :loading="activeAction === 'apply'" :disabled="hasActiveAction || !status?.installed" @click="handleApply">
+            {{ t('githubPreview.apply') }}
           </NButton>
           <NButton type="success" :loading="activeAction === 'start'" :disabled="hasActiveAction || !status?.installed" @click="handleStart">
             {{ t('githubPreview.start') }}

@@ -157,6 +157,10 @@ export async function installPreview(): Promise<PreviewActionResponse> {
   return request<PreviewActionResponse>('/api/hermes/update/preview/install', { method: 'POST' })
 }
 
+export async function applyPreview(): Promise<PreviewActionResponse> {
+  return request<PreviewActionResponse>('/api/hermes/update/preview/apply', { method: 'POST' })
+}
+
 export async function startPreview(tag?: string): Promise<PreviewActionResponse> {
   return request<PreviewActionResponse>('/api/hermes/update/preview/start', {
     method: 'POST',

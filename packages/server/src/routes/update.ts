@@ -9,5 +9,6 @@ updateRoutes.get('/api/hermes/update/preview', requireSuperAdmin, ctrl.previewSt
 updateRoutes.get('/api/hermes/update/preview/tags', requireSuperAdmin, ctrl.previewTags)
 updateRoutes.post('/api/hermes/update/preview/prepare', requireSuperAdmin, ctrl.preparePreview)
 updateRoutes.post('/api/hermes/update/preview/install', requireSuperAdmin, ctrl.installPreview)
+updateRoutes.post('/api/hermes/update/preview/apply', requireSuperAdmin, ctrl.applyPreview)
 updateRoutes.post('/api/hermes/update/preview/start', requireSuperAdmin, ctrl.startPreview)
 updateRoutes.post('/api/hermes/update/preview/stop', requireSuperAdmin, ctrl.stopPreview)

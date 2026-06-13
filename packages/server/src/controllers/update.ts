@@ -1,5 +1,5 @@
 import { execFile, execFileSync, spawn, type ChildProcess } from 'child_process'
-import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { createServer } from 'net'
 import { delimiter, dirname, extname, join, resolve } from 'path'
 import { getWebUiHome } from '../config'
@@ -1019,6 +1019,79 @@ function runUpdateInstall() {
   return runNpm(['install', '-g', 'hermes-web-ui@latest'], { timeout: 10 * 60 * 1000 })
 }
 
+function getPreviewPackDir() {
+  return join(getPreviewDir(), '.internal-update-pack')
+}
+
+async function buildPreviewPackage() {
+  appendPreviewActionLog('build preview package requested')
+  assertPreviewPackage()
+  const missingDependencies = await getMissingPreviewDependencyBinsAsync()
+  if (missingDependencies.length) {
+    throw new Error(`Preview dependencies are not installed. Missing: ${missingDependencies.join(', ')}. Run npm install first.`)
+  }
+  await runNpmAsync(['run', 'build'], {
+    cwd: getPreviewDir(),
+    timeout: 15 * 60 * 1000,
+    logLabel: 'npm run build',
+    env: getPreviewInstallEnv(),
+  })
+}
+
+async function packPreviewPackage(): Promise<string> {
+  const packDir = getPreviewPackDir()
+  rmSync(packDir, { recursive: true, force: true })
+  mkdirSync(packDir, { recursive: true })
+  const output = await runNpmAsync(['pack', '--pack-destination', packDir, '--ignore-scripts'], {
+    cwd: getPreviewDir(),
+    timeout: 3 * 60 * 1000,
+    logLabel: 'npm pack --ignore-scripts',
+    env: getPreviewInstallEnv(),
+  })
+  const packedName = output.split(/\r?\n/).map(line => line.trim()).filter(Boolean).pop()
+  const packedFromOutput = packedName ? join(packDir, packedName) : ''
+  if (packedFromOutput && existsSync(packedFromOutput)) return packedFromOutput
+
+  const tgz = readdirSync(packDir).find(name => name.endsWith('.tgz'))
+  if (tgz) return join(packDir, tgz)
+  throw new Error(`Failed to locate packed preview archive in ${packDir}`)
+}
+
+async function installPreviewPackageFromTarball(tarballPath: string) {
+  appendPreviewActionLog(`install internal update package: ${tarballPath}`)
+  await runNpmAsync(['install', '-g', tarballPath], {
+    timeout: 10 * 60 * 1000,
+    logLabel: 'npm install -g preview package',
+    env: getPreviewInstallEnv(),
+  })
+}
+
+function scheduleServerRestart() {
+  setTimeout(() => {
+    let restart
+    try {
+      restart = spawnRestart(process.env.PORT || '8648')
+    } catch (err) {
+      updateInProgress = false
+      console.error('[update] failed to spawn restart:', err)
+      return
+    }
+
+    restart.on('error', (err) => {
+      updateInProgress = false
+      console.error('[update] restart process failed:', err)
+    })
+    restart.on('exit', (code, signal) => {
+      updateInProgress = false
+      const failed = (typeof code === 'number' && code !== 0) || Boolean(signal)
+      if (failed) {
+        console.error(`[update] restart process exited before replacing server: code=${code} signal=${signal}`)
+      }
+    })
+    restart.unref()
+  }, 3000)
+}
+
 function spawnRestart(port: string) {
   const cli = getGlobalCliScript()
 
@@ -1050,29 +1123,7 @@ export async function handleUpdate(ctx: any) {
       message: output.trim() || 'hermes-web-ui updated successfully',
     }
 
-    setTimeout(() => {
-      let restart
-      try {
-        restart = spawnRestart(process.env.PORT || '8648')
-      } catch (err) {
-        updateInProgress = false
-        console.error('[update] failed to spawn restart:', err)
-        return
-      }
-
-      restart.on('error', (err) => {
-        updateInProgress = false
-        console.error('[update] restart process failed:', err)
-      })
-      restart.on('exit', (code, signal) => {
-        updateInProgress = false
-        const failed = (typeof code === 'number' && code !== 0) || Boolean(signal)
-        if (failed) {
-          console.error(`[update] restart process exited before replacing server: code=${code} signal=${signal}`)
-        }
-      })
-      restart.unref()
-    }, 3000)
+    scheduleServerRestart()
   } catch (err: any) {
     updateInProgress = false
     ctx.status = 500
@@ -1180,6 +1231,35 @@ export async function installPreview(ctx: any) {
     return { success: true, message: output }
   }, normalizeNodeToolError)
   if (!queued) {
+    previewActionAlreadyRunning(ctx)
+    return
+  }
+  previewActionAccepted(ctx)
+}
+
+export async function applyPreview(ctx: any) {
+  if (updateInProgress) {
+    ctx.status = 409
+    ctx.body = previewPayload({ success: false, message: 'hermes-web-ui update is already in progress' })
+    return
+  }
+
+  updateInProgress = true
+  const queued = queuePreviewAction('apply', async () => {
+    appendPreviewActionLog('internal update requested from prepared preview code')
+    await stopPreviewProcess()
+    await buildPreviewPackage()
+    const tarballPath = await packPreviewPackage()
+    await installPreviewPackageFromTarball(tarballPath)
+    appendPreviewActionLog('internal update package installed; scheduling restart')
+    scheduleServerRestart()
+    return { success: true, message: 'Internal update installed. Restarting hermes-web-ui...' }
+  }, normalizeNodeToolError, async () => {
+    updateInProgress = false
+  })
+
+  if (!queued) {
+    updateInProgress = false
     previewActionAlreadyRunning(ctx)
     return
   }
