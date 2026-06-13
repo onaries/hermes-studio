@@ -268,6 +268,22 @@ describe('tool trace visibility', () => {
     }
   })
 
+  it('does not replay completed live tools while final assistant output streams', () => {
+    const messages: Message[] = [
+      { id: 'user-1', role: 'user', content: 'inspect repo', timestamp: 1 },
+      { id: 'tool-done', role: 'tool', content: '', timestamp: 2, toolName: 'read_file', toolArgs: { path: '/tmp/file.ts' }, toolResult: 'ok', toolStatus: 'done' },
+      { id: 'assistant-final', role: 'assistant', content: 'Final answer is streaming', timestamp: 3, isStreaming: true },
+    ]
+
+    const wrapper = mountLiveList(messages)
+
+    const liveToolNames = wrapper
+      .findAll('.tool-call-item:not(.compression-item) .tool-call-name')
+      .map(node => node.text())
+    expect(liveToolNames).toEqual([])
+    expect(wrapper.find('.tool-call-item--done').exists()).toBe(false)
+  })
+
   it('expands live patch tools to show the changed diff', async () => {
     const messages: Message[] = [
       { id: 'user-1', role: 'user', content: 'patch file', timestamp: 1 },

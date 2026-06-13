@@ -245,6 +245,20 @@ const currentToolCalls = computed(() => {
 const visibleToolCalls = computed(() =>
   currentToolCalls.value.filter((tool) => !!tool.toolName),
 );
+const isStreamingAssistantContent = computed(() =>
+  chatStore.messages.some((message) =>
+    message.role === "assistant" &&
+    message.isStreaming &&
+    !!message.content?.trim(),
+  ),
+);
+const liveToolCalls = computed(() => {
+  // Once final assistant output is streaming, completed tools should not keep
+  // animating in the live footer. Keep only genuinely running tools visible;
+  // completed tool traces return to the transcript when the run settles.
+  if (!isStreamingAssistantContent.value) return visibleToolCalls.value;
+  return visibleToolCalls.value.filter((tool) => tool.toolStatus === "running");
+});
 
 const enteringToolCallIds = ref<Set<string>>(new Set());
 const enteringToolCallTimers = new Map<string, number>();
@@ -268,7 +282,7 @@ function isToolCallEntering(tool: Message): boolean {
 }
 
 watch(
-  () => visibleToolCalls.value.map((tool) => tool.id),
+  () => liveToolCalls.value.map((tool) => tool.id),
   (toolIds, previousToolIds = []) => {
     const previousIds = new Set(previousToolIds);
     for (const id of toolIds) {
@@ -568,7 +582,7 @@ defineExpose({
             aria-hidden="true"
             class="thinking-video"
           >
-          <div v-if="visibleToolCalls.length > 0 || chatStore.compressionState || chatStore.abortState" class="tool-calls-panel">
+          <div v-if="liveToolCalls.length > 0 || chatStore.compressionState || chatStore.abortState" class="tool-calls-panel">
             <!-- Abort indicator -->
             <div v-if="chatStore.abortState" class="tool-call-item compression-item">
               <svg
@@ -652,9 +666,9 @@ defineExpose({
               ></span>
             </div>
             <!-- Tool calls -->
-            <TransitionGroup appear name="tool-call-list" tag="div" class="tool-call-list">
+            <TransitionGroup name="tool-call-list" tag="div" class="tool-call-list">
               <div
-                v-for="tc in visibleToolCalls"
+                v-for="tc in liveToolCalls"
                 :key="tc.id"
                 class="tool-call-entry"
               >
