@@ -20,6 +20,7 @@ const PREVIEW_TAG_REF_PATTERN = /^[A-Za-z0-9._/-]+$/
 const PREVIEW_MAIN_REF = 'main'
 const PREVIEW_TAGS_CACHE_MS = 5 * 60 * 1000
 const DESKTOP_ACTIVE_VERSION_NAME = 'active-version.json'
+const DESKTOP_RESTART_REQUEST_NAME = 'restart-request.json'
 
 type DesktopActiveVersion = {
   schema?: unknown
@@ -1013,6 +1014,10 @@ function getDesktopActiveVersionPath() {
   return join(getDesktopRuntimeRoot(), DESKTOP_ACTIVE_VERSION_NAME)
 }
 
+function getDesktopRestartRequestPath() {
+  return join(getDesktopRuntimeRoot(), DESKTOP_RESTART_REQUEST_NAME)
+}
+
 function getDesktopWebUiInstallRoot() {
   return join(getDesktopRuntimeRoot(), 'webui')
 }
@@ -1117,10 +1122,31 @@ function writeDesktopActiveWebUiVersion(webUiDirectory: string) {
   appendPreviewActionLog(`desktop active WebUI version updated: ${activeVersionPath}`)
 }
 
+function requestDesktopShellWebUiRestart(webUiDirectory: string) {
+  const requestPath = getDesktopRestartRequestPath()
+  mkdirSync(dirname(requestPath), { recursive: true })
+  writeFileSync(requestPath, JSON.stringify({
+    schema: 1,
+    reason: 'preview-apply',
+    webUiDirectory,
+    requestedAt: new Date().toISOString(),
+  }, null, 2) + '\n')
+  appendPreviewActionLog(`desktop WebUI restart requested: ${requestPath}`)
+
+  setTimeout(() => {
+    try {
+      process.kill(process.pid, 'SIGUSR2')
+    } catch (err) {
+      console.error('[update] failed to request desktop WebUI restart:', err)
+    }
+  }, 1500).unref?.()
+}
+
 async function applyPreviewToDesktopRuntime() {
   const targetDir = materializePreviewForDesktop()
   writeDesktopActiveWebUiVersion(targetDir)
-  appendPreviewActionLog('desktop WebUI runtime prepared; requesting desktop shell restart')
+  requestDesktopShellWebUiRestart(targetDir)
+  appendPreviewActionLog('desktop WebUI runtime prepared; desktop shell restart scheduled')
   return targetDir
 }
 

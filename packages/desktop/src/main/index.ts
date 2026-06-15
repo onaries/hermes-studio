@@ -482,7 +482,7 @@ async function bootstrap(source?: RuntimeDownloadSource) {
 
   try {
     updateSplash({ stage: 'resolve', message: t('desktop.startingLocalServices') })
-    const url = await startWebUiServer(PORT)
+    const url = await startWebUiServer(PORT, handleSelfRestartedWebUi)
     serverUrl = url
     if (mainWindow) await mainWindow.loadURL(url)
   } catch (err) {
@@ -500,12 +500,20 @@ async function bootstrap(source?: RuntimeDownloadSource) {
   }
 }
 
+async function handleSelfRestartedWebUi(url: string) {
+  serverUrl = url
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    await mainWindow.loadURL(url)
+    showWindowWithFade(true)
+  }
+}
+
 async function restartWebUiServerFromDesktopShell() {
   if (isBootstrapping) return
   isBootstrapping = true
   try {
     await stopWebUiServer().catch(() => undefined)
-    const url = await startWebUiServer(PORT)
+    const url = await startWebUiServer(PORT, handleSelfRestartedWebUi)
     serverUrl = url
     if (mainWindow && !mainWindow.isDestroyed()) {
       await mainWindow.loadURL(url)

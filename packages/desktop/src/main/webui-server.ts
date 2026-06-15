@@ -1,5 +1,5 @@
 import { ChildProcess, execFile, spawn } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync, chmodSync, existsSync, readdirSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, chmodSync, existsSync, readdirSync, rmSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { homedir } from 'node:os'
 import { dirname, delimiter, join } from 'node:path'
@@ -28,6 +28,7 @@ const DEFAULT_STOP_TIMEOUT_MS = 20_000
 const DEFAULT_GRACEFUL_STOP_TIMEOUT_MS = 18_000
 const AGENT_BRIDGE_STARTED_MARKER = '[bootstrap] agent bridge started'
 const AGENT_BRIDGE_FAILED_MARKER = '[bootstrap] agent bridge failed to start'
+const DESKTOP_RESTART_REQUEST_NAME = 'restart-request.json'
 const execFileAsync = promisify(execFile)
 
 let serverProc: ChildProcess | null = null
@@ -75,6 +76,21 @@ function fullStartupWaitMs(): number {
 
 function gracefulStopTimeoutMs(): number {
   return envPositiveInt('HERMES_DESKTOP_GRACEFUL_STOP_TIMEOUT_MS') || DEFAULT_GRACEFUL_STOP_TIMEOUT_MS
+}
+
+function desktopRestartRequestPath(): string {
+  return join(webUiHome(), 'desktop-runtime', DESKTOP_RESTART_REQUEST_NAME)
+}
+
+function consumeDesktopRestartRequest(): boolean {
+  const requestPath = desktopRestartRequestPath()
+  if (!existsSync(requestPath)) return false
+  try {
+    rmSync(requestPath, { force: true })
+  } catch (err) {
+    console.warn(`[webui] failed to clear desktop restart request: ${err instanceof Error ? err.message : String(err)}`)
+  }
+  return true
 }
 
 function timeoutAfter(ms: number, message: string): Promise<void> {
@@ -301,7 +317,10 @@ async function getFreeTcpPortInRange(min: number, max: number): Promise<number> 
   return getFreeTcpPort()
 }
 
-export async function startWebUiServer(port = DEFAULT_PORT): Promise<string> {
+export async function startWebUiServer(
+  port = DEFAULT_PORT,
+  onSelfRestart?: (url: string) => void | Promise<void>,
+): Promise<string> {
   ensureNativeModules()
   const token = ensureToken()
   currentServerPort = port
@@ -422,6 +441,18 @@ export async function startWebUiServer(port = DEFAULT_PORT): Promise<string> {
   serverProc.on('exit', (code, signal) => {
     console.error(`[webui] server exited code=${code} signal=${signal}`)
     serverProc = null
+    const shouldSelfRestart = consumeDesktopRestartRequest()
+    if (shouldSelfRestart && app.isReady()) {
+      console.log('[webui] desktop restart request detected; restarting Web UI server')
+      void startWebUiServer(port, onSelfRestart)
+        .then(async (url) => {
+          await onSelfRestart?.(url)
+        })
+        .catch(err => {
+          console.error('[webui] failed to restart after desktop request:', err)
+        })
+      return
+    }
     if (!app.isReady() || code !== 0) {
       // Best-effort: if server dies abnormally during startup, surface to user
     }
