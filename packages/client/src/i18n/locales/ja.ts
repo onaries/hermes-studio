@@ -99,6 +99,7 @@ export default {
     notConfigured: '未設定',
     confirm: '確認',
     expand: '展開',
+    openMenu: 'メニューを開く',
     collapse: '折りたたむ',
     stop: '停止',
     start: '開始',

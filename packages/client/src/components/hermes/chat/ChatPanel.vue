@@ -1196,6 +1196,23 @@ async function handleSessionModelCustomSubmit() {
       :class="{ collapsed: !showSessions }"
     >
       <div class="session-list-header">
+        <NButton
+          quaternary
+          size="tiny"
+          circle
+          class="session-main-menu-btn"
+          :title="t('common.openMenu')"
+          :aria-label="t('common.openMenu')"
+          @click="appStore.toggleSidebar()"
+        >
+          <template #icon>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </template>
+        </NButton>
         <span v-if="showSessions" class="session-list-title">{{
           t("chat.webUiSessions")
         }}</span>
@@ -2228,10 +2245,14 @@ async function handleSessionModelCustomSubmit() {
 .session-list-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   padding: 12px;
   flex-shrink: 0;
   min-height: 0;
+}
+
+.session-main-menu-btn {
+  flex: 0 0 auto;
 }
 
 .session-list-actions {
@@ -2239,6 +2260,7 @@ async function handleSessionModelCustomSubmit() {
   align-items: center;
   gap: 4px;
   height: 22px;
+  margin-left: auto;
 
   .n-button {
     display: inline-flex;

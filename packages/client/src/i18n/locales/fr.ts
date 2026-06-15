@@ -99,6 +99,7 @@ export default {
     notConfigured: 'Non configure',
     confirm: 'Confirmer',
     expand: 'Developper',
+    openMenu: 'Ouvrir le menu',
     collapse: 'Reduire',
     stop: 'Arrêter',
     start: 'Démarrer',

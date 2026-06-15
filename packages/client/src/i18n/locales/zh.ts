@@ -100,6 +100,7 @@ export default {
     notConfigured: '未配置',
     confirm: '确定',
     expand: '展开',
+    openMenu: '打开菜单',
     collapse: '收起',
     start: '启动',
     stop: '停止',

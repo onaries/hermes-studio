@@ -99,6 +99,7 @@ export default {
     notConfigured: '미구성',
     confirm: '확인',
     expand: '펼치기',
+    openMenu: '메뉴 열기',
     collapse: '접기',
     stop: '중지',
     start: '시작',
