@@ -20,7 +20,7 @@ const props = withDefaults(defineProps<{
       :href="slotProps?.href || '#'"
       :title="props.title"
       :aria-current="(props.active ?? (props.exact ? !!slotProps?.isExactActive : !!slotProps?.isActive)) ? 'page' : undefined"
-      @click="slotProps?.navigate"
+      @click="slotProps?.navigate($event)"
     >
       <slot />
     </a>

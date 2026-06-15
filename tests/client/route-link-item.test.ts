@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import RouteLinkItem from '@/components/common/RouteLinkItem.vue'
@@ -30,5 +30,36 @@ describe('RouteLinkItem', () => {
     expect(link.classes()).toContain('active')
     expect(link.attributes('aria-current')).toBe('page')
     expect(link.text()).toContain('Session S1')
+  })
+
+  it('explicitly invokes RouterLink navigate on click', async () => {
+    const navigate = vi.fn((event?: MouseEvent) => event?.preventDefault())
+    const wrapper = mount(RouteLinkItem, {
+      props: {
+        to: { name: 'hermes.settings' },
+      },
+      slots: {
+        default: 'Settings',
+      },
+      global: {
+        components: {
+          RouterLink: defineComponent({
+            props: ['to', 'custom'],
+            setup(_, { slots }) {
+              return () => slots.default?.({
+                href: '#/hermes/settings',
+                navigate,
+                isActive: false,
+                isExactActive: false,
+              })
+            },
+          }),
+        },
+      },
+    })
+
+    await wrapper.get('a').trigger('click')
+    expect(navigate).toHaveBeenCalledTimes(1)
+    expect(navigate.mock.calls[0]?.[0]).toBeInstanceOf(MouseEvent)
   })
 })
