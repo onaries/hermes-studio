@@ -15,7 +15,7 @@ const sessionScrollPositions = new Map<string, SessionScrollSnapshot>();
 </script>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onBeforeUnmount, watch } from "vue";
+import { ref, computed, nextTick, onBeforeUnmount, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import VirtualMessageList from "./VirtualMessageList.vue";
 import MessageItem from "./MessageItem.vue";
@@ -47,7 +47,9 @@ const { toolTraceVisible } = useToolTraceVisibility();
 const showToolMascot = computed(() => settingsStore.display.show_tool_mascot !== false);
 const listRef = ref<InstanceType<typeof VirtualMessageList> | null>(null);
 const pendingInitialScrollSessionId = ref<string | null>(null);
+const showScrollBottomButton = ref(false);
 const initialBottomScrollOptions = { frames: 8, keepAliveMs: 1200 };
+const LIVE_CHAT_MAX_LOADED_MESSAGES = 300;
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
@@ -357,6 +359,17 @@ const virtualListPadding = computed(() => {
   return "20px";
 });
 
+const showHistoryArchiveLink = computed(() => {
+  const session = chatStore.activeSession;
+  return !!session?.hasMoreBefore && (session.loadedMessageCount || 0) >= LIVE_CHAT_MAX_LOADED_MESSAGES;
+});
+
+const historyArchiveHref = computed(() => {
+  const session = chatStore.activeSession;
+  if (!session?.id) return "#/hermes/history";
+  const profileQuery = session.profile ? `?profile=${encodeURIComponent(session.profile)}` : "";
+  return `#/hermes/history/session/${encodeURIComponent(session.id)}${profileQuery}`;
+});
 
 function removeQueuedMessage(messageId: string) {
   const sid = chatStore.activeSessionId;
@@ -375,6 +388,7 @@ function shouldAutoFollowBottom(threshold = 100): boolean {
 
 function scrollToBottom(options?: BottomScrollOptions) {
   listRef.value?.scrollToBottom(options);
+  showScrollBottomButton.value = false;
 }
 
 function scrollToMessage(messageId: string) {
@@ -383,6 +397,21 @@ function scrollToMessage(messageId: string) {
 
 function scrollToAnchor(messageId: string, anchorId: string) {
   listRef.value?.scrollToAnchor(messageId, anchorId);
+}
+
+function updateScrollBottomButton() {
+  const isNearBottom = typeof listRef.value?.isNearBottom === 'function'
+    ? listRef.value.isNearBottom(1000)
+    : true;
+  showScrollBottomButton.value = displayMessages.value.length > 0 && !isNearBottom;
+}
+
+function handleListScroll() {
+  updateScrollBottomButton();
+}
+
+function handleScrollBottomClick() {
+  scrollToBottom({ frames: 4, keepAliveMs: 600 });
 }
 
 function saveSessionScrollPosition(sessionId: string | null | undefined) {
@@ -418,12 +447,13 @@ function applyInitialSessionScroll(sessionId: string) {
 
 async function handleTopReach() {
   const session = chatStore.activeSession;
-  if (!session?.hasMoreBefore || session.isLoadingOlderMessages) return;
+  if (!session?.hasMoreBefore || session.isLoadingOlderMessages || showHistoryArchiveLink.value) return;
   const snapshot = listRef.value?.captureScrollPosition() ?? null;
   const loaded = await chatStore.loadOlderMessages(session.id);
   if (!loaded) return;
   await nextTick();
   listRef.value?.restoreScrollPosition(snapshot);
+  updateScrollBottomButton();
 }
 
 watch(
@@ -443,6 +473,15 @@ watch(
   ([id, length]) => {
     if (!id || pendingInitialScrollSessionId.value !== id || length === 0) return;
     applyInitialSessionScroll(id);
+    void nextTick(updateScrollBottomButton);
+  },
+  { flush: "post" },
+);
+
+watch(
+  () => displayMessages.value.length,
+  () => {
+    void nextTick(updateScrollBottomButton);
   },
   { flush: "post" },
 );
@@ -525,6 +564,10 @@ onBeforeUnmount(() => {
   enteringToolCallTimers.clear();
 });
 
+onMounted(() => {
+  void nextTick(updateScrollBottomButton);
+});
+
 defineExpose({
   scrollToBottom,
   scrollToMessage,
@@ -538,7 +581,9 @@ defineExpose({
       :key="chatStore.activeSessionId || 'chat-empty'"
       ref="listRef"
       :messages="displayMessages"
+      :virtualized="false"
       :padding="virtualListPadding"
+      @scroll="handleListScroll"
       @top-reach="handleTopReach"
     >
       <template #empty>
@@ -548,8 +593,13 @@ defineExpose({
         </div>
       </template>
       <template #before>
+        <div v-if="showHistoryArchiveLink" class="history-archive-link-wrap">
+          <a class="history-archive-link" :href="historyArchiveHref">
+            {{ t("chat.viewOlderInHistory") }}
+          </a>
+        </div>
         <div
-          v-if="chatStore.activeSession?.hasMoreBefore || chatStore.activeSession?.isLoadingOlderMessages"
+          v-else-if="chatStore.activeSession?.hasMoreBefore || chatStore.activeSession?.isLoadingOlderMessages"
           class="history-loader"
         >
           <span v-if="chatStore.activeSession?.isLoadingOlderMessages" class="history-loader-spinner"></span>
@@ -784,6 +834,28 @@ defineExpose({
         <TodoPanel />
       </template>
     </VirtualMessageList>
+    <button
+      v-if="showScrollBottomButton"
+      type="button"
+      class="scroll-bottom-button"
+      :aria-label="t('chat.scrollToBottom')"
+      :title="t('chat.scrollToBottom')"
+      @click="handleScrollBottomClick"
+    >
+      <svg
+        class="scroll-bottom-icon"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="m7 10 5 5 5-5" />
+        <path d="M6 19h12" />
+      </svg>
+    </button>
     <div
       v-if="queuedMessages.length > 0"
       class="message-float-stack"
@@ -844,6 +916,56 @@ defineExpose({
   gap: 10px;
   width: min(720px, calc(100% - 32px));
   pointer-events: none;
+}
+
+.scroll-bottom-button {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 7;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--accent-primary-rgb), 0.24);
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--accent-primary);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+  padding: 0;
+  cursor: pointer;
+
+  .dark & {
+    background: rgba(38, 38, 38, 0.94);
+  }
+}
+
+.scroll-bottom-button:hover {
+  background: rgba(var(--accent-primary-rgb), 0.1);
+}
+
+.scroll-bottom-icon {
+  width: 19px;
+  height: 19px;
+}
+
+.history-archive-link-wrap {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.history-archive-link {
+  font-size: 12px;
+  color: var(--accent-primary);
+  text-decoration: none;
+}
+
+.history-archive-link:hover {
+  text-decoration: underline;
 }
 
 .approval-float-panel,
@@ -1575,6 +1697,12 @@ defineExpose({
 
   .tool-call-item--running::after {
     display: none;
+  }
+}
+@media (max-width: 640px) {
+  .tool-call-preview {
+    width: 100%;
+    max-width: none;
   }
 }
 </style>

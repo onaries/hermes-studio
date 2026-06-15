@@ -33,11 +33,12 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const appStore = useAppStore()
 const profilesStore = useProfilesStore()
-const sessionModelName = computed(() =>
-  props.session.model
+const sessionModelName = computed(() => {
+  if (!props.session.model) return ''
+  return typeof appStore.displayModelName === 'function'
     ? appStore.displayModelName(props.session.model, props.session.provider)
-    : '',
-)
+    : props.session.model
+})
 const profileName = computed(() => props.session.profile || 'default')
 const profileAvatar = computed(() => profilesStore.profiles.find(profile => profile.name === profileName.value)?.avatar)
 const profileHasModels = computed(() => {
@@ -164,8 +165,8 @@ onUnmounted(() => {
           class="session-item-agent-logo"
           :src="sessionAgentLogo.src"
           :alt="sessionAgentLogo.label"
+          :title="sessionAgentLogo.label"
         >
-        <span class="session-item-agent-name">{{ sessionAgentLogo.label }}</span>
       </span>
       <span class="session-item-meta">
         <span v-if="sessionModelName" class="session-item-model" :title="session.model">{{ sessionModelName }}</span>
