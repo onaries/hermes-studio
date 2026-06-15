@@ -267,6 +267,8 @@ function handleSidebarClick(event: MouseEvent) {
 
 .sidebar {
   position: relative;
+  z-index: 20;
+  pointer-events: auto;
   width: $sidebar-width;
   height: calc(100 * var(--vh));
   background-color: $bg-sidebar;

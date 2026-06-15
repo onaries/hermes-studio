@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import appSidebarSource from '@/components/layout/AppSidebar.vue?raw'
 
 const openSessionSearchMock = vi.hoisted(() => vi.fn())
 const mockAppStore = vi.hoisted(() => ({
@@ -128,6 +129,11 @@ describe('AppSidebar navigation', () => {
     expect(wrapper.find('.sidebar-chat-tab').exists()).toBe(true)
     expect(wrapper.find('.sidebar-chat-tab').text()).toContain('sidebar.chat')
     expect(wrapper.find('.sidebar-chat-tab').text()).not.toContain('sidebar.backToChat')
+  })
+
+  it('keeps the app sidebar above page panels so desktop navigation remains clickable', () => {
+    expect(appSidebarSource).toContain('z-index: 20')
+    expect(appSidebarSource).toContain('pointer-events: auto')
   })
 
   it('uses short group labels and keeps group folding active when collapsed', async () => {
