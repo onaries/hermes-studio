@@ -180,7 +180,6 @@ export default {
 
   sidebar: {
     chat: '对话',
-    backToChat: '返回',
     search: '搜索',
     apiRelay: '饲料',
     history: '历史',

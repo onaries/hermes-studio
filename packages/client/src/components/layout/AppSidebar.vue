@@ -53,12 +53,11 @@ function handleSidebarClick(event: MouseEvent) {
 <template>
   <aside class="sidebar" :class="{ open: appStore.sidebarOpen, collapsed: appStore.sidebarCollapsed }" @click="handleSidebarClick">
     <div class="sidebar-top-actions">
-      <RouteLinkItem class="nav-item sidebar-return-tab" :to="{ name: 'hermes.chat' }" :title="t('sidebar.backToChat')">
+      <RouteLinkItem class="nav-item sidebar-chat-tab" :to="{ name: 'hermes.chat' }" :title="t('sidebar.chat')" :active="selectedKey === 'hermes.chat'">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="15 18 9 12 15 6" />
-          <line x1="9" y1="12" x2="21" y2="12" />
+          <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
         </svg>
-        <span>{{ t("sidebar.backToChat") }}</span>
+        <span>{{ t("sidebar.chat") }}</span>
       </RouteLinkItem>
       <button class="collapse-btn" @click="appStore.toggleSidebarCollapsed()" :title="appStore.sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -386,7 +385,7 @@ function handleSidebarClick(event: MouseEvent) {
   margin-bottom: 4px;
 }
 
-.sidebar-return-tab {
+.sidebar-chat-tab {
   flex: 1;
   min-width: 0;
   padding: 8px 10px;
@@ -411,7 +410,7 @@ function handleSidebarClick(event: MouseEvent) {
     margin-bottom: 8px;
   }
 
-  .sidebar-return-tab {
+  .sidebar-chat-tab {
     width: 100%;
     flex: 0 0 auto;
     padding: 10px 4px;

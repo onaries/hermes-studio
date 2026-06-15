@@ -106,7 +106,6 @@ export default {
 
   sidebar: {
     chat: 'Чат',
-    backToChat: 'Назад',
     search: 'Поиск',
     apiRelay: 'Ретранслятор API',
     history: 'История',

@@ -180,7 +180,6 @@ export default {
   // Sidebar
   sidebar: {
     chat: 'Chat',
-    backToChat: 'Back',
     search: 'Search',
     apiRelay: 'API Relay',
     history: 'History',

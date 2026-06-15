@@ -125,7 +125,9 @@ describe('AppSidebar navigation', () => {
 
     expect(wrapper.text()).not.toContain('sidebar.search')
     expect(wrapper.text()).not.toContain('sidebar.reloadClientVersion')
-    expect(wrapper.find('.sidebar-return-tab').exists()).toBe(true)
+    expect(wrapper.find('.sidebar-chat-tab').exists()).toBe(true)
+    expect(wrapper.find('.sidebar-chat-tab').text()).toContain('sidebar.chat')
+    expect(wrapper.find('.sidebar-chat-tab').text()).not.toContain('sidebar.backToChat')
   })
 
   it('uses short group labels and keeps group folding active when collapsed', async () => {
