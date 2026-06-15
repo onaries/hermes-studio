@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import appSidebarSource from '@/components/layout/AppSidebar.vue?raw'
 
 const openSessionSearchMock = vi.hoisted(() => vi.fn())
 const mockAppStore = vi.hoisted(() => ({
@@ -99,7 +98,7 @@ vi.mock('naive-ui', async () => {
 
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 
-describe('AppSidebar navigation', () => {
+describe('AppSidebar search entry', () => {
   beforeEach(() => {
     openSessionSearchMock.mockClear()
     mockAppStore.serverVersion = 'test'
@@ -111,7 +110,7 @@ describe('AppSidebar navigation', () => {
     mockAppStore.reloadClient.mockClear()
   })
 
-  it('keeps page-sidebar-only actions out of the app sidebar', () => {
+  it('opens the session search modal from the sidebar button', async () => {
     const wrapper = mount(AppSidebar, {
       global: {
         stubs: {
@@ -124,16 +123,34 @@ describe('AppSidebar navigation', () => {
       },
     })
 
-    expect(wrapper.text()).not.toContain('sidebar.search')
-    expect(wrapper.text()).not.toContain('sidebar.reloadClientVersion')
-    expect(wrapper.find('.sidebar-chat-tab').exists()).toBe(true)
-    expect(wrapper.find('.sidebar-chat-tab').text()).toContain('sidebar.chat')
-    expect(wrapper.find('.sidebar-chat-tab').text()).not.toContain('sidebar.backToChat')
+    const buttons = wrapper.findAll('button')
+    const searchButton = buttons.find(node => node.text().includes('sidebar.search'))
+    expect(searchButton).toBeTruthy()
+
+    await searchButton!.trigger('click')
+    expect(openSessionSearchMock).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps the app sidebar above page panels so desktop navigation remains clickable', () => {
-    expect(appSidebarSource).toContain('z-index: 20')
-    expect(appSidebarSource).toContain('pointer-events: auto')
+  it('offers a client reload when the server version differs from the loaded bundle', async () => {
+    mockAppStore.clientOutdated = true
+    mockAppStore.serverVersion = '0.5.17'
+    const wrapper = mount(AppSidebar, {
+      global: {
+        stubs: {
+          ProfileSelector: true,
+          ModelSelector: true,
+          LanguageSwitch: true,
+          ThemeSwitch: true,
+        },
+      },
+    })
+
+    const reloadButton = wrapper.findAll('button')
+      .find(node => node.text().includes('sidebar.reloadClientVersion'))
+    expect(reloadButton).toBeTruthy()
+
+    await reloadButton!.trigger('click')
+    expect(mockAppStore.reloadClient).toHaveBeenCalledTimes(1)
   })
 
   it('uses short group labels and keeps group folding active when collapsed', async () => {
@@ -152,13 +169,14 @@ describe('AppSidebar navigation', () => {
 
     expect(wrapper.classes()).toContain('collapsed')
     expect(wrapper.findAll('.nav-group-label span').map(node => node.text())).toEqual([
+      'sidebar.groupConversationShort',
       'sidebar.groupAgentShort',
       'sidebar.groupMonitoringShort',
       'sidebar.groupToolsShort',
       'sidebar.groupSystemShort',
     ])
 
-    const agentGroup = wrapper.findAll('.nav-group')[0]
+    const agentGroup = wrapper.findAll('.nav-group')[1]
     expect(agentGroup.find('.nav-group-items').attributes('style')).toBeUndefined()
 
     await agentGroup.find('.nav-group-label').trigger('click')

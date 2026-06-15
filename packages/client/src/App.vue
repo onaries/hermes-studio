@@ -22,8 +22,6 @@ const themeOverrides = computed(() => getThemeOverrides(isDark.value, isComic.va
 const naiveTheme = computed(() => isDark.value ? darkTheme : null)
 
 const isLoginPage = computed(() => route.name === 'login')
-const showAppSidebar = computed(() => !isLoginPage.value)
-const showMobileMenuButton = computed(() => !isLoginPage.value && showAppSidebar.value)
 
 const nodeVersionLow = computed(() => {
   const v = appStore.nodeVersion
@@ -38,6 +36,11 @@ const isDesktopShell = computed(() =>
 function handleMobileMenuClick() {
   appStore.toggleSidebar()
 }
+
+// Close mobile sidebar on route change.
+watch(() => route.path, () => {
+  appStore.closeSidebar()
+})
 
 watch(isLoginPage, (loginPage) => {
   if (loginPage) {
@@ -68,12 +71,12 @@ useKeyboard()
             <div v-if="nodeVersionLow" class="node-warning-bar">
               {{ t('sidebar.nodeVersionWarning', { version: appStore.nodeVersion }) }}
             </div>
-            <div class="app-layout" :class="{ 'no-sidebar': isLoginPage || !showAppSidebar }">
-              <button v-if="showMobileMenuButton" class="hamburger-btn" @click="handleMobileMenuClick">
+            <div class="app-layout" :class="{ 'no-sidebar': isLoginPage }">
+              <button v-if="!isLoginPage" class="hamburger-btn" @click="handleMobileMenuClick">
                 <img src="/logo.png" alt="Menu" style="width: 24px; height: 24px;" />
               </button>
-              <div v-if="!isLoginPage && showAppSidebar && appStore.sidebarOpen" class="mobile-backdrop" @click="appStore.closeSidebar" />
-              <AppSidebar v-if="!isLoginPage && showAppSidebar" />
+              <div v-if="!isLoginPage && appStore.sidebarOpen" class="mobile-backdrop" @click="appStore.closeSidebar" />
+              <AppSidebar v-if="!isLoginPage" />
               <main class="app-main">
                 <router-view />
               </main>
