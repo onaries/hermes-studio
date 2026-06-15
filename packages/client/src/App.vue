@@ -22,11 +22,8 @@ const themeOverrides = computed(() => getThemeOverrides(isDark.value, isComic.va
 const naiveTheme = computed(() => isDark.value ? darkTheme : null)
 
 const isLoginPage = computed(() => route.name === 'login')
-const usesPageSidebar = computed(() =>
-  ['hermes.chat', 'hermes.session', 'hermes.history', 'hermes.historySession', 'hermes.groupChat', 'hermes.groupChatRoom'].includes(route.name as string),
-)
 const showAppSidebar = computed(() => !isLoginPage.value)
-const showMobileMenuButton = computed(() => !isLoginPage.value && (showAppSidebar.value || usesPageSidebar.value))
+const showMobileMenuButton = computed(() => !isLoginPage.value && showAppSidebar.value)
 
 const nodeVersionLow = computed(() => {
   const v = appStore.nodeVersion
@@ -39,10 +36,6 @@ const isDesktopShell = computed(() =>
 )
 
 function handleMobileMenuClick() {
-  if (usesPageSidebar.value) {
-    window.dispatchEvent(new CustomEvent('hermes:open-page-sidebar'))
-    return
-  }
   appStore.toggleSidebar()
 }
 
