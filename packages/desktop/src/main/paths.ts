@@ -190,6 +190,10 @@ export function desktopRuntimeVersion(): string {
   return DEFAULT_HERMES_AGENT_VERSION
 }
 
+export function legacyDesktopRuntimeDir(): string {
+  return join(webUiHome(), 'desktop-runtime', runtimePlatformKey())
+}
+
 export function targetDesktopRuntimeDir(): string {
   const override = process.env.HERMES_DESKTOP_RUNTIME_DIR?.trim()
   if (override) return resolve(override)
