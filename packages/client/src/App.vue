@@ -25,8 +25,7 @@ const isLoginPage = computed(() => route.name === 'login')
 const usesPageSidebar = computed(() =>
   ['hermes.chat', 'hermes.session', 'hermes.history', 'hermes.historySession', 'hermes.groupChat', 'hermes.groupChatRoom'].includes(route.name as string),
 )
-const showAppSidebar = computed(() => !isLoginPage.value && !usesPageSidebar.value)
-const hasAppSidebar = computed(() => !isLoginPage.value && (showAppSidebar.value || appStore.sidebarOpen))
+const showAppSidebar = computed(() => !isLoginPage.value)
 const showMobileMenuButton = computed(() => !isLoginPage.value && (showAppSidebar.value || usesPageSidebar.value))
 
 const nodeVersionLow = computed(() => {
@@ -76,12 +75,12 @@ useKeyboard()
             <div v-if="nodeVersionLow" class="node-warning-bar">
               {{ t('sidebar.nodeVersionWarning', { version: appStore.nodeVersion }) }}
             </div>
-            <div class="app-layout" :class="{ 'no-sidebar': isLoginPage || !hasAppSidebar }">
+            <div class="app-layout" :class="{ 'no-sidebar': isLoginPage || !showAppSidebar }">
               <button v-if="showMobileMenuButton" class="hamburger-btn" @click="handleMobileMenuClick">
                 <img src="/logo.png" alt="Menu" style="width: 24px; height: 24px;" />
               </button>
-              <div v-if="!isLoginPage && hasAppSidebar && appStore.sidebarOpen" class="mobile-backdrop" @click="appStore.closeSidebar" />
-              <AppSidebar v-if="hasAppSidebar" />
+              <div v-if="!isLoginPage && showAppSidebar && appStore.sidebarOpen" class="mobile-backdrop" @click="appStore.closeSidebar" />
+              <AppSidebar v-if="!isLoginPage && showAppSidebar" />
               <main class="app-main">
                 <router-view />
               </main>

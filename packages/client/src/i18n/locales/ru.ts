@@ -98,7 +98,6 @@ export default {
     notConfigured: 'Не настроено',
     confirm: 'Подтвердить',
     expand: 'Развернуть',
-    openMenu: 'Открыть меню',
     collapse: 'Свернуть',
     start: 'Запустить',
     stop: 'Остановить',
