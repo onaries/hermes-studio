@@ -483,6 +483,26 @@ function previewPayload(extra: Record<string, any> = {}) {
   }
 }
 
+function getActiveWebUiStatus() {
+  const pkg = readPackageInfo()
+  if (!isDesktopRuntime()) {
+    return {
+      active_webui_version: pkg?.version || '',
+      active_webui_ref: '',
+      active_webui_directory: '',
+      active_webui_updated_at: '',
+    }
+  }
+
+  const active = readDesktopActiveVersion()
+  return {
+    active_webui_version: stringValue(active?.webUiVersion) || pkg?.version || '',
+    active_webui_ref: stringValue(active?.previewRef) || '',
+    active_webui_directory: stringValue(active?.webUiDirectory) || '',
+    active_webui_updated_at: stringValue(active?.updatedAt) || '',
+  }
+}
+
 function getPreviewStatus() {
   const previewDir = getPreviewDir()
   const packagePath = getPreviewPackagePath()
@@ -501,6 +521,7 @@ function getPreviewStatus() {
     running,
     pid: running ? previewState.process?.pid || runtimePids[0] || null : null,
     current_tag: currentTag,
+    ...getActiveWebUiStatus(),
     frontend_url: PREVIEW_FRONTEND_URL,
     agent_bridge_endpoint: getPreviewAgentBridgeEndpoint(),
     log_path: getPreviewLogPath(),

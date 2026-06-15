@@ -38,6 +38,10 @@ export interface PreviewStatus {
   running: boolean
   pid: number | null
   current_tag: string
+  active_webui_version: string
+  active_webui_ref: string
+  active_webui_directory: string
+  active_webui_updated_at: string
   frontend_url: string
   agent_bridge_endpoint: string
   log_path: string

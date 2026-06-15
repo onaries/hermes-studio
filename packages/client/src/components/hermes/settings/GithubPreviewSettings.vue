@@ -50,6 +50,12 @@ const actionLog = computed(() => status.value?.action_log || '')
 const devLog = computed(() => status.value?.dev_log || '')
 const activeAction = computed(() => actionLoading.value || status.value?.active_action || '')
 const hasActiveAction = computed(() => Boolean(activeAction.value))
+const activeWebUiVersionLabel = computed(() => {
+  const version = status.value?.active_webui_version || ''
+  const ref = status.value?.active_webui_ref || ''
+  if (version && ref) return `${version} · ${ref}`
+  return version || ref || '-'
+})
 const actionSuccessKeys: Record<string, string> = {
   prepare: 'githubPreview.prepareSuccess',
   install: 'githubPreview.installSuccess',
@@ -287,6 +293,17 @@ watch(
       </NAlert>
 
       <NDescriptions v-if="status" :column="1" bordered size="small" class="status-table">
+        <NDescriptionsItem :label="t('githubPreview.activeVersion')">
+          <NTag size="small" type="success">
+            {{ activeWebUiVersionLabel }}
+          </NTag>
+        </NDescriptionsItem>
+        <NDescriptionsItem v-if="status.active_webui_updated_at" :label="t('githubPreview.activeUpdatedAt')">
+          {{ status.active_webui_updated_at }}
+        </NDescriptionsItem>
+        <NDescriptionsItem v-if="status.active_webui_directory" :label="t('githubPreview.activePath')">
+          <code>{{ status.active_webui_directory }}</code>
+        </NDescriptionsItem>
         <NDescriptionsItem :label="t('githubPreview.path')">
           <code>{{ status.preview_dir }}</code>
         </NDescriptionsItem>
