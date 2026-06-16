@@ -27,7 +27,9 @@ describe('chat message mobile layout guards', () => {
     expect(chatPanel).toContain('font-size: 13px;')
     expect(chatPanel).toContain('font-size: 10px;')
 
-    expect(messageList).toContain('.streaming-indicator')
+    expect(messageList).toContain('--tool-mascot-height: 213px;')
+    expect(messageList).toContain('height: var(--tool-mascot-height);')
+    expect(messageList).toContain('min-height: var(--tool-mascot-height);')
     expect(messageList).toContain('.tool-calls-panel')
     expect(messageList).toContain('.tool-call-preview')
     expect(messageList).toContain('function toolCallPreview')

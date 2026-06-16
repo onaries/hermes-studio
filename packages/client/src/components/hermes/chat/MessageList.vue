@@ -1359,19 +1359,22 @@ defineExpose({
 }
 
 .streaming-indicator {
+  --tool-mascot-height: 213px;
+
   display: flex;
   align-items: flex-start;
   gap: 12px;
   padding: 4px;
   .thinking-video {
     width: 120px;
-    height: 213px;
+    height: var(--tool-mascot-height);
     border-radius: $radius-md;
     object-fit: contain;
     flex-shrink: 0;
   }
 
   &.streaming-indicator--no-mascot {
+    min-height: var(--tool-mascot-height);
     gap: 0;
     padding-left: 0;
   }
