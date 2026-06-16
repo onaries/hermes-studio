@@ -1375,8 +1375,23 @@ defineExpose({
 
   &.streaming-indicator--no-mascot {
     min-height: var(--tool-mascot-height);
-    gap: 0;
+    gap: 10px;
     padding-left: 0;
+  }
+
+  &.streaming-indicator--no-mascot::before {
+    content: '';
+    align-self: stretch;
+    flex: 0 0 4px;
+    min-height: var(--tool-mascot-height);
+    border-radius: 999px;
+    background: linear-gradient(
+      180deg,
+      rgba(var(--accent-primary-rgb), 0.24),
+      rgba(var(--accent-primary-rgb), 0.78),
+      rgba(var(--accent-info-rgb), 0.42)
+    );
+    box-shadow: 0 0 18px rgba(var(--accent-primary-rgb), 0.16);
   }
 }
 
