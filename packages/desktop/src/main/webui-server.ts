@@ -34,6 +34,52 @@ const execFileAsync = promisify(execFile)
 let serverProc: ChildProcess | null = null
 let cachedToken: string | null = null
 let currentServerPort = DEFAULT_PORT
+let processOutputGuardsInstalled = false
+const disabledProcessOutputStreams = new Set<'stdout' | 'stderr'>()
+
+export function isIgnorableProcessOutputError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const error = err as NodeJS.ErrnoException
+  return error.code === 'EPIPE' || error.code === 'ERR_STREAM_DESTROYED'
+}
+
+function installProcessOutputGuards(): void {
+  if (processOutputGuardsInstalled) return
+  processOutputGuardsInstalled = true
+  process.stdout.on('error', (err) => {
+    if (isIgnorableProcessOutputError(err)) {
+      disabledProcessOutputStreams.add('stdout')
+      return
+    }
+    throw err
+  })
+  process.stderr.on('error', (err) => {
+    if (isIgnorableProcessOutputError(err)) {
+      disabledProcessOutputStreams.add('stderr')
+      return
+    }
+    throw err
+  })
+}
+
+function writeProcessOutput(streamName: 'stdout' | 'stderr', data: string | Buffer): void {
+  installProcessOutputGuards()
+  if (disabledProcessOutputStreams.has(streamName)) return
+  const stream = streamName === 'stderr' ? process.stderr : process.stdout
+  try {
+    stream.write(data, (err?: Error | null) => {
+      if (err && isIgnorableProcessOutputError(err)) {
+        disabledProcessOutputStreams.add(streamName)
+      }
+    })
+  } catch (err) {
+    if (isIgnorableProcessOutputError(err)) {
+      disabledProcessOutputStreams.add(streamName)
+      return
+    }
+    throw err
+  }
+}
 
 function killProcessTree(proc: ChildProcess): void {
   if (!proc.pid || proc.killed) return
@@ -432,11 +478,11 @@ export async function startWebUiServer(
 
   serverProc.stdout?.on('data', (chunk: Buffer) => {
     bridgeStartup.observe(chunk)
-    process.stdout.write(`[webui] ${chunk}`)
+    writeProcessOutput('stdout', `[webui] ${chunk}`)
   })
   serverProc.stderr?.on('data', (chunk: Buffer) => {
     bridgeStartup.observe(chunk)
-    process.stderr.write(`[webui] ${chunk}`)
+    writeProcessOutput('stderr', `[webui] ${chunk}`)
   })
   serverProc.on('exit', (code, signal) => {
     console.error(`[webui] server exited code=${code} signal=${signal}`)
