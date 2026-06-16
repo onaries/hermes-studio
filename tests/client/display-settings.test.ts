@@ -57,6 +57,17 @@ vi.mock('naive-ui', async () => {
         onClick: () => emit('click'),
       }, slots.default?.()),
     }),
+    NCheckbox: defineComponent({
+      name: 'NCheckbox',
+      props: ['checked'],
+      emits: ['update:checked'],
+      setup: (props, { emit, slots }) => () => h('button', {
+        type: 'button',
+        role: 'checkbox',
+        'aria-checked': String(!!props.checked),
+        onClick: () => emit('update:checked', !props.checked),
+      }, slots.default?.()),
+    }),
     NSwitch: defineComponent({
       name: 'NSwitch',
       props: ['value'],
@@ -146,6 +157,16 @@ describe('DisplaySettings', () => {
             emits: ['update:value'],
             template: '<input class="input-stub" :value="value" @input="$emit(\'update:value\', $event.target.value)" />',
           },
+          NCheckbox: {
+            props: ['checked'],
+            emits: ['update:checked'],
+            template: '<button type="button" role="checkbox" class="checkbox-stub" :aria-checked="String(!!checked)" :data-checked="String(checked)" @click="$emit(\'update:checked\', !checked)"><slot /></button>',
+          },
+          'n-checkbox': {
+            props: ['checked'],
+            emits: ['update:checked'],
+            template: '<button type="button" role="checkbox" class="checkbox-stub" :aria-checked="String(!!checked)" :data-checked="String(checked)" @click="$emit(\'update:checked\', !checked)"><slot /></button>',
+          },
           NSwitch: {
             props: ['value'],
             emits: ['update:value'],
@@ -183,23 +204,27 @@ describe('DisplaySettings', () => {
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_live_tps: false })
   })
 
-  it('exposes separate desktop and mobile tool mascot toggles with legacy default fallback', async () => {
+  it('groups desktop and mobile tool mascot checkboxes in one setting row with legacy default fallback', async () => {
     mockSettingsStore.saveSection.mockResolvedValue(undefined)
     const wrapper = mountDisplaySettings()
 
     const rows = wrapper.findAll('.setting-row')
-    const desktopRow = rows.find(row => row.text().includes('settings.display.showToolMascotDesktop'))
-    expect(desktopRow?.text()).toContain('settings.display.showToolMascotDesktopHint')
-    const mobileRow = rows.find(row => row.text().includes('settings.display.showToolMascotMobile'))
-    expect(mobileRow?.text()).toContain('settings.display.showToolMascotMobileHint')
+    const mascotRows = rows.filter(row => row.text().includes('settings.display.showToolMascot'))
+    expect(mascotRows).toHaveLength(1)
+    const mascotRow = mascotRows[0]
+    expect(mascotRow.text()).toContain('settings.display.showToolMascotHint')
+    expect(mascotRow.text()).toContain('settings.display.showToolMascotDesktop')
+    expect(mascotRow.text()).toContain('settings.display.showToolMascotMobile')
+    expect(mascotRow.text()).not.toContain('settings.display.showToolMascotDesktopHint')
+    expect(mascotRow.text()).not.toContain('settings.display.showToolMascotMobileHint')
 
-    const desktopToggle = desktopRow?.find('[role="switch"]')
-    const mobileToggle = mobileRow?.find('[role="switch"]')
-    expect(desktopToggle?.attributes('aria-checked')).toBe('true')
-    expect(mobileToggle?.attributes('aria-checked')).toBe('true')
+    const checkboxes = mascotRow.findAll('[role="checkbox"]')
+    expect(checkboxes).toHaveLength(2)
+    expect(checkboxes[0].attributes('aria-checked')).toBe('true')
+    expect(checkboxes[1].attributes('aria-checked')).toBe('true')
 
-    await desktopToggle?.trigger('click')
-    await mobileToggle?.trigger('click')
+    await checkboxes[0].trigger('click')
+    await checkboxes[1].trigger('click')
 
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_tool_mascot_desktop: false })
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_tool_mascot_mobile: false })

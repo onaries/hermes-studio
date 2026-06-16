@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { NButton, NSwitch, NSelect, NInputNumber, useMessage } from 'naive-ui'
+import { NButton, NCheckbox, NSwitch, NSelect, NInputNumber, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/hermes/settings'
 import { useTheme, type BrightnessMode } from '@/composables/useTheme'
@@ -126,11 +126,15 @@ async function testCompletionNotification() {
     <SettingRow :label="t('settings.display.showLiveTps')" :hint="t('settings.display.showLiveTpsHint')">
       <NSwitch :value="settingsStore.display.show_live_tps !== false" @update:value="v => save({ show_live_tps: v })" />
     </SettingRow>
-    <SettingRow :label="t('settings.display.showToolMascotDesktop')" :hint="t('settings.display.showToolMascotDesktopHint')">
-      <NSwitch :value="showToolMascotDesktop" @update:value="saveToolMascotDesktop" />
-    </SettingRow>
-    <SettingRow :label="t('settings.display.showToolMascotMobile')" :hint="t('settings.display.showToolMascotMobileHint')">
-      <NSwitch :value="showToolMascotMobile" @update:value="saveToolMascotMobile" />
+    <SettingRow :label="t('settings.display.showToolMascot')" :hint="t('settings.display.showToolMascotHint')">
+      <div class="mascot-checkboxes">
+        <NCheckbox :checked="showToolMascotDesktop" @update:checked="saveToolMascotDesktop">
+          {{ t('settings.display.showToolMascotDesktop') }}
+        </NCheckbox>
+        <NCheckbox :checked="showToolMascotMobile" @update:checked="saveToolMascotMobile">
+          {{ t('settings.display.showToolMascotMobile') }}
+        </NCheckbox>
+      </div>
     </SettingRow>
     <SettingRow :label="t('settings.display.showDrawerRainbow')" :hint="t('settings.display.showDrawerRainbowHint')">
       <NSwitch :value="settingsStore.display.show_drawer_rainbow !== false" @update:value="v => save({ show_drawer_rainbow: v })" />
@@ -187,10 +191,19 @@ async function testCompletionNotification() {
   margin-top: 16px;
 }
 
-.notify-controls {
+.notify-controls,
+.mascot-checkboxes {
   display: inline-flex;
   align-items: center;
+}
+
+.notify-controls {
   gap: 10px;
+}
+
+.mascot-checkboxes {
+  flex-wrap: wrap;
+  gap: 12px 18px;
 }
 
 .input-md {
