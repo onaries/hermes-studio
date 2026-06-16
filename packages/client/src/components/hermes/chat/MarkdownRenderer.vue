@@ -96,6 +96,33 @@ md.use(markdownItKatex, {
 })
 
 const defaultFenceRenderer = md.renderer.rules.fence?.bind(md.renderer.rules)
+const defaultTableOpenRenderer = md.renderer.rules.table_open?.bind(md.renderer.rules)
+const defaultTableCloseRenderer = md.renderer.rules.table_close?.bind(md.renderer.rules)
+
+function escapeAttribute(value: string): string {
+  return md.utils.escapeHtml(value).replace(/"/g, '&quot;')
+}
+
+md.renderer.rules.table_open = (tokens, idx, options, env, self) => {
+  const copyLabel = escapeAttribute(t('common.copy'))
+  const tableOpen = defaultTableOpenRenderer
+    ? defaultTableOpenRenderer(tokens, idx, options, env, self)
+    : self.renderToken(tokens, idx, options)
+  return `<div class="markdown-table-wrapper"><button class="markdown-table-copy-btn" type="button" title="${copyLabel}" aria-label="${copyLabel}" data-markdown-table-copy="true">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+    <span>${copyLabel}</span>
+  </button>${tableOpen}`
+}
+
+md.renderer.rules.table_close = (tokens, idx, options, env, self) => {
+  const tableClose = defaultTableCloseRenderer
+    ? defaultTableCloseRenderer(tokens, idx, options, env, self)
+    : self.renderToken(tokens, idx, options)
+  return `${tableClose}</div>`
+}
 
 md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const token = tokens[idx]
@@ -372,6 +399,28 @@ onBeforeUnmount(() => {
   renderGeneration += 1
 })
 
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  try {
+    if (!navigator.clipboard?.writeText) return false
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function normalizeTableCellText(value: string): string {
+  return value.replace(/[\t\r\n]+/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function tableToClipboardText(table: HTMLTableElement): string {
+  return Array.from(table.rows)
+    .map(row => Array.from(row.cells)
+      .map(cell => normalizeTableCellText(cell.textContent || ''))
+      .join('\t'))
+    .join('\n')
+}
+
 async function handleMarkdownClick(event: MouseEvent): Promise<void> {
   const copyResult = await handleCodeBlockCopyClick(event)
   if (copyResult !== null) {
@@ -384,6 +433,20 @@ async function handleMarkdownClick(event: MouseEvent): Promise<void> {
   }
 
   const target = event.target as HTMLElement
+
+  const tableCopyButton = target.closest('.markdown-table-copy-btn') as HTMLButtonElement | null
+  if (tableCopyButton) {
+    event.preventDefault()
+    event.stopPropagation()
+    const table = tableCopyButton.closest('.markdown-table-wrapper')?.querySelector('table') as HTMLTableElement | null
+    const copied = table ? await copyTextToClipboard(tableToClipboardText(table)) : false
+    if (copied) {
+      message.success(t('common.copied'))
+    } else {
+      message.error(t('chat.copyFailed'))
+    }
+    return
+  }
 
   // Handle image clicks for preview
   const img = target.closest('img') as HTMLImageElement | null
@@ -686,11 +749,48 @@ async function previewTextFile(path: string, fileName: string): Promise<void> {
     word-break: break-word;
   }
 
+  .markdown-table-wrapper {
+    position: relative;
+    max-width: 100%;
+    margin: 8px 0;
+    padding-top: 28px;
+  }
+
+  .markdown-table-copy-btn {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 24px;
+    padding: 0 8px;
+    border: 1px solid $border-color;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    color: $text-secondary;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+
+    &:hover {
+      color: $accent-primary;
+      border-color: rgba(var(--accent-primary-rgb), 0.4);
+      background: rgba(var(--accent-primary-rgb), 0.08);
+    }
+
+    .dark & {
+      background: rgba(38, 38, 38, 0.92);
+    }
+  }
+
   table {
     width: 100%;
     max-width: 100%;
     border-collapse: collapse;
-    margin: 8px 0;
+    margin: 0;
     display: block;
     overflow-x: auto;
 

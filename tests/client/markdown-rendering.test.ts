@@ -716,6 +716,28 @@ describe('MarkdownRenderer', () => {
     expect(writeText).toHaveBeenCalledWith(expected)
   })
 
+  it('copies markdown tables as tab-separated text', async () => {
+    const writeText = vi.mocked(navigator.clipboard.writeText)
+    const wrapper = mount(MarkdownRenderer, {
+      props: {
+        content: [
+          '| Name | Notes |',
+          '| --- | --- |',
+          '| Alpha | first value |',
+          '| Beta | second value |',
+        ].join('\n'),
+      },
+    })
+
+    const copyButton = wrapper.find('.markdown-table-copy-btn')
+    expect(copyButton.exists()).toBe(true)
+    expect(copyButton.attributes('aria-label')).toBe('common.copy')
+
+    await copyButton.trigger('click')
+
+    expect(writeText).toHaveBeenCalledWith('Name\tNotes\nAlpha\tfirst value\nBeta\tsecond value')
+  })
+
   it('falls back to legacy clipboard copy when the Clipboard API is unavailable', async () => {
     Object.defineProperty(window, 'isSecureContext', {
       configurable: true,
