@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { NButton, NSwitch, NSelect, NInputNumber, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/hermes/settings'
@@ -73,6 +74,18 @@ async function handleNotifyOnCompleteChange(value: boolean) {
   }
 }
 
+const showToolMascotLegacy = computed(() => settingsStore.display.show_tool_mascot !== false)
+const showToolMascotDesktop = computed(() => settingsStore.display.show_tool_mascot_desktop ?? showToolMascotLegacy.value)
+const showToolMascotMobile = computed(() => settingsStore.display.show_tool_mascot_mobile ?? showToolMascotLegacy.value)
+
+function saveToolMascotDesktop(value: boolean) {
+  void save({ show_tool_mascot_desktop: value })
+}
+
+function saveToolMascotMobile(value: boolean) {
+  void save({ show_tool_mascot_mobile: value })
+}
+
 async function testCompletionNotification() {
   const result = await requestCompletionNotificationPermission()
   if (!result.granted) {
@@ -113,8 +126,11 @@ async function testCompletionNotification() {
     <SettingRow :label="t('settings.display.showLiveTps')" :hint="t('settings.display.showLiveTpsHint')">
       <NSwitch :value="settingsStore.display.show_live_tps !== false" @update:value="v => save({ show_live_tps: v })" />
     </SettingRow>
-    <SettingRow :label="t('settings.display.showToolMascot')" :hint="t('settings.display.showToolMascotHint')">
-      <NSwitch :value="settingsStore.display.show_tool_mascot !== false" @update:value="v => save({ show_tool_mascot: v })" />
+    <SettingRow :label="t('settings.display.showToolMascotDesktop')" :hint="t('settings.display.showToolMascotDesktopHint')">
+      <NSwitch :value="showToolMascotDesktop" @update:value="saveToolMascotDesktop" />
+    </SettingRow>
+    <SettingRow :label="t('settings.display.showToolMascotMobile')" :hint="t('settings.display.showToolMascotMobileHint')">
+      <NSwitch :value="showToolMascotMobile" @update:value="saveToolMascotMobile" />
     </SettingRow>
     <SettingRow :label="t('settings.display.showDrawerRainbow')" :hint="t('settings.display.showDrawerRainbowHint')">
       <NSwitch :value="settingsStore.display.show_drawer_rainbow !== false" @update:value="v => save({ show_drawer_rainbow: v })" />

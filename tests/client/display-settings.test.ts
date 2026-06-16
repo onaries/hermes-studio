@@ -10,6 +10,8 @@ const mockSettingsStore = vi.hoisted(() => ({
     show_cost: false,
     show_live_tps: undefined,
     show_tool_mascot: undefined,
+    show_tool_mascot_desktop: undefined,
+    show_tool_mascot_mobile: undefined,
     show_drawer_rainbow: undefined,
     inline_diffs: true,
     bell_on_complete: false,
@@ -99,6 +101,8 @@ describe('DisplaySettings', () => {
     mockSettingsStore.saveSection.mockReset()
     mockSettingsStore.display.show_live_tps = undefined
     mockSettingsStore.display.show_tool_mascot = undefined
+    mockSettingsStore.display.show_tool_mascot_desktop = undefined
+    mockSettingsStore.display.show_tool_mascot_mobile = undefined
     mockSettingsStore.display.show_drawer_rainbow = undefined
     mockSettingsStore.display.terminal_font_size = 14
     mockSettingsStore.display.terminal_font_family = 'Menlo, Monaco, "Courier New", monospace'
@@ -179,19 +183,26 @@ describe('DisplaySettings', () => {
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_live_tps: false })
   })
 
-  it('exposes a tool mascot toggle that defaults on and saves changes', async () => {
+  it('exposes separate desktop and mobile tool mascot toggles with legacy default fallback', async () => {
     mockSettingsStore.saveSection.mockResolvedValue(undefined)
     const wrapper = mountDisplaySettings()
 
     const rows = wrapper.findAll('.setting-row')
-    const mascotRow = rows.find(row => row.text().includes('settings.display.showToolMascot'))
-    expect(mascotRow?.text()).toContain('settings.display.showToolMascotHint')
-    const toggle = mascotRow?.find('[role="switch"]')
-    expect(toggle?.attributes('aria-checked')).toBe('true')
+    const desktopRow = rows.find(row => row.text().includes('settings.display.showToolMascotDesktop'))
+    expect(desktopRow?.text()).toContain('settings.display.showToolMascotDesktopHint')
+    const mobileRow = rows.find(row => row.text().includes('settings.display.showToolMascotMobile'))
+    expect(mobileRow?.text()).toContain('settings.display.showToolMascotMobileHint')
 
-    await toggle?.trigger('click')
+    const desktopToggle = desktopRow?.find('[role="switch"]')
+    const mobileToggle = mobileRow?.find('[role="switch"]')
+    expect(desktopToggle?.attributes('aria-checked')).toBe('true')
+    expect(mobileToggle?.attributes('aria-checked')).toBe('true')
 
-    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_tool_mascot: false })
+    await desktopToggle?.trigger('click')
+    await mobileToggle?.trigger('click')
+
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_tool_mascot_desktop: false })
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_tool_mascot_mobile: false })
   })
 
   it('exposes a drawer rainbow glow toggle that defaults on and saves changes', async () => {

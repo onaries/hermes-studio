@@ -113,12 +113,29 @@ const sampleMessages: Message[] = [
   { id: 'assistant-1', role: 'assistant', content: 'done', timestamp: 4 },
 ]
 
+function setMobileViewport(matches: boolean) {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  })
+}
+
 describe('tool trace visibility', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     localStorage.removeItem('hermes_show_tool_calls')
     const settingsStore = useSettingsStore()
     settingsStore.display = { show_tool_mascot: undefined }
+    setMobileViewport(false)
     useToolTraceVisibility().setToolTraceVisible(true)
   })
 
@@ -154,9 +171,34 @@ describe('tool trace visibility', () => {
     expect(readFileTool?.attributes('title')).toContain('/Users/safemotion/Documents/projects/safemotion/clip/really/long/file/path/that/does/not/fit/on/one/line.ts')
   })
 
-  it('hides the live tool mascot when disabled in display settings', () => {
+  it('hides the live tool mascot on desktop when disabled in desktop display settings', () => {
+    const settingsStore = useSettingsStore()
+    settingsStore.display = { show_tool_mascot_desktop: false, show_tool_mascot_mobile: true }
+    setMobileViewport(false)
+
+    const wrapper = mountLiveList()
+
+    expect(wrapper.find('.thinking-video').exists()).toBe(false)
+    expect(wrapper.find('.streaming-indicator--no-mascot').exists()).toBe(true)
+    expect(wrapper.findAll('.tool-call-name').map(node => node.text())).toContain('read_file')
+  })
+
+  it('hides the live tool mascot on mobile without changing the desktop setting', () => {
+    const settingsStore = useSettingsStore()
+    settingsStore.display = { show_tool_mascot_desktop: true, show_tool_mascot_mobile: false }
+    setMobileViewport(true)
+
+    const wrapper = mountLiveList()
+
+    expect(wrapper.find('.thinking-video').exists()).toBe(false)
+    expect(wrapper.find('.streaming-indicator--no-mascot').exists()).toBe(true)
+    expect(wrapper.findAll('.tool-call-name').map(node => node.text())).toContain('read_file')
+  })
+
+  it('falls back to the legacy tool mascot setting when platform-specific settings are unset', () => {
     const settingsStore = useSettingsStore()
     settingsStore.display = { show_tool_mascot: false }
+    setMobileViewport(true)
 
     const wrapper = mountLiveList()
 

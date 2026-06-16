@@ -44,7 +44,16 @@ const settingsStore = useSettingsStore();
 const { t } = useI18n();
 const { isDark } = useTheme();
 const { toolTraceVisible } = useToolTraceVisibility();
-const showToolMascot = computed(() => settingsStore.display.show_tool_mascot !== false);
+const isMobileViewport = ref(
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(max-width: 768px)').matches
+    : false,
+);
+let mobileViewportQuery: MediaQueryList | null = null;
+const showToolMascotLegacy = computed(() => settingsStore.display.show_tool_mascot !== false);
+const showToolMascotDesktop = computed(() => settingsStore.display.show_tool_mascot_desktop ?? showToolMascotLegacy.value);
+const showToolMascotMobile = computed(() => settingsStore.display.show_tool_mascot_mobile ?? showToolMascotLegacy.value);
+const showToolMascot = computed(() => isMobileViewport.value ? showToolMascotMobile.value : showToolMascotDesktop.value);
 const listRef = ref<InstanceType<typeof VirtualMessageList> | null>(null);
 const pendingInitialScrollSessionId = ref<string | null>(null);
 const showScrollBottomButton = ref(false);
@@ -556,8 +565,15 @@ watch(
   },
 );
 
+function updateMobileViewport(event?: MediaQueryListEvent | MediaQueryList) {
+  isMobileViewport.value = Boolean(event?.matches ?? mobileViewportQuery?.matches ?? false);
+}
+
 onBeforeUnmount(() => {
   saveSessionScrollPosition(chatStore.activeSessionId);
+  if (mobileViewportQuery) {
+    mobileViewportQuery.removeEventListener?.('change', updateMobileViewport);
+  }
   for (const timer of enteringToolCallTimers.values()) {
     window.clearTimeout(timer);
   }
@@ -565,6 +581,11 @@ onBeforeUnmount(() => {
 });
 
 onMounted(() => {
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    mobileViewportQuery = window.matchMedia('(max-width: 768px)');
+    updateMobileViewport(mobileViewportQuery);
+    mobileViewportQuery.addEventListener?.('change', updateMobileViewport);
+  }
   void nextTick(updateScrollBottomButton);
 });
 
