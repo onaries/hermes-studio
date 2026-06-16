@@ -23,6 +23,7 @@ const naiveTheme = computed(() => isDark.value ? darkTheme : null)
 
 const isLoginPage = computed(() => route.name === 'login')
 
+
 const nodeVersionLow = computed(() => {
   const v = appStore.nodeVersion
   const major = parseInt(v.split('.')[0], 10)
@@ -32,6 +33,10 @@ const nodeVersionLow = computed(() => {
 const isDesktopShell = computed(() =>
   (window as typeof window & { hermesDesktop?: { isDesktop?: boolean } }).hermesDesktop?.isDesktop === true,
 )
+const hasDesktopTitleBar = computed(() => {
+  const platform = (window as typeof window & { hermesDesktop?: { platform?: string } }).hermesDesktop?.platform
+  return isDesktopShell.value && (platform === 'darwin' || platform === 'win32')
+})
 
 function handleMobileMenuClick() {
   appStore.toggleSidebar()
@@ -66,7 +71,7 @@ useKeyboard()
       <AuthEventListener />
       <NDialogProvider>
         <NNotificationProvider>
-          <div class="app-shell" :class="{ desktop: isDesktopShell }">
+          <div class="app-shell" :class="{ desktop: isDesktopShell, 'desktop-titlebar-host': hasDesktopTitleBar }">
             <DesktopTitleBar v-if="isDesktopShell" />
             <div v-if="nodeVersionLow" class="node-warning-bar">
               {{ t('sidebar.nodeVersionWarning', { version: appStore.nodeVersion }) }}
@@ -116,7 +121,7 @@ useKeyboard()
   }
 }
 
-.app-shell.desktop .app-layout {
+.app-shell.desktop-titlebar-host .app-layout {
   --vh: calc(1vh - 0.36px);
 }
 

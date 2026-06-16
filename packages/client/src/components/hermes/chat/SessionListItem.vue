@@ -53,6 +53,7 @@ const pendingInteractionLabel = computed(() => {
   if (props.pendingInteraction === 'clarify') return t('chat.sessionNeedsClarify')
   return ''
 })
+const isGlobalAgentSession = computed(() => props.session.source === 'global_agent')
 const sessionAgentLogo = computed(() => {
   if (props.session.source === 'coding_agent') {
     if (props.session.codingAgentId === 'codex' || props.session.agent === 'codex') {
@@ -177,6 +178,24 @@ onUnmounted(() => {
         <span class="session-item-profile-name">{{ profileName }}</span>
       </span>
     </div>
+    <svg
+      v-if="isGlobalAgentSession"
+      class="session-item-global-icon"
+      :aria-label="t('sidebar.globalAgent')"
+      :title="t('sidebar.globalAgent')"
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <rect x="7" y="7" width="10" height="10" rx="2" />
+      <path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4" />
+      <path d="M10 10h4v4h-4z" />
+    </svg>
     <NPopconfirm v-if="canDelete && !selectable" @positive-click="emit('delete')">
       <template #trigger>
         <button class="session-item-delete" @click.stop.prevent>
@@ -189,6 +208,155 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+
+.session-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  margin-bottom: 2px;
+}
+
+.session-item:hover {
+  background: rgba(var(--accent-primary-rgb), 0.06);
+  color: var(--text-primary);
+}
+
+.session-item:hover .session-item-delete {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.session-item:focus-within .session-item-delete {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.session-item.active {
+  background: rgba(var(--accent-primary-rgb), 0.12);
+  color: var(--text-primary);
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+.session-item.active .session-item-title {
+  color: var(--accent-primary);
+}
+
+.session-item.missing-models {
+  color: #b42318;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.session-item.missing-models .session-item-title,
+.session-item.missing-models .session-item-profile-name,
+.session-item.missing-models .session-item-time {
+  color: #b42318;
+}
+
+.session-item.missing-models:hover {
+  background: rgba(220, 38, 38, 0.12);
+}
+
+.session-item-content {
+  flex: 1;
+  min-width: 0;
+  overflow: visible;
+}
+
+.session-item-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.session-item-title-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.session-item-title {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-item-pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--accent-primary);
+}
+
+.session-item-unread-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(var(--accent-primary-rgb), 0.12);
+}
+
+.session-item-time {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.session-item-global-icon {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  color: #d6a019;
+  pointer-events: none;
+}
+
+.session-item-delete {
+  flex-shrink: 0;
+  opacity: 0;
+  pointer-events: none;
+  padding: 2px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all var(--transition-fast);
+}
+
+.session-item-delete:hover {
+  color: var(--error);
+  background: rgba(var(--error-rgb), 0.1);
+}
+
+@media (hover: none) {
+  .session-item-delete {
+    opacity: 0.5;
+    pointer-events: auto;
+  }
+}
+
+
 .session-item-profile {
   display: flex;
   align-items: center;

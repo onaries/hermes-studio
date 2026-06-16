@@ -196,6 +196,8 @@ export default {
     skillsUsage: 'Skill-Nutzung',
     channels: 'Kanale',
     terminal: 'Konsole',
+    singleChat: 'Chat',
+    globalAgent: 'Global Agent',
     files: 'Dateien',
     devices: 'Gerate',
     groupChat: 'Gruppenchat',

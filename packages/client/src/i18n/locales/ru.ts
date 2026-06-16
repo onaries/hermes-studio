@@ -124,6 +124,7 @@ export default {
     gateways: 'Шлюзы',
     terminal: 'Терминал',
     singleChat: 'Чат',
+    globalAgent: 'Global Agent',
     groupChat: 'Групповой чат',
     files: 'Файлы',
     devices: 'Устройства',

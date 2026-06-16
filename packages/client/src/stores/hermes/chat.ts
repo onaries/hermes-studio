@@ -1,4 +1,4 @@
-import { startRunViaSocket, resumeSession, registerSessionHandlers, unregisterSessionHandlers, getChatRunSocket, connectChatRun, respondToolApproval, onPeerUserMessage, onSessionCommand, onSessionTitleUpdated, respondClarify, type RunEvent, type ResumeSessionPayload, type StartRunRequest, type ContentBlock as ContentBlockImport } from '@/api/hermes/chat'
+import { startRunViaSocket, resumeSession, registerSessionHandlers, unregisterSessionHandlers, getChatRunSocket, connectChatRun, respondToolApproval, onPeerUserMessage, onSessionCommand, onSessionTitleUpdated, respondClarify, type ChatRunTransport, type RunEvent, type ResumeSessionPayload, type StartRunRequest, type ContentBlock as ContentBlockImport } from '@/api/hermes/chat'
 import { deleteSession as deleteSessionApi, fetchSessionMessagesPage, fetchSessions, setSessionModel, type HermesMessage, type SessionSummary } from '@/api/hermes/sessions'
 import { getActiveProfileName } from '@/api/client'
 import { getDownloadUrl } from '@/api/hermes/download'
@@ -437,7 +437,9 @@ function mapHermesMessages(msgs: HermesMessage[]): Message[] {
 }
 
 function mapHermesSession(s: SessionSummary): Session {
-  const codingAgentMode = s.source === 'coding_agent'
+  const isCodingAgentSession = s.source === 'coding_agent' || s.agent === 'claude' || s.agent === 'codex'
+  const codingAgentId = s.agent === 'codex' ? 'codex' : s.agent === 'claude' ? 'claude-code' : undefined
+  const codingAgentMode = isCodingAgentSession
     ? (s.agent_mode === 'global' || s.agent_mode === 'scoped'
         ? s.agent_mode
         : s.provider === 'global' ? 'global' : 'scoped')
@@ -450,6 +452,7 @@ function mapHermesSession(s: SessionSummary): Session {
     agent: s.agent || undefined,
     agentSessionId: s.agent_session_id || undefined,
     agentNativeSessionId: s.agent_native_session_id || undefined,
+    codingAgentId,
     codingAgentMode,
     messages: [],
     createdAt: Math.round(s.started_at * 1000),
@@ -469,6 +472,8 @@ function mapHermesSession(s: SessionSummary): Session {
 }
 
 const STORAGE_KEY_PREFIX = 'hermes_active_session_'
+type ChatRuntimeMode = 'default' | 'global_agent'
+let activeRuntimeMode: ChatRuntimeMode = 'default'
 const LEGACY_STORAGE_KEY = 'hermes_active_session'
 
 // 获取当前 profile 名称，用于隔离缓存。
@@ -482,8 +487,20 @@ function getProfileName(): string {
   }
 }
 
-function storageKey(): string { return STORAGE_KEY_PREFIX + getProfileName() }
-function legacyStorageKey(): string | null { return getProfileName() === 'default' ? LEGACY_STORAGE_KEY : null }
+function runtimeStoragePrefix(): string {
+  return activeRuntimeMode === 'global_agent' ? `${STORAGE_KEY_PREFIX}global_agent_` : STORAGE_KEY_PREFIX
+}
+
+function storageKey(): string { return runtimeStoragePrefix() + getProfileName() }
+function legacyStorageKey(): string | null { return activeRuntimeMode === 'default' && getProfileName() === 'default' ? LEGACY_STORAGE_KEY : null }
+
+function isCodingAgentLikeSession(session?: Pick<Session, 'source' | 'agent' | 'codingAgentId'> | null): boolean {
+  return session?.source === 'coding_agent' ||
+    session?.codingAgentId === 'claude-code' ||
+    session?.codingAgentId === 'codex' ||
+    session?.agent === 'claude' ||
+    session?.agent === 'codex'
+}
 
 function isQuotaExceededError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
@@ -574,6 +591,7 @@ function roundTps(value: number): number {
 }
 
 export const useChatStore = defineStore('chat', () => {
+  const runtimeMode = ref<ChatRuntimeMode>(activeRuntimeMode)
   const seenSessionCommandEvents = new WeakSet<RunEvent>()
   const sessions = ref<Session[]>([])
   const activeSessionId = ref<string | null>(null)
@@ -617,6 +635,40 @@ export const useChatStore = defineStore('chat', () => {
   const sessionsLoaded = ref(false)
   const isLoadingMessages = ref(false)
   const isRunActive = computed(() => isStreaming.value)
+
+  async function fetchRuntimeSessions(profile?: string | null): Promise<SessionSummary[]> {
+    const scopedProfile = profile || undefined
+    if (runtimeMode.value === 'global_agent') return fetchSessions('global_agent', undefined, scopedProfile)
+
+    const [localSessions, globalSessions] = await Promise.all([
+      fetchSessions(undefined, undefined, scopedProfile),
+      fetchSessions('global_agent', undefined, scopedProfile),
+    ])
+    const byId = new Map<string, SessionSummary>()
+    for (const session of [...localSessions, ...globalSessions]) byId.set(session.id, session)
+    return [...byId.values()].sort((a, b) =>
+      (b.last_active || b.ended_at || b.started_at || 0) - (a.last_active || a.ended_at || a.started_at || 0),
+    )
+  }
+
+  function runtimeTransport(): ChatRunTransport {
+    return runtimeMode.value === 'global_agent' ? 'global-agent' : 'chat-run'
+  }
+
+  function setRuntimeMode(mode: ChatRuntimeMode) {
+    if (runtimeMode.value === mode) return
+    activeRuntimeMode = mode
+    runtimeMode.value = mode
+    sessions.value = []
+    queueLengths.value = new Map()
+    queuedUserMessages.value = new Map()
+    pendingApprovals.value = new Map()
+    pendingClarifies.value = new Map()
+    streamStates.value = new Map()
+    serverWorking.value = new Set()
+    sessionsLoaded.value = false
+    clearActiveSession()
+  }
 
   // Compression state is scoped per session because sockets can stay joined to
   // background sessions while another chat is active.
@@ -773,7 +825,7 @@ export const useChatStore = defineStore('chat', () => {
   async function loadSessions(profile?: string | null, preferredSessionId?: string | null) {
     isLoadingSessions.value = true
     try {
-      const list = await fetchSessions(undefined, undefined, profile || undefined)
+      const list = await fetchRuntimeSessions(profile)
       const fresh = list.map(mapHermesSession)
       // Preserve already-loaded messages for sessions that are still present,
       // so we don't blow away the active session's messages on refresh.
@@ -831,7 +883,7 @@ export const useChatStore = defineStore('chat', () => {
     if (isStreaming.value) return
     if (isLoadingSessions.value) return
     try {
-      const list = await fetchSessions(undefined, undefined, profile ?? sessionProfileFilter.value ?? undefined)
+      const list = await fetchRuntimeSessions(profile ?? sessionProfileFilter.value)
       const incoming = list.map(mapHermesSession)
       const existingById = new Map(sessions.value.map(s => [s.id, s]))
       const incomingIds = new Set(incoming.map(s => s.id))
@@ -916,7 +968,7 @@ export const useChatStore = defineStore('chat', () => {
     profile?: string
     model?: string
     provider?: string
-    source?: 'api_server' | 'cli' | 'coding_agent'
+    source?: 'api_server' | 'cli' | 'coding_agent' | 'global_agent'
     agent?: 'hermes' | 'claude' | 'codex'
     codingAgentId?: 'claude-code' | 'codex'
     codingAgentMode?: 'global' | 'scoped'
@@ -925,15 +977,15 @@ export const useChatStore = defineStore('chat', () => {
     apiKey?: string
     apiMode?: 'chat_completions' | 'codex_responses' | 'anthropic_messages'
   } = {}): Session {
-    const source = options.source || 'cli'
+    const source = runtimeMode.value === 'global_agent' ? 'global_agent' : options.source || 'cli'
     const codingAgentId = options.codingAgentId || (options.agent === 'codex' ? 'codex' : options.agent === 'claude' ? 'claude-code' : undefined)
-    const codingAgentMode = source === 'coding_agent' ? (options.codingAgentMode || 'scoped') : undefined
+    const codingAgentMode = codingAgentId ? (options.codingAgentMode || 'scoped') : undefined
     const session: Session = {
       id: uid(),
       profile: options.profile || useProfilesStore().activeProfileName || 'default',
       title: '',
       source,
-      agent: options.agent || (source === 'coding_agent' ? (codingAgentId === 'codex' ? 'codex' : 'claude') : 'hermes'),
+      agent: options.agent || (codingAgentId ? (codingAgentId === 'codex' ? 'codex' : 'claude') : 'hermes'),
       codingAgentId,
       codingAgentMode,
       messages: [],
@@ -965,7 +1017,7 @@ export const useChatStore = defineStore('chat', () => {
     const session: Session = {
       id: `${ts}_${hex}`,
       title: '',
-      source: 'cli',
+      source: runtimeMode.value === 'global_agent' ? 'global_agent' : 'cli',
       agent: 'hermes',
       messages: [],
       createdAt: Date.now(),
@@ -1140,7 +1192,7 @@ export const useChatStore = defineStore('chat', () => {
             }
           }
           resolve()
-        }, activeSession.value?.profile)
+        }, activeSession.value?.profile, runtimeTransport())
       })
     } catch (err) {
       console.error('Failed to load session messages via resume:', err)
@@ -1188,7 +1240,7 @@ export const useChatStore = defineStore('chat', () => {
     profile?: string
     model?: string
     provider?: string
-    source?: 'api_server' | 'cli' | 'coding_agent'
+    source?: 'api_server' | 'cli' | 'coding_agent' | 'global_agent'
     agent?: 'hermes' | 'claude' | 'codex'
     codingAgentId?: 'claude-code' | 'codex'
     codingAgentMode?: 'global' | 'scoped'
@@ -1198,15 +1250,16 @@ export const useChatStore = defineStore('chat', () => {
     apiMode?: 'chat_completions' | 'codex_responses' | 'anthropic_messages'
   } = {}): Session {
     const appStore = useAppStore()
-    const source = options.source || 'cli'
-    const isGlobalCodingAgent = source === 'coding_agent' && options.codingAgentMode === 'global'
+    const storageSource = runtimeMode.value === 'global_agent' ? 'global_agent' : options.source || 'cli'
+    const codingAgentId = options.codingAgentId || (options.agent === 'codex' ? 'codex' : options.agent === 'claude' ? 'claude-code' : undefined)
+    const isGlobalCodingAgent = Boolean(codingAgentId) && options.codingAgentMode === 'global'
     const session = createSession({
       profile: options.profile,
       model: isGlobalCodingAgent ? undefined : options.model || appStore.selectedModel || undefined,
       provider: isGlobalCodingAgent ? '' : options.provider || appStore.selectedProvider || '',
-      source,
+      source: storageSource,
       agent: options.agent,
-      codingAgentId: options.codingAgentId,
+      codingAgentId,
       codingAgentMode: options.codingAgentMode,
       workspace: options.workspace,
       baseUrl: options.baseUrl,
@@ -1679,7 +1732,7 @@ export const useChatStore = defineStore('chat', () => {
 
   function removeQueuedMessage(sessionId: string, messageId: string) {
     if (!dropQueuedUserMessage(sessionId, messageId)) return
-    getChatRunSocket()?.emit('cancel_queued_run', {
+    getChatRunSocket(runtimeTransport())?.emit('cancel_queued_run', {
       session_id: sessionId,
       queue_id: messageId,
     })
@@ -1914,7 +1967,7 @@ export const useChatStore = defineStore('chat', () => {
   function respondToClarify(response: string) {
     const pending = activePendingClarify.value
     if (!pending) return
-    respondClarify(pending.sessionId, pending.clarifyId, response)
+    respondClarify(pending.sessionId, pending.clarifyId, response, runtimeTransport())
     pendingClarifies.value.delete(pending.sessionId)
     pendingClarifies.value = new Map(pendingClarifies.value)
   }
@@ -1923,7 +1976,7 @@ export const useChatStore = defineStore('chat', () => {
   function respondApproval(choice: PendingApproval['choices'][number]) {
     const pending = activePendingApproval.value
     if (!pending) return
-    respondToolApproval(pending.sessionId, pending.approvalId, choice)
+    respondToolApproval(pending.sessionId, pending.approvalId, choice, runtimeTransport())
     pendingApprovals.value.delete(pending.sessionId)
     pendingApprovals.value = new Map(pendingApprovals.value)
   }
@@ -2038,15 +2091,16 @@ export const useChatStore = defineStore('chat', () => {
       ? activeSession.value.messageCount == null || activeSession.value.messageCount === 0
       : false
     const trimmedContent = content.trim()
-    const isCodingAgentSession = activeSession.value?.source === 'coding_agent'
+    const isCodingAgentSession = isCodingAgentLikeSession(activeSession.value)
     const wasLiveBeforeSend = isSessionLive(sid)
     const bridgeCommandContent = trimmedContent
     const isBridgeSlashCommand = !isCodingAgentSession && bridgeCommandContent.startsWith('/')
     const isBridgeCompressCommand = isBridgeSlashCommand && /^\/compress(?:\s|$)/i.test(bridgeCommandContent)
     const isBridgePlanCommand = isBridgeSlashCommand && /^\/plan(?:\s|$)/i.test(bridgeCommandContent)
+    const isBridgeSkillCommand = isBridgeSlashCommand && /^\/skill(?:\s|$)/i.test(bridgeCommandContent)
     const isBridgeGoalCommand = isBridgeSlashCommand && /^\/goal(?:\s|$)/i.test(bridgeCommandContent)
     const isBridgeBackgroundCommand = isBridgeSlashCommand && /^\/(?:btw|bg|background)(?:\s|$)/i.test(bridgeCommandContent)
-    const shouldQueue = wasLiveBeforeSend && (!isBridgeSlashCommand || isBridgePlanCommand)
+    const shouldQueue = wasLiveBeforeSend && (!isBridgeSlashCommand || isBridgePlanCommand || isBridgeSkillCommand)
 
     const userMsg: Message = {
       id: uid(),
@@ -2117,7 +2171,11 @@ export const useChatStore = defineStore('chat', () => {
         : undefined
       const runModelGroups = profileModelGroups?.length ? profileModelGroups : appStore.modelGroups
       const providerGroup = runModelGroups.find(group => group.provider === sessionProvider)
-      const sessionSource: StartRunRequest['source'] = activeSession.value?.source === 'coding_agent' ? 'coding_agent' : 'cli'
+      const sessionSource: StartRunRequest['source'] = activeSession.value?.source === 'global_agent'
+        ? 'global_agent'
+        : isCodingAgentSession
+          ? 'coding_agent'
+          : 'cli'
       const codingAgentId: 'claude-code' | 'codex' =
         activeSession.value?.codingAgentId ||
         (activeSession.value?.agent === 'codex' ? 'codex' : 'claude-code')
@@ -2139,6 +2197,7 @@ export const useChatStore = defineStore('chat', () => {
         queue_id: userMsg.id,
         workspace: activeSession.value?.workspace || undefined,
         source: sessionSource,
+        ...(runtimeMode.value === 'global_agent' ? { session_source: 'global_agent' as const } : {}),
         ...(sessionSource === 'coding_agent'
           ? {
               coding_agent_id: codingAgentId,
@@ -2157,7 +2216,7 @@ export const useChatStore = defineStore('chat', () => {
       }
 
       if (isBridgeBackgroundCommand) {
-        connectChatRun(runPayload.profile).emit('run', runPayload)
+        connectChatRun(runPayload.profile, runtimeTransport()).emit('run', runPayload)
         runSubmitted = true
         return
       }
@@ -2839,7 +2898,7 @@ export const useChatStore = defineStore('chat', () => {
           activeRunMarker = null
         },
         undefined,
-        { onReconnectResume: applyReconnectResume },
+        { onReconnectResume: applyReconnectResume, transport: runtimeTransport() },
       )
       runSubmitted = true
 
@@ -3413,7 +3472,7 @@ export const useChatStore = defineStore('chat', () => {
     // Mark as streaming so UI shows the indicator and can still abort after refresh.
     streamStates.value.set(sid, {
       abort: () => {
-        getChatRunSocket()?.emit('abort', { session_id: sid })
+        getChatRunSocket(runtimeTransport())?.emit('abort', { session_id: sid })
       },
     })
   }
@@ -3497,7 +3556,7 @@ export const useChatStore = defineStore('chat', () => {
     }
     if (serverWorking.value.has(sid)) {
       setAbortState({ aborting: true, synced: null })
-      getChatRunSocket()?.emit('abort', { session_id: sid })
+      getChatRunSocket(runtimeTransport())?.emit('abort', { session_id: sid })
       const msgs = getSessionMsgs(sid)
       const lastMsg = msgs[msgs.length - 1]
       if (lastMsg?.isStreaming) {
@@ -3538,7 +3597,7 @@ export const useChatStore = defineStore('chat', () => {
               activeSession.value.hasMoreBefore = data.hasMoreBefore ?? activeSession.value.loadedMessageCount < activeSession.value.messageTotal
             }
             resumeServerWorkingRun(sid)
-          }, activeSession.value?.profile)
+          }, activeSession.value?.profile, runtimeTransport())
         }
       }
     })
@@ -3661,6 +3720,7 @@ export const useChatStore = defineStore('chat', () => {
 
   return {
     sessions,
+    runtimeMode,
     activeSessionId,
     activeSession,
     focusMessageId,
@@ -3708,5 +3768,6 @@ export const useChatStore = defineStore('chat', () => {
     setAutoPlaySpeech,
     playMessageSpeech,
     setSessionReasoningEffort,
+    setRuntimeMode,
   }
 })

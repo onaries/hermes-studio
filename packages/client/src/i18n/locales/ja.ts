@@ -196,6 +196,8 @@ export default {
     skillsUsage: 'スキル使用状況',
     channels: 'チャンネル',
     terminal: 'ターミナル',
+    singleChat: 'チャット',
+    globalAgent: 'Global Agent',
     files: 'ファイル',
     devices: 'デバイス',
     groupChat: 'グループチャット',

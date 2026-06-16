@@ -199,6 +199,7 @@ export default {
     gateways: 'Gateways',
     terminal: 'Terminal',
     singleChat: 'Chat',
+    globalAgent: 'Global Agent',
     groupChat: 'Group Chat',
     files: 'Files',
     devices: 'Devices',

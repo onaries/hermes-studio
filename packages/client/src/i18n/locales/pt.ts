@@ -196,6 +196,8 @@ export default {
     skillsUsage: 'Uso de habilidades',
     channels: 'Canais',
     terminal: 'Terminal',
+    singleChat: 'Chat',
+    globalAgent: 'Global Agent',
     files: 'Arquivos',
     devices: 'Dispositivos',
     groupChat: 'Chat em grupo',
