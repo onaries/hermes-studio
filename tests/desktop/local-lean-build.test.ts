@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const root = resolve(__dirname, '../..')
@@ -12,6 +12,8 @@ describe('local lean desktop build script', () => {
   it('packages desktop releases after pruning root dev dependencies and restores them', () => {
     const pkg = JSON.parse(read('package.json'))
     const script = read('scripts/build-desktop-local-lean.mjs')
+    const shellScript = read('scripts/build-desktop-local-lean.sh')
+    const shellMode = statSync(resolve(root, 'scripts/build-desktop-local-lean.sh')).mode
 
     expect(pkg.scripts['build:desktop:mac:lean']).toContain('scripts/build-desktop-local-lean.mjs')
     expect(pkg.scripts['build:desktop:mac:lean']).toContain('--mac zip --arm64')
@@ -21,5 +23,8 @@ describe('local lean desktop build script', () => {
     expect(script).toContain("runOptional('npm', ['rebuild', 'node-pty'])")
     expect(script).toContain('electron-builder')
     expect(script).toContain('CSC_IDENTITY_AUTO_DISCOVERY')
+    expect(shellScript).toContain('build-desktop-local-lean.mjs')
+    expect(shellScript).toContain('exec node')
+    expect(shellMode & 0o111).toBeTruthy()
   })
 })
