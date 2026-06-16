@@ -56,6 +56,12 @@ describe('chat message mobile layout guards', () => {
     expect(markdownRenderer).toContain('width: 100%;')
     expect(markdownRenderer).toContain('code:not(.hljs)')
     expect(markdownRenderer).toContain('white-space: pre-wrap;')
+    expect(markdownRenderer).toContain('min-width: 120px;')
+    expect(markdownRenderer).toContain('max-width: 240px;')
+    expect(markdownRenderer).toContain('vertical-align: top;')
+    expect(markdownRenderer).toContain('white-space: normal;')
+    expect(markdownRenderer).toContain('overflow-wrap: anywhere;')
+    expect(markdownRenderer).toContain('word-break: break-word;')
 
     expect(groupChatPanel).toContain('.group-chat-panel')
     expect(groupChatPanel).toContain('min-width: 0;')

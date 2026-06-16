@@ -695,10 +695,16 @@ async function previewTextFile(path: string, fileName: string): Promise<void> {
     overflow-x: auto;
 
     th, td {
+      min-width: 120px;
+      max-width: 240px;
       padding: 6px 12px;
       border: 1px solid $border-color;
       text-align: left;
+      vertical-align: top;
       font-size: 13px;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     th {
