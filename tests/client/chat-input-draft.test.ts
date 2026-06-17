@@ -264,4 +264,20 @@ describe('ChatInput draft persistence', () => {
 
     expect((textarea.element as HTMLTextAreaElement).value).toBe('/skill github-pr-review ')
   })
+
+  it('hides bridge autocomplete for non-Hermes slash prefixes', async () => {
+    const wrapper = mountForSession('session-prefixes')
+    const textarea = wrapper.get('textarea')
+
+    await textarea.setValue('/')
+    await nextTick()
+    expect(wrapper.findAll('.slash-command-item').length).toBeGreaterThan(0)
+
+    await textarea.setValue('/ter')
+    ;(textarea.element as HTMLTextAreaElement).setSelectionRange(4, 4)
+    await textarea.trigger('input')
+    await nextTick()
+
+    expect(wrapper.find('.slash-command-dropdown').classes()).toContain('dropdown-fade-leave-active')
+  })
 })

@@ -1,7 +1,9 @@
 import { startRunViaSocket, resumeSession, registerSessionHandlers, unregisterSessionHandlers, getChatRunSocket, connectChatRun, respondToolApproval, onPeerUserMessage, onSessionCommand, onSessionTitleUpdated, respondClarify, type ChatRunTransport, type RunEvent, type ResumeSessionPayload, type StartRunRequest, type ContentBlock as ContentBlockImport } from '@/api/hermes/chat'
 import { deleteSession as deleteSessionApi, fetchSessionMessagesPage, fetchSessions, setSessionModel, type HermesMessage, type SessionSummary } from '@/api/hermes/sessions'
 import { getActiveProfileName } from '@/api/client'
+import { inferCodingAgentApiMode, normalizeCodingAgentApiMode } from '@/api/coding-agents'
 import { getDownloadUrl } from '@/api/hermes/download'
+import type { ProviderApiMode } from '@/api/hermes/system'
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { useAppStore } from './app'
@@ -10,6 +12,7 @@ import { useSettingsStore } from './settings'
 import { primeCompletionSound, playCompletionSound } from '@/utils/completion-sound'
 import { showCompletionNotification } from '@/utils/completion-notification'
 import { detectThinkingBoundary } from '@/utils/thinking-parser'
+import { isKnownBridgeSessionCommand } from '@/utils/hermes/bridge-session-commands'
 
 // Re-export ContentBlock for convenience
 export type ContentBlock = ContentBlockImport
@@ -95,7 +98,7 @@ export interface Session {
   provider?: string
   baseUrl?: string
   apiKey?: string
-  apiMode?: 'chat_completions' | 'codex_responses' | 'anthropic_messages'
+  apiMode?: ProviderApiMode
   messageCount?: number
   messageTotal?: number
   loadedMessageCount?: number
@@ -975,7 +978,7 @@ export const useChatStore = defineStore('chat', () => {
     workspace?: string | null
     baseUrl?: string
     apiKey?: string
-    apiMode?: 'chat_completions' | 'codex_responses' | 'anthropic_messages'
+    apiMode?: ProviderApiMode
   } = {}): Session {
     const source = runtimeMode.value === 'global_agent' ? 'global_agent' : options.source || 'cli'
     const codingAgentId = options.codingAgentId || (options.agent === 'codex' ? 'codex' : options.agent === 'claude' ? 'claude-code' : undefined)
@@ -1247,7 +1250,7 @@ export const useChatStore = defineStore('chat', () => {
     workspace?: string | null
     baseUrl?: string
     apiKey?: string
-    apiMode?: 'chat_completions' | 'codex_responses' | 'anthropic_messages'
+    apiMode?: ProviderApiMode
   } = {}): Session {
     const appStore = useAppStore()
     const storageSource = runtimeMode.value === 'global_agent' ? 'global_agent' : options.source || 'cli'
@@ -2080,6 +2083,8 @@ export const useChatStore = defineStore('chat', () => {
 
     primeCompletionBellIfEnabled()
 
+    const trimmedContent = content.trim()
+
     if (!activeSession.value) {
       const session = createSession()
       switchSession(session.id)
@@ -2090,11 +2095,10 @@ export const useChatStore = defineStore('chat', () => {
     const shouldSendInitialSessionConfig = activeSession.value
       ? activeSession.value.messageCount == null || activeSession.value.messageCount === 0
       : false
-    const trimmedContent = content.trim()
     const isCodingAgentSession = isCodingAgentLikeSession(activeSession.value)
     const wasLiveBeforeSend = isSessionLive(sid)
     const bridgeCommandContent = trimmedContent
-    const isBridgeSlashCommand = !isCodingAgentSession && bridgeCommandContent.startsWith('/')
+    const isBridgeSlashCommand = !isCodingAgentSession && isKnownBridgeSessionCommand(bridgeCommandContent)
     const isBridgeCompressCommand = isBridgeSlashCommand && /^\/compress(?:\s|$)/i.test(bridgeCommandContent)
     const isBridgePlanCommand = isBridgeSlashCommand && /^\/plan(?:\s|$)/i.test(bridgeCommandContent)
     const isBridgeSkillCommand = isBridgeSlashCommand && /^\/skill(?:\s|$)/i.test(bridgeCommandContent)
@@ -2180,6 +2184,15 @@ export const useChatStore = defineStore('chat', () => {
         activeSession.value?.codingAgentId ||
         (activeSession.value?.agent === 'codex' ? 'codex' : 'claude-code')
       const codingAgentMode = activeSession.value?.codingAgentMode || 'scoped'
+      const codingAgentApiMode = sessionSource === 'coding_agent' && codingAgentMode !== 'global'
+        ? normalizeCodingAgentApiMode(
+            activeSession.value?.apiMode || providerGroup?.api_mode,
+            inferCodingAgentApiMode(
+              sessionProvider || providerGroup?.provider,
+              activeSession.value?.baseUrl || providerGroup?.base_url,
+            ),
+          )
+        : undefined
       const runPayload: StartRunRequest = {
         input,
         session_id: sid,
@@ -2204,7 +2217,7 @@ export const useChatStore = defineStore('chat', () => {
               mode: codingAgentMode,
               baseUrl: codingAgentMode === 'global' ? undefined : activeSession.value?.baseUrl || providerGroup?.base_url || undefined,
               apiKey: codingAgentMode === 'global' ? undefined : activeSession.value?.apiKey || providerGroup?.api_key || undefined,
-              apiMode: codingAgentMode === 'global' ? undefined : activeSession.value?.apiMode || providerGroup?.api_mode || undefined,
+              apiMode: codingAgentApiMode,
             }
           : {}),
         // Per-session reasoning effort override. Coding Agent runners do not

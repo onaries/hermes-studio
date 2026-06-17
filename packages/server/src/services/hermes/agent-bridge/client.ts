@@ -137,6 +137,15 @@ export interface AgentBridgeCommandResult extends AgentBridgeResponse {
   max_turns?: number
 }
 
+export interface AgentBridgeSkillReloadResult extends AgentBridgeResponse {
+  action: 'reload-skills'
+  added: Array<{ name: string; description?: string }>
+  removed: Array<{ name: string; description?: string }>
+  unchanged: string[]
+  total: number
+  commands?: number
+}
+
 export interface AgentBridgeSessionModelSwitch extends AgentBridgeResponse {
   session_id: string
   model: string
@@ -670,6 +679,10 @@ export class AgentBridgeClient {
 
   mcpReload(server?: string, profile?: string): Promise<McpActionResponse> {
     return this.request({ action: 'mcp_reload', ...(server ? { server } : {}), ...(profile ? { profile } : {}) }, { serialize: true })
+  }
+
+  reloadSkills(profile?: string): Promise<AgentBridgeSkillReloadResult> {
+    return this.request({ action: 'skills_reload', ...(profile ? { profile } : {}) }, { serialize: true })
   }
 }
 
