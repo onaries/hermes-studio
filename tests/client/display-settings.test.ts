@@ -261,6 +261,7 @@ describe('DisplaySettings', () => {
     const fontSelect = fontFamilyRow?.find('select')
     expect(fontSelect?.exists()).toBe(true)
     expect(fontFamilyRow?.findAll('option').map(option => option.attributes('value'))).toContain('"JetBrains Mono", monospace')
+    expect(fontFamilyRow?.findAll('option').map(option => option.attributes('value'))).toContain('"MesloLGS NF", "Hack Nerd Font Mono", "Hack Nerd Font", Menlo, Monaco, monospace')
     await fontSelect?.setValue('"Fira Code", monospace')
 
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { terminal_font_size: 18 })

@@ -6,6 +6,13 @@ export const TERMINAL_FONT_FAMILY_OPTIONS = [
     label: 'Default — Menlo / Monaco / Courier New',
     value: DEFAULT_TERMINAL_FONT_FAMILY,
   },
+  {
+    label: 'MesloLGS NF / Hack Nerd Font (Powerline)',
+    value: '"MesloLGS NF", "Hack Nerd Font Mono", "Hack Nerd Font", Menlo, Monaco, monospace',
+  },
+  { label: 'MesloLGS NF', value: '"MesloLGS NF", Menlo, Monaco, monospace' },
+  { label: 'Hack Nerd Font Mono', value: '"Hack Nerd Font Mono", "Hack Nerd Font", Menlo, Monaco, monospace' },
+  { label: 'Hack Nerd Font', value: '"Hack Nerd Font", Menlo, Monaco, monospace' },
   { label: 'JetBrains Mono', value: '"JetBrains Mono", monospace' },
   { label: 'Fira Code', value: '"Fira Code", monospace' },
   { label: 'Cascadia Code', value: '"Cascadia Code", monospace' },
