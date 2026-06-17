@@ -612,15 +612,11 @@ function addFile(file: File) {
   })
 }
 
-
 function addFiles(files: File[] | FileList) {
-  for (const file of Array.from(files)) addFile(file)
-  textareaRef.value?.focus()
+  const list = Array.from(files)
+  for (const file of list) addFile(file)
+  if (list.length > 0) textareaRef.value?.focus()
 }
-
-defineExpose({
-  addFiles,
-})
 
 function handleAttachClick() {
   fileInputRef.value?.click()
@@ -645,7 +641,7 @@ function handlePaste(e: ClipboardEvent) {
     if (!blob) continue
     const ext = item.type.split('/')[1] || 'png'
     const file = new File([blob], `pasted-${Date.now()}.${ext}`, { type: item.type })
-    addFile(file)
+    addFiles([file])
   }
 }
 
@@ -679,6 +675,8 @@ function handleDrop(e: DragEvent) {
   if (!files.length) return
   addFiles(files)
 }
+
+defineExpose({ addFiles })
 
 // --- Send ---
 

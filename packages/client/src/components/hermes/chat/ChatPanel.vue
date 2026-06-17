@@ -66,7 +66,7 @@ let drawerButtonStartY = 0;
 let suppressNextDrawerButtonClick = false;
 const showOutline = ref(false);
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
-const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
+const chatInputRef = ref<(InstanceType<typeof ChatInput> & { addFiles?: (files: File[] | FileList) => void }) | null>(null);
 const isFileDragOverChat = ref(false);
 let chatFileDragDepth = 0;
 
@@ -205,9 +205,13 @@ watch(
   { immediate: true },
 );
 
+function sessionRouteName() {
+  return chatStore.runtimeMode === "global_agent" ? "hermes.globalAgentSession" : "hermes.session";
+}
+
 function sessionHref(sessionId: string) {
   return router.resolve({
-    name: "hermes.session",
+    name: sessionRouteName(),
     params: { sessionId },
   }).href;
 }
@@ -221,9 +225,10 @@ function handleOutlineNavigate(target: { messageId: string; anchorId: string }) 
   messageListRef.value?.scrollToAnchor(target.messageId, target.anchorId);
 }
 
+
 async function handleSessionClick(sessionId: string) {
   await router.push({
-    name: "hermes.session",
+    name: sessionRouteName(),
     params: { sessionId },
   });
   if (mobileQuery?.matches) showSessions.value = false;
@@ -709,7 +714,7 @@ async function confirmNewChat() {
   });
   showNewChatModal.value = false;
   void router.push({
-    name: "hermes.session",
+    name: sessionRouteName(),
     params: { sessionId: session.id },
   });
 }
@@ -730,7 +735,7 @@ function sessionProfile(sessionId: string): string | null {
 
 function buildSessionUrl(sessionId: string, profile?: string | null): string {
   const href = router.resolve({
-    name: "hermes.session",
+    name: sessionRouteName(),
     params: { sessionId },
     query: profile ? { profile } : undefined,
   }).href;
@@ -1909,6 +1914,7 @@ async function handleSessionModelCustomSubmit() {
               </div>
               </div>
             </div>
+
           </div>
           <OutlinePanel
             v-if="showOutline"
