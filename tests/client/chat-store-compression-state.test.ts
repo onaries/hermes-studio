@@ -739,4 +739,47 @@ describe('chat store compression state', () => {
     expect(store.activePendingApproval).toBeNull()
     expect(store.activePendingClarify).toBeNull()
   })
+
+  it('clears stale live state when the completion event was missed but resume reports idle', async () => {
+    vi.useFakeTimers()
+    chatApi.resumeSession
+      .mockImplementationOnce((sessionId: string, onResumed: (data: any) => void) => {
+        onResumed({
+          session_id: sessionId,
+          messages: [{ id: 'a1', role: 'assistant', content: 'final answer' }],
+          isWorking: true,
+          events: [],
+        })
+        return {} as any
+      })
+      .mockImplementationOnce((sessionId: string, onResumed: (data: any) => void) => {
+        onResumed({
+          session_id: sessionId,
+          messages: [{ id: 'a1', role: 'assistant', content: 'final answer' }],
+          isWorking: false,
+          events: [],
+        })
+        return {} as any
+      })
+
+    const store = useChatStore()
+    store.sessions = [makeSession('session-stale')]
+    await store.switchSession('session-stale')
+    store.activeSession!.messages = [{
+      id: 'a1',
+      role: 'assistant',
+      content: 'final answer',
+      timestamp: Date.now(),
+      isStreaming: true,
+    } as any]
+
+    expect(store.isStreaming).toBe(true)
+    await vi.advanceTimersByTimeAsync(15_000)
+    await nextTick()
+
+    expect(store.isStreaming).toBe(false)
+    expect(store.activeSession?.messages.find((message: Message) => message.id === 'a1')?.isStreaming).not.toBe(true)
+    expect(chatApi.unregisterSessionHandlers).toHaveBeenCalledWith('session-stale')
+    vi.useRealTimers()
+  })
 })

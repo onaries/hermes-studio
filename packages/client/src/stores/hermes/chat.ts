@@ -598,6 +598,9 @@ const LIVE_TPS_DISPLAY_DELAY_MS = 1500
 const LIVE_TPS_SMOOTHING_ALPHA = 0.35
 const LIVE_TPS_IDLE_GAP_MS = 5000
 const LIVE_TPS_MAX_USAGE_ESTIMATE_RATIO = 8
+const LIVE_RUN_RECONCILE_IDLE_MS = 12_000
+const LIVE_RUN_RECONCILE_INTERVAL_MS = 5_000
+const LIVE_RUN_RECONCILE_TIMEOUT_MS = 10_000
 
 function roundTps(value: number): number {
   return Math.round(value * 10) / 10
@@ -611,6 +614,8 @@ export const useChatStore = defineStore('chat', () => {
   const focusMessageId = ref<string | null>(null)
   const streamStates = ref<Map<string, { abort: () => void }>>(new Map())
   const liveTpsTrackers = new Map<string, LiveTpsTracker>()
+  const liveRunLastEventAt = new Map<string, number>()
+  const liveRunReconcileInFlight = new Set<string>()
   const latestCompletionNotification = ref<CompletionNotification | null>(null)
   /** sessionId → server-reported isWorking status */
   const serverWorking = ref<Set<string>>(new Set())
@@ -678,6 +683,8 @@ export const useChatStore = defineStore('chat', () => {
     pendingApprovals.value = new Map()
     pendingClarifies.value = new Map()
     streamStates.value = new Map()
+    liveRunLastEventAt.clear()
+    liveRunReconcileInFlight.clear()
     serverWorking.value = new Set()
     sessionsLoaded.value = false
     clearActiveSession()
@@ -717,6 +724,105 @@ export const useChatStore = defineStore('chat', () => {
 
   function isSessionLive(sessionId: string): boolean {
     return streamStates.value.has(sessionId) || serverWorking.value.has(sessionId)
+  }
+
+  function markLiveRunActivity(sessionId: string) {
+    liveRunLastEventAt.set(sessionId, Date.now())
+  }
+
+  function clearLiveRunActivity(sessionId: string) {
+    liveRunLastEventAt.delete(sessionId)
+    liveRunReconcileInFlight.delete(sessionId)
+  }
+
+  function closeLivePresentation(sessionId: string, toolStatus: 'done' | 'error' = 'done') {
+    const msgs = getSessionMsgs(sessionId)
+    msgs.forEach((message) => {
+      if (message.role === 'assistant' && message.isStreaming) {
+        updateMessage(sessionId, message.id, { isStreaming: false })
+      }
+    })
+    settleRunningTools(sessionId, toolStatus)
+  }
+
+  function cleanupLiveRunState(sessionId: string, options: { unregister?: boolean } = {}) {
+    streamStates.value.delete(sessionId)
+    serverWorking.value.delete(sessionId)
+    stopLiveTpsTracking(sessionId)
+    clearLiveRunActivity(sessionId)
+    if (options.unregister) unregisterSessionHandlers(sessionId)
+  }
+
+  function applyIdleResumeSnapshot(sessionId: string, data: ResumeSessionPayload) {
+    const target = sessions.value.find(s => s.id === sessionId)
+    if (!target) return
+
+    if (data.inputTokens != null) target.inputTokens = data.inputTokens
+    if (data.outputTokens != null) target.outputTokens = data.outputTokens
+    if (data.contextTokens != null) target.contextTokens = data.contextTokens
+
+    if (Array.isArray(data.messages) && data.messages.length > 0) {
+      target.messages = mapHermesMessages(data.messages as any[]).filter(m => m.commandAction !== 'btw')
+      target.loadedMessageCount = data.messageLoadedCount ?? data.messages.length
+      target.messageTotal = data.messageTotal ?? target.messageCount ?? target.loadedMessageCount
+      target.messageCount = target.messageTotal
+      target.hasMoreBefore = data.hasMoreBefore ?? target.loadedMessageCount < target.messageTotal
+      if (activeSessionId.value === sessionId) activeSession.value = target
+    }
+
+    if (data.queueLength && data.queueLength > 0) {
+      queueLengths.value.set(sessionId, data.queueLength)
+    } else {
+      queueLengths.value.delete(sessionId)
+    }
+
+    if (Array.isArray(data.queueMessages)) {
+      replaceQueuedUserMessages(sessionId, normalizeQueuedUserMessages(data.queueMessages))
+    } else if (!data.queueLength) {
+      replaceQueuedUserMessages(sessionId, [])
+    }
+  }
+
+  function reconcileStaleLiveRun(sessionId: string) {
+    if (liveRunReconcileInFlight.has(sessionId)) return
+    if (!isSessionLive(sessionId)) return
+    const lastEventAt = liveRunLastEventAt.get(sessionId) || 0
+    if (Date.now() - lastEventAt < LIVE_RUN_RECONCILE_IDLE_MS) return
+
+    liveRunReconcileInFlight.add(sessionId)
+    const target = sessions.value.find(s => s.id === sessionId)
+    let settled = false
+    const finish = () => {
+      settled = true
+      liveRunReconcileInFlight.delete(sessionId)
+    }
+    const timeout = window.setTimeout(() => {
+      if (settled) return
+      finish()
+    }, LIVE_RUN_RECONCILE_TIMEOUT_MS)
+
+    resumeSession(sessionId, (data) => {
+      if (settled) return
+      window.clearTimeout(timeout)
+      finish()
+      if (data.session_id !== sessionId) return
+      const hasQueue = !!(data.queueLength && data.queueLength > 0)
+      applyIdleResumeSnapshot(sessionId, data)
+      if (data.isWorking || hasQueue) {
+        serverWorking.value.add(sessionId)
+        markLiveRunActivity(sessionId)
+        if (!streamStates.value.has(sessionId)) resumeServerWorkingRun(sessionId, true)
+        return
+      }
+
+      closeLivePresentation(sessionId, 'done')
+      clearPendingInteractions(sessionId)
+      setCompressionState(sessionId, null)
+      setAbortState(null)
+      clearAgentEventMessages(sessionId)
+      cleanupLiveRunState(sessionId, { unregister: true })
+      updateSessionTitle(sessionId)
+    }, target?.profile, runtimeTransport())
   }
 
   function estimateLiveOutputTokens(delta: string): number {
@@ -2245,10 +2351,8 @@ export const useChatStore = defineStore('chat', () => {
       }
 
       // Helper to clean up this session's stream state
-      const cleanup = () => {
-        streamStates.value.delete(sid)
-        serverWorking.value.delete(sid)
-        stopLiveTpsTracking(sid)
+      const cleanup = (options: { unregister?: boolean } = {}) => {
+        cleanupLiveRunState(sid, options)
       }
 
       // Per-active-run flags used to detect silently-swallowed errors at run.completed.
@@ -2425,6 +2529,7 @@ export const useChatStore = defineStore('chat', () => {
         runPayload,
         // onEvent
         (evt: RunEvent) => {
+          markLiveRunActivity(sid)
           const eventRunMarker = readRunMarker(evt)
           if (eventRunMarker) activeRunMarker = eventRunMarker
           switch (evt.event) {
@@ -2927,8 +3032,10 @@ export const useChatStore = defineStore('chat', () => {
 
       if (isCodingAgentSession) {
         serverWorking.value.add(sid)
+        markLiveRunActivity(sid)
         streamStates.value.set(sid, ctrl)
       } else if (!isBridgeSlashCommand || isBridgeCompressCommand || isBridgePlanCommand || isBridgeGoalCommand) {
+        markLiveRunActivity(sid)
         streamStates.value.set(sid, ctrl)
       }
     } catch (err: any) {
@@ -2969,11 +3076,7 @@ export const useChatStore = defineStore('chat', () => {
     const cleanup = () => {
       if (closed) return
       closed = true
-      streamStates.value.delete(sid)
-      serverWorking.value.delete(sid)
-      stopLiveTpsTracking(sid)
-      // Unregister from global session handlers
-      unregisterSessionHandlers(sid)
+      cleanupLiveRunState(sid, { unregister: true })
     }
 
     const closeStreamingAssistant = () => {
@@ -3011,6 +3114,7 @@ export const useChatStore = defineStore('chat', () => {
       if (closed) return
       // Filter events for this session (server tags all events with session_id)
       if (evt.session_id && evt.session_id !== sid) return
+      markLiveRunActivity(sid)
       const eventRunMarker = readRunMarker(evt)
       if (eventRunMarker) activeRunMarker = eventRunMarker
       switch (evt.event) {
@@ -3493,6 +3597,7 @@ export const useChatStore = defineStore('chat', () => {
     // Just set up handlers for ongoing streaming events.
 
     // Mark as streaming so UI shows the indicator and can still abort after refresh.
+    markLiveRunActivity(sid)
     streamStates.value.set(sid, {
       abort: () => {
         getChatRunSocket(runtimeTransport())?.emit('abort', { session_id: sid })
@@ -3596,6 +3701,9 @@ export const useChatStore = defineStore('chat', () => {
         // Telegram, another device) appear without a manual reload.
         void refreshSessionListOnly()
       }
+      if (document.visibilityState === 'visible' && activeSessionId.value && isStreaming.value) {
+        reconcileStaleLiveRun(activeSessionId.value)
+      }
       if (document.visibilityState === 'visible' && activeSessionId.value && !isStreaming.value) {
         const sid = activeSessionId.value
         if (sid && !streamStates.value.has(sid)) {
@@ -3634,9 +3742,12 @@ export const useChatStore = defineStore('chat', () => {
   if (typeof window !== 'undefined') {
     window.setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
-      if (isStreaming.value) return
+      if (activeSessionId.value && isStreaming.value) {
+        reconcileStaleLiveRun(activeSessionId.value)
+        return
+      }
       void refreshSessionListOnly()
-    }, 12_000)
+    }, LIVE_RUN_RECONCILE_INTERVAL_MS)
   }
 
   // Transient observation of <think> boundaries during active streaming.
