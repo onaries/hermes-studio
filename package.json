@@ -56,6 +56,7 @@
     "desktop:dev": "HERMES_WEB_UI_DIR=\"$PWD\" npm --prefix packages/desktop run dev",
     "build:desktop": "npm run build && npm run desktop:install && npm --prefix packages/desktop run dist -- --publish never",
     "build:desktop:mac": "npm run build && npm run desktop:install && npm --prefix packages/desktop run dist -- --mac --publish never",
+    "build:desktop:mac:lean": "node scripts/build-desktop-local-lean.mjs --mac zip --arm64",
     "build:desktop:win": "npm run build && npm run desktop:install && npm --prefix packages/desktop run dist -- --win --publish never",
     "build:desktop:linux": "npm run build && npm run desktop:install && npm --prefix packages/desktop run dist -- --linux --publish never",
     "openapi:generate": "node scripts/generate-openapi.mjs",
