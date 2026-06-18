@@ -398,6 +398,69 @@ describe('tool trace visibility', () => {
     expect(details.text()).toContain('+const answer = 42')
   })
 
+  it('auto-expands newly completed live patch tools when enabled', async () => {
+    const settingsStore = useSettingsStore()
+    settingsStore.display = { auto_open_patch_drawer: true }
+    const runningMessages: Message[] = [
+      { id: 'user-1', role: 'user', content: 'patch file', timestamp: 1 },
+      {
+        id: 'tool-patch-auto',
+        role: 'tool',
+        content: '',
+        timestamp: 2,
+        toolName: 'patch',
+        toolArgs: { path: 'src/example.ts', old_string: 'const answer = 41', new_string: 'const answer = 42' },
+        toolStatus: 'running',
+      },
+    ]
+    const wrapper = mountLiveList(runningMessages)
+    const chatStore = useChatStore()
+
+    expect(wrapper.find('.tool-call-item--expandable').attributes('aria-expanded')).toBe('false')
+
+    const completedMessages = [
+      runningMessages[0],
+      {
+        ...runningMessages[1],
+        toolStatus: 'done',
+        toolResult: {
+          diff: '--- a/src/example.ts\n+++ b/src/example.ts\n@@ -1,2 +1,2 @@\n-const answer = 41\n+const answer = 42',
+        },
+      },
+    ] as Message[]
+    chatStore.activeSession = makeSession(completedMessages)
+    await nextTick()
+
+    const expandedPatchTool = wrapper.find('.tool-call-item--expandable')
+    const details = wrapper.find('.tool-call-patch-details')
+    expect(expandedPatchTool.attributes('aria-expanded')).toBe('true')
+    expect(details.exists()).toBe(true)
+    expect(details.text()).toContain('-const answer = 41')
+    expect(details.text()).toContain('+const answer = 42')
+  })
+
+  it('does not auto-expand already loaded patch tools when enabled', () => {
+    const settingsStore = useSettingsStore()
+    settingsStore.display = { auto_open_patch_drawer: true }
+    const messages: Message[] = [
+      { id: 'user-1', role: 'user', content: 'patch file', timestamp: 1 },
+      {
+        id: 'tool-patch-loaded',
+        role: 'tool',
+        content: '',
+        timestamp: 2,
+        toolName: 'patch',
+        toolArgs: { path: 'src/example.ts' },
+        toolResult: { diff: '--- a/src/example.ts\n+++ b/src/example.ts\n@@\n-old\n+new' },
+        toolStatus: 'done',
+      },
+    ]
+    const wrapper = mountLiveList(messages)
+
+    expect(wrapper.find('.tool-call-item--expandable').attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('.tool-call-patch-details').exists()).toBe(false)
+  })
+
   it('renders the current todo panel below the live tool panel', () => {
     const messages: Message[] = [
       { id: 'user-1', role: 'user', content: 'do the thing', timestamp: 1 },

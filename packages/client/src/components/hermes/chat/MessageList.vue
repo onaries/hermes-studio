@@ -177,6 +177,9 @@ function runningTerminalLabel(tool: ToolCallLike): string {
 }
 
 const expandedPatchToolIds = ref<Set<string>>(new Set());
+const autoExpandPatchToolDetails = computed(() => settingsStore.display.auto_open_patch_drawer === true);
+const autoExpandSeenCompletedPatchToolIds = ref<Set<string>>(new Set());
+const autoExpandPatchToolDetailsInitialized = ref(false);
 
 function isPatchTool(tool: ToolCallLike): boolean {
   const name = (tool.toolName || '').toLowerCase();
@@ -193,6 +196,37 @@ function togglePatchToolDetails(tool: Message): void {
 
 function isPatchToolExpanded(tool: Message): boolean {
   return expandedPatchToolIds.value.has(tool.id);
+}
+
+function seedCompletedPatchToolIds(tools: ToolCallLike[]): void {
+  const nextIds = new Set(autoExpandSeenCompletedPatchToolIds.value);
+  tools.forEach((tool) => {
+    if (tool.id && isPatchTool(tool) && tool.toolStatus === 'done') {
+      nextIds.add(tool.id);
+    }
+  });
+  autoExpandSeenCompletedPatchToolIds.value = nextIds;
+}
+
+function autoExpandCompletedPatchTools(tools: ToolCallLike[]): void {
+  const seenIds = new Set(autoExpandSeenCompletedPatchToolIds.value);
+  const expandedIds = new Set(expandedPatchToolIds.value);
+  let changed = false;
+
+  tools.forEach((tool) => {
+    if (!tool.id || !isPatchTool(tool) || tool.toolStatus !== 'done') return;
+    if (seenIds.has(tool.id)) return;
+    seenIds.add(tool.id);
+    expandedIds.add(tool.id);
+    changed = true;
+  });
+
+  if (changed) {
+    autoExpandSeenCompletedPatchToolIds.value = seenIds;
+    expandedPatchToolIds.value = expandedIds;
+  } else if (seenIds.size !== autoExpandSeenCompletedPatchToolIds.value.size) {
+    autoExpandSeenCompletedPatchToolIds.value = seenIds;
+  }
 }
 
 function normalizePayloadText(raw: unknown): string {
@@ -294,6 +328,29 @@ const liveToolCalls = computed(() => {
   return visibleToolCalls.value.filter((tool) => tool.toolStatus === "running");
 });
 const hasRunningTerminalTool = computed(() => liveToolCalls.value.some(isRunningTerminalTool));
+
+watch(
+  () => chatStore.activeSessionId,
+  () => {
+    expandedPatchToolIds.value = new Set();
+    autoExpandSeenCompletedPatchToolIds.value = new Set();
+    autoExpandPatchToolDetailsInitialized.value = false;
+    seedCompletedPatchToolIds(liveToolCalls.value);
+  },
+);
+
+watch(
+  [liveToolCalls, autoExpandPatchToolDetails, () => chatStore.isLoadingMessages],
+  ([tools, enabled, isLoadingMessages]) => {
+    if (!autoExpandPatchToolDetailsInitialized.value || !enabled || isLoadingMessages) {
+      seedCompletedPatchToolIds(tools);
+      autoExpandPatchToolDetailsInitialized.value = true;
+      return;
+    }
+    autoExpandCompletedPatchTools(tools);
+  },
+  { immediate: true },
+);
 
 let runningClockTimer: number | null = null;
 
