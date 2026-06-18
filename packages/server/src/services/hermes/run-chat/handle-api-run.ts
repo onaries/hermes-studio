@@ -24,7 +24,7 @@ import { handleMessage } from './message-format'
 import { countTokens, SUMMARY_PREFIX } from '../../../lib/context-compressor'
 import { getCompressionSnapshot } from '../../../db/hermes/compression-snapshot'
 import type { ContentBlock, SessionState, ChatRunSource } from './types'
-import { buildTurnTpsPayload, finiteOutputTokens } from './tps'
+import { buildTurnTpsPayload, resolveRunBaselineOutputTokens } from './tps'
 
 export function resolveRunSource(source?: string, sessionId?: string): ChatRunSource {
   if (source === 'api_server' || source === 'cli' || source === 'coding_agent' || source === 'global_agent') return source
@@ -138,7 +138,7 @@ export async function handleApiRun(
     state.source = sessionSource
     state.activeRunMarker = runMarker
     state.runStartedAtMs = Date.now()
-    state.runBaselineOutputTokens = finiteOutputTokens(state.outputTokens) ?? 0
+    state.runBaselineOutputTokens = resolveRunBaselineOutputTokens(state)
 
     let peerUserMessage: { id?: number; role: 'user'; content: string; timestamp: number } | null = null
     if (!skipUserMessage) {

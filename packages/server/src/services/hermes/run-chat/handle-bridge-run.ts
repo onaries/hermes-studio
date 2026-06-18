@@ -32,7 +32,7 @@ import { resolveBridgeRunModelConfig, type RunModelGroup } from './model-config'
 import { filterBridgeToolCallMarkupDelta, flushPendingToolCallMarkup } from './bridge-delta'
 import { markAbortCompleted } from './abort'
 import { writeModelRunProfileToken } from './model-run-prompt'
-import { buildTurnTpsPayload, finiteOutputTokens } from './tps'
+import { buildTurnTpsPayload, resolveRunBaselineOutputTokens } from './tps'
 import type { AuthenticatedUser } from '../../../middleware/user-auth'
 
 const BRIDGE_USAGE_FLUSH_DELAY_MS = 200
@@ -359,7 +359,7 @@ export async function handleBridgeRun(
   state.source = runSource
   state.activeRunMarker = runMarker
   state.runStartedAtMs = Date.now()
-  state.runBaselineOutputTokens = finiteOutputTokens(state.outputTokens) ?? 0
+  state.runBaselineOutputTokens = resolveRunBaselineOutputTokens(state)
   state.runId = undefined
   state.abortController = undefined
   state.bridgeOutput = ''
@@ -674,7 +674,7 @@ export async function resumeBridgeRun(
   state.runId = runId
   state.activeRunMarker = runMarker
   state.runStartedAtMs = state.runStartedAtMs || Date.now()
-  state.runBaselineOutputTokens = state.runBaselineOutputTokens ?? (finiteOutputTokens(state.outputTokens) ?? 0)
+  state.runBaselineOutputTokens = state.runBaselineOutputTokens ?? resolveRunBaselineOutputTokens(state)
   state.bridgeOutput = state.bridgeOutput || latestAssistantText(state)
   state.bridgePendingAssistantContent = state.bridgePendingAssistantContent || ''
   state.bridgePendingReasoningContent = state.bridgePendingReasoningContent || ''

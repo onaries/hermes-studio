@@ -904,14 +904,25 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   function finalizeLiveTpsFromUsage(sessionId: string, totalOutputTokens: unknown, serverTps?: unknown, serverDurationSeconds?: unknown) {
+    const tracker = liveTpsTrackers.get(sessionId)
     const normalizedServerTps = typeof serverTps === 'number' && Number.isFinite(serverTps) && serverTps > 0
       ? serverTps
       : undefined
     if (normalizedServerTps != null) {
-      setSessionLiveTps(sessionId, roundTps(normalizedServerTps))
-      return
+      const liveReferenceTps = tracker?.smoothedTps && tracker.smoothedTps > 0
+        ? tracker.smoothedTps
+        : undefined
+      const implausibleServerTps = liveReferenceTps != null
+        && normalizedServerTps > Math.max(250, liveReferenceTps * LIVE_TPS_MAX_USAGE_ESTIMATE_RATIO)
+      if (!implausibleServerTps) {
+        setSessionLiveTps(sessionId, roundTps(normalizedServerTps))
+        return
+      }
+      if (liveReferenceTps != null) {
+        setSessionLiveTps(sessionId, roundTps(liveReferenceTps))
+        return
+      }
     }
-    const tracker = liveTpsTrackers.get(sessionId)
     if (!tracker?.startedAt) return
     // A single streamed chunk (or an otherwise too-short sample) cannot produce
     // a stable throughput. Do not let run.completed + cumulative usage jump the

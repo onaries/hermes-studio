@@ -3,6 +3,7 @@ import {
   buildTurnTpsPayload,
   calculateTurnOutputTokens,
   calculateTurnTps,
+  resolveRunBaselineOutputTokens,
 } from '../../packages/server/src/services/hermes/run-chat/tps'
 
 describe('run-chat turn TPS calculation', () => {
@@ -13,6 +14,18 @@ describe('run-chat turn TPS calculation', () => {
 
   it('uses reported output tokens when usage is already per-run', () => {
     expect(calculateTurnOutputTokens(30, 100)).toBe(30)
+  })
+
+  it('falls back to existing assistant messages when state usage totals are not hydrated', () => {
+    const baseline = resolveRunBaselineOutputTokens({
+      messages: [
+        { role: 'user', content: 'hello' },
+        { role: 'assistant', content: 'a'.repeat(400) },
+      ],
+    })
+
+    expect(baseline).toBeGreaterThan(0)
+    expect(calculateTurnOutputTokens(baseline + 25, baseline)).toBe(25)
   })
 
   it('adds duration and TPS to the run payload', () => {

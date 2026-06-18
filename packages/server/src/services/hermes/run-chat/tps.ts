@@ -7,6 +7,8 @@
  * comparing against the previous session total before calculating TPS.
  */
 
+import { estimateUsageTokensFromMessages } from './usage'
+
 export interface TurnTpsPayload {
   duration_seconds?: number
   durationSeconds?: number
@@ -17,6 +19,16 @@ export interface TurnTpsPayload {
 export function finiteOutputTokens(value: unknown): number | undefined {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return undefined
   return Math.floor(value)
+}
+
+export function resolveRunBaselineOutputTokens(state: {
+  outputTokens?: unknown
+  messages?: Array<{ role?: string; content?: unknown; tool_calls?: unknown }>
+}): number {
+  const stored = finiteOutputTokens(state.outputTokens)
+  if (stored != null && stored > 0) return stored
+  if (!Array.isArray(state.messages) || state.messages.length === 0) return stored ?? 0
+  return estimateUsageTokensFromMessages(state.messages).outputTokens
 }
 
 export function calculateTurnOutputTokens(reportedOutputTokens: unknown, previousOutputTokens: unknown): number {
