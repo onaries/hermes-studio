@@ -27,9 +27,9 @@ const panelStubs = {
   Teleport: false,
 }
 
-function mountDrawer() {
+function mountDrawer(props: Record<string, unknown> = {}) {
   return mount(DrawerPanel, {
-    props: { show: true },
+    props: { show: true, ...props },
     attachTo: document.body,
     global: { stubs: panelStubs },
   })
@@ -99,5 +99,17 @@ describe('DrawerPanel resize', () => {
     await nextTick()
     expect(drawerPanel().getAttribute('style')).toContain('--drawer-width: 420px')
     expect(localStorage.getItem('hermes_drawer_width')).toBe('420')
+  })
+
+  it('renders as an inline pinned panel without an overlay on desktop', async () => {
+    const wrapper = mountDrawer({ show: false, pinned: true })
+    await nextTick()
+
+    expect(document.body.querySelector('.drawer-overlay')).toBeNull()
+    expect(drawerPanel().classList.contains('show')).toBe(true)
+    expect(drawerPanel().classList.contains('pinned')).toBe(true)
+    const pin = document.body.querySelector('.pin-button') as HTMLButtonElement | null
+    expect(pin?.getAttribute('aria-pressed')).toBe('true')
+    expect(pin?.getAttribute('aria-label')).toBe('drawer.unpin')
   })
 })

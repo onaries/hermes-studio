@@ -105,6 +105,13 @@ const notifiedApprovalIds = new Set<string>();
 const notifiedClarifyIds = new Set<string>();
 const notifiedCompletionIds = new Set<string>();
 const showDrawerRainbow = computed(() => settingsStore.display.show_drawer_rainbow !== false);
+const isDrawerPinned = computed(() => settingsStore.display.pin_right_drawer === true);
+const drawerShown = computed({
+  get: () => showDrawer.value || (isDrawerPinned.value && !isMobile.value),
+  set: (value: boolean) => {
+    showDrawer.value = value;
+  },
+});
 
 const drawerButtonStyle = computed(() => {
   if (drawerButtonDragY.value != null) {
@@ -175,6 +182,18 @@ function handleDrawerButtonPointerUp(event: PointerEvent): void {
 function handleDrawerButtonClick(): void {
   if (suppressNextDrawerButtonClick) return;
   showDrawer.value = true;
+}
+
+async function handleDrawerPinnedChange(value: boolean): Promise<void> {
+  settingsStore.updateLocal('display', { pin_right_drawer: value });
+  showDrawer.value = value;
+  try {
+    await settingsStore.saveSection('display', { pin_right_drawer: value });
+  } catch (error) {
+    settingsStore.updateLocal('display', { pin_right_drawer: !value });
+    showDrawer.value = !value;
+    message.error(t('settings.saveFailed'));
+  }
 }
 
 function nudgeDrawerButtonPosition(direction: "up" | "down"): void {
@@ -1173,7 +1192,7 @@ async function handleSessionModelCustomSubmit() {
 </script>
 
 <template>
-  <div ref="chatPanelRef" class="chat-panel">
+  <div ref="chatPanelRef" class="chat-panel" :class="{ 'chat-panel--drawer-pinned': isDrawerPinned && !isMobile }">
     <div
       v-if="currentMode === 'chat'"
       class="session-backdrop"
@@ -1932,6 +1951,7 @@ async function handleSessionModelCustomSubmit() {
 
     <!-- Floating drawer button -->
     <div
+      v-if="!isDrawerPinned || isMobile"
       class="drawer-button-wrapper"
       :class="[
         `drawer-button-wrapper--${drawerButtonPosition}`,
@@ -1964,7 +1984,12 @@ async function handleSessionModelCustomSubmit() {
       </button>
     </div>
 
-    <DrawerPanel v-model:show="showDrawer" :active-tab="drawerActiveTab" />
+    <DrawerPanel
+      v-model:show="drawerShown"
+      :pinned="isDrawerPinned && !isMobile"
+      :active-tab="drawerActiveTab"
+      @update:pinned="handleDrawerPinnedChange"
+    />
   </div>
 </template>
 

@@ -8,14 +8,17 @@ import ArtifactsPanel from './ArtifactsPanel.vue'
 interface Props {
   show: boolean
   activeTab?: 'terminal' | 'files' | 'artifacts'
+  pinned?: boolean
 }
 
 interface Emits {
   (e: 'update:show', value: boolean): void
+  (e: 'update:pinned', value: boolean): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  activeTab: 'files'
+  activeTab: 'files',
+  pinned: false
 })
 
 const emit = defineEmits<Emits>()
@@ -28,6 +31,9 @@ const DRAWER_WIDTH_STORAGE_KEY = 'hermes_drawer_width'
 
 const activeTab = ref<'terminal' | 'files' | 'artifacts'>(props.activeTab)
 const isResizing = ref(false)
+const isMobileLayout = ref(false)
+const isPinnedLayout = computed(() => props.pinned && !isMobileLayout.value)
+const isVisible = computed(() => props.show || isPinnedLayout.value)
 
 function getMaxDrawerWidth(): number {
   if (typeof window === 'undefined') return DRAWER_DEFAULT_WIDTH
@@ -55,7 +61,14 @@ watch(() => props.activeTab, (newVal) => {
 })
 
 function handleClose() {
+  if (isPinnedLayout.value) {
+    emit('update:pinned', false)
+  }
   emit('update:show', false)
+}
+
+function togglePinned() {
+  emit('update:pinned', !props.pinned)
 }
 
 function persistDrawerWidth(): void {
@@ -112,10 +125,12 @@ function handleResizeKeydown(event: KeyboardEvent): void {
 }
 
 function handleViewportResize(): void {
+  isMobileLayout.value = typeof window !== 'undefined' && window.innerWidth <= 640
   setDrawerWidth(drawerWidth.value, true)
 }
 
 onMounted(() => {
+  handleViewportResize()
   window.addEventListener('resize', handleViewportResize)
 })
 
@@ -126,9 +141,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="show" class="drawer-overlay" @click="handleClose"></div>
-    <div :class="['drawer-panel', { show, resizing: isResizing }]" :style="drawerStyle">
+  <Teleport to="body" :disabled="isPinnedLayout">
+    <div v-if="isVisible && !isPinnedLayout" class="drawer-overlay" @click="handleClose"></div>
+    <div :class="['drawer-panel', { show: isVisible, resizing: isResizing, pinned: isPinnedLayout }]" :style="drawerStyle">
       <button
         type="button"
         class="drawer-resize-handle"
@@ -158,12 +173,29 @@ onBeforeUnmount(() => {
             {{ t('drawer.artifacts') }}
           </button>
         </div>
-        <button class="close-button" @click="handleClose">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
+        <div class="drawer-actions">
+          <button
+            type="button"
+            class="pin-button"
+            :class="{ active: pinned }"
+            :aria-pressed="pinned"
+            :aria-label="pinned ? t('drawer.unpin') : t('drawer.pin')"
+            :title="pinned ? t('drawer.unpin') : t('drawer.pin')"
+            @click="togglePinned"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 17v5" />
+              <path d="M7 10.5 5.5 17h13L17 10.5" />
+              <path d="M8 3h8l-1 7H9L8 3Z" />
+            </svg>
+          </button>
+          <button type="button" class="close-button" @click="handleClose">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div class="drawer-content">
@@ -212,6 +244,19 @@ onBeforeUnmount(() => {
 
   &.show {
     right: 0;
+  }
+
+  &.pinned {
+    position: relative;
+    top: auto;
+    right: auto;
+    height: 100%;
+    max-height: 100%;
+    z-index: 1;
+    flex: 0 0 var(--drawer-width, min(1180px, 88vw));
+    border-left: 1px solid $border-color;
+    box-shadow: none;
+    transition: width 0.12s ease;
   }
 
   &.resizing {
@@ -280,6 +325,8 @@ onBeforeUnmount(() => {
 .drawer-tabs {
   display: flex;
   gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
 }
 
 .tab-button {
@@ -307,6 +354,14 @@ onBeforeUnmount(() => {
   }
 }
 
+.drawer-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.pin-button,
 .close-button {
   padding: 8px;
   border: none;
@@ -324,6 +379,11 @@ onBeforeUnmount(() => {
     color: $text-primary;
     background: rgba(var(--accent-primary-rgb), 0.15);
   }
+}
+
+.pin-button.active {
+  color: var(--accent-primary);
+  background: rgba(var(--accent-primary-rgb), 0.16);
 }
 
 .drawer-content {
