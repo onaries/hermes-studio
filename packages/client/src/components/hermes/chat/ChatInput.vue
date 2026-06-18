@@ -967,7 +967,7 @@ function isImage(type: string): boolean {
 
       <span v-if="showContextMetrics" class="context-meter">
         <span class="context-info" :class="{ 'context-warning': usagePercent > 80 }">
-          <template v-if="showContextUsage">
+          <span v-if="showContextUsage" class="context-usage">
             {{ formatTokens(totalTokens) }} /
             <NTooltip trigger="hover">
               <template #trigger>
@@ -978,7 +978,7 @@ function isImage(type: string): boolean {
               <span>{{ t('chat.contextClickToEdit') }}</span>
             </NTooltip>
             · {{ t('chat.contextRemaining') }} {{ formatTokens(remainingTokens) }}
-          </template>
+          </span>
           <span v-if="visibleLiveTps != null" class="live-tps">
             <span v-if="showContextUsage" class="live-tps-separator" aria-hidden="true">·</span>{{ formatTps(visibleLiveTps) }} {{ t('chat.liveTps') }}
           </span>
@@ -1203,7 +1203,7 @@ function isImage(type: string): boolean {
   padding: 0 0 6px;
 
   @media (max-width: 768px) {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 5px;
   }
 }
@@ -1293,20 +1293,20 @@ function isImage(type: string): boolean {
   gap: 8px;
 
   @media (max-width: 768px) {
-    flex: 1 1 0;
+    flex: 1 0 100%;
+    order: 20;
     gap: 4px;
   }
 }
 
 .context-info {
+  display: inline-flex;
+  align-items: center;
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 11px;
   color: $text-muted;
-  min-width: 0;
   white-space: nowrap;
 
   &.context-warning {
@@ -1314,12 +1314,22 @@ function isImage(type: string): boolean {
   }
 
   @media (max-width: 768px) {
-    font-size: 9px;
-    line-height: 1.2;
+    flex: 1 1 auto;
+    width: 100%;
+    font-size: 10px;
+    line-height: 14px;
   }
 }
 
+.context-usage {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .live-tps {
+  flex: 0 0 auto;
   color: var(--accent-primary);
   font-family: $font-code;
   font-weight: 600;
@@ -1385,11 +1395,7 @@ function isImage(type: string): boolean {
   }
 
   .context-info {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-size: 10px;
-    line-height: 14px;
-    margin-right: 10px;
+    margin-right: 0;
   }
 
   .context-bar {
