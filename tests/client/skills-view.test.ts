@@ -5,6 +5,7 @@ import { defineComponent } from 'vue'
 
 const mockFetchSkills = vi.hoisted(() => vi.fn())
 const mockFetchSkillContent = vi.hoisted(() => vi.fn())
+const mockFetchSkillFiles = vi.hoisted(() => vi.fn())
 const mockFetchPendingWrites = vi.hoisted(() => vi.fn())
 const mockProfilesStore = vi.hoisted(() => ({
   activeProfileName: 'default',
@@ -15,6 +16,7 @@ const mockProfilesStore = vi.hoisted(() => ({
 vi.mock('@/api/hermes/skills', () => ({
   fetchSkills: mockFetchSkills,
   fetchSkillContent: mockFetchSkillContent,
+  fetchSkillFiles: mockFetchSkillFiles,
 }))
 
 vi.mock('@/api/hermes/write-gate', () => ({
@@ -77,6 +79,7 @@ describe('SkillsView', () => {
     mockProfilesStore.profiles = [{ name: 'default' }]
     mockFetchPendingWrites.mockResolvedValue({ supported: true, records: [] })
     mockFetchSkillContent.mockResolvedValue({ content: '# first-skill\n\nFirst skill content' })
+    mockFetchSkillFiles.mockResolvedValue({ files: [] })
     vi.stubGlobal('fetch', vi.fn())
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false,
@@ -126,10 +129,19 @@ describe('SkillsView', () => {
 
     await flushPromises()
 
-    const detail = wrapper.get('.skill-detail')
-    expect(detail.get('.detail-category').text()).toBe('alpha')
-    expect(detail.get('.detail-name').text()).toBe('first-skill')
-    expect(wrapper.text()).toContain('first-skill')
+    const detail = wrapper.find('.skill-detail-stub').exists()
+      ? wrapper.get('.skill-detail-stub')
+      : wrapper.get('.skill-detail')
+    if (detail.classes().includes('skill-detail-stub')) {
+      expect(detail.attributes('data-category')).toBe('alpha')
+      expect(detail.attributes('data-skill')).toBe('first-skill')
+      expect(detail.text()).toBe('first-skill')
+      expect(wrapper.get('.skill-list-stub').attributes('data-selected')).toBe('alpha/first-skill')
+    } else {
+      expect(detail.get('.detail-category').text()).toBe('alpha')
+      expect(detail.get('.detail-name').text()).toBe('first-skill')
+      expect(wrapper.text()).toContain('first-skill')
+    }
     expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 })
