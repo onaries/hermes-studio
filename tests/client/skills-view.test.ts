@@ -4,6 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 
 const mockFetchSkills = vi.hoisted(() => vi.fn())
+const mockFetchSkillContent = vi.hoisted(() => vi.fn())
 const mockFetchPendingWrites = vi.hoisted(() => vi.fn())
 const mockProfilesStore = vi.hoisted(() => ({
   activeProfileName: 'default',
@@ -13,6 +14,7 @@ const mockProfilesStore = vi.hoisted(() => ({
 
 vi.mock('@/api/hermes/skills', () => ({
   fetchSkills: mockFetchSkills,
+  fetchSkillContent: mockFetchSkillContent,
 }))
 
 vi.mock('@/api/hermes/write-gate', () => ({
@@ -51,6 +53,19 @@ vi.mock('naive-ui', () => ({
     emits: ['update:value'],
     template: '<input class="n-input-stub" :value="value" @input="$emit(\'update:value\', $event.target.value)" />',
   }),
+  NSwitch: defineComponent({
+    props: ['value'],
+    emits: ['update:value'],
+    template: '<button class="n-switch-stub" type="button" @click="$emit(\'update:value\', !value)"></button>',
+  }),
+  useMessage: () => ({
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+  }),
+  useDialog: () => ({
+    warning: vi.fn(),
+  }),
 }))
 
 import SkillsView from '@/views/hermes/SkillsView.vue'
@@ -61,6 +76,7 @@ describe('SkillsView', () => {
     mockProfilesStore.activeProfileName = 'default'
     mockProfilesStore.profiles = [{ name: 'default' }]
     mockFetchPendingWrites.mockResolvedValue({ supported: true, records: [] })
+    mockFetchSkillContent.mockResolvedValue({ content: '# first-skill\n\nFirst skill content' })
     vi.stubGlobal('fetch', vi.fn())
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false,
@@ -110,11 +126,10 @@ describe('SkillsView', () => {
 
     await flushPromises()
 
-    const detail = wrapper.get('.skill-detail-stub')
-    expect(detail.attributes('data-category')).toBe('alpha')
-    expect(detail.attributes('data-skill')).toBe('first-skill')
-    expect(detail.text()).toBe('first-skill')
-    expect(wrapper.get('.skill-list-stub').attributes('data-selected')).toBe('alpha/first-skill')
+    const detail = wrapper.get('.skill-detail')
+    expect(detail.get('.detail-category').text()).toBe('alpha')
+    expect(detail.get('.detail-name').text()).toBe('first-skill')
+    expect(wrapper.text()).toContain('first-skill')
     expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 })
