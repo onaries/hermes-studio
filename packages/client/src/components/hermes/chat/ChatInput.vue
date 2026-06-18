@@ -1203,8 +1203,10 @@ function isImage(type: string): boolean {
   padding: 0 0 6px;
 
   @media (max-width: 768px) {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 5px;
+    min-width: 0;
+    overflow: hidden;
   }
 }
 
@@ -1293,9 +1295,10 @@ function isImage(type: string): boolean {
   gap: 8px;
 
   @media (max-width: 768px) {
-    flex: 1 0 100%;
-    order: 20;
-    gap: 4px;
+    flex: 1 1 auto;
+    min-width: 0;
+    order: 0;
+    gap: 3px;
   }
 }
 
@@ -1315,7 +1318,8 @@ function isImage(type: string): boolean {
 
   @media (max-width: 768px) {
     flex: 1 1 auto;
-    width: 100%;
+    width: auto;
+    min-width: 0;
     font-size: 10px;
     line-height: 14px;
   }
@@ -1326,6 +1330,10 @@ function isImage(type: string): boolean {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+
+  @media (max-width: 768px) {
+    flex: 1 1 auto;
+  }
 }
 
 .live-tps {
@@ -1333,6 +1341,11 @@ function isImage(type: string): boolean {
   color: var(--accent-primary);
   font-family: $font-code;
   font-weight: 600;
+
+  @media (max-width: 768px) {
+    margin-left: 2px;
+    white-space: nowrap;
+  }
 }
 
 .live-tps-separator {
@@ -1367,9 +1380,10 @@ function isImage(type: string): boolean {
   overflow: hidden;
 
   @media (max-width: 768px) {
-    flex-basis: 44px;
-    width: 44px;
-    max-width: 16vw;
+    flex: 0 0 32px;
+    width: 32px;
+    max-width: 9vw;
+    margin-left: 0;
   }
 }
 
@@ -1399,7 +1413,7 @@ function isImage(type: string): boolean {
   }
 
   .context-bar {
-    width: 42px;
+    width: 32px;
     flex-shrink: 0;
   }
 }
