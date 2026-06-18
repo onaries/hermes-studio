@@ -139,6 +139,18 @@ async function testCompletionNotification() {
     <SettingRow :label="t('settings.display.showDrawerRainbow')" :hint="t('settings.display.showDrawerRainbowHint')">
       <NSwitch :value="settingsStore.display.show_drawer_rainbow !== false" @update:value="v => save({ show_drawer_rainbow: v })" />
     </SettingRow>
+    <SettingRow :label="t('settings.display.pinRightDrawer')" :hint="t('settings.display.pinRightDrawerHint')">
+      <NSwitch :value="settingsStore.display.pin_right_drawer === true" @update:value="v => save({ pin_right_drawer: v })" />
+    </SettingRow>
+    <SettingRow :label="t('settings.display.autoOpenPatchDrawer')" :hint="t('settings.display.autoOpenPatchDrawerHint')">
+      <NSwitch :value="settingsStore.display.auto_open_patch_drawer === true" @update:value="v => save({ auto_open_patch_drawer: v })" />
+    </SettingRow>
+    <SettingRow :label="t('settings.display.showWorkspaceFileTree')" :hint="t('settings.display.showWorkspaceFileTreeHint')">
+      <NSwitch :value="settingsStore.display.show_workspace_file_tree !== false" @update:value="v => save({ show_workspace_file_tree: v })" />
+    </SettingRow>
+    <SettingRow :label="t('settings.display.showTerminalSessionList')" :hint="t('settings.display.showTerminalSessionListHint')">
+      <NSwitch :value="settingsStore.display.show_terminal_session_list !== false" @update:value="v => save({ show_terminal_session_list: v })" />
+    </SettingRow>
     <SettingRow :label="t('settings.display.inlineDiffs')" :hint="t('settings.display.inlineDiffsHint')">
       <NSwitch :value="settingsStore.display.inline_diffs" @update:value="v => save({ inline_diffs: v })" />
     </SettingRow>

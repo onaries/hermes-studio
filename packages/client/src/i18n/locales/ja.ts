@@ -399,6 +399,8 @@ export default {
     resize: 'ドロワーのサイズを変更',
     open: 'ドロワーを開く',
     repositionHint: 'ドラッグしてドロワーボタンを上・中央・下にスナップ',
+    pin: 'ドロワーを固定',
+    unpin: 'ドロワーの固定を解除',
     files: 'ワークスペース',
     todo: {
       tab: 'Todo',
@@ -1235,6 +1237,14 @@ export default {
       showToolMascotMobileHint: 'モバイルでライブツール呼び出しの横にキャラクターを表示します',
       showDrawerRainbow: 'ドロワーの虹色グローを表示',
       showDrawerRainbowHint: 'ドロワーボタンの周りにアニメーションする虹色グローを表示します',
+      pinRightDrawer: '右ドロワーを固定',
+      pinRightDrawerHint: 'デスクトップで右ドロワーを常に表示される固定サイドパネルにします',
+      autoOpenPatchDrawer: 'patch の詳細を自動で展開',
+      autoOpenPatchDrawerHint: 'patch ツールが完了したら、ライブツール履歴内の差分/詳細を自動で展開します',
+      showWorkspaceFileTree: 'Workspace ファイルツリー',
+      showWorkspaceFileTreeHint: 'Workspace ドロワー内の左側ファイルツリーを表示します',
+      showTerminalSessionList: 'Terminal セッション一覧',
+      showTerminalSessionListHint: 'Terminal ドロワー内の左側セッション一覧を表示します',
       inlineDiffs: 'インライン差分',
       inlineDiffsHint: 'コード変更をインラインで表示',
       bellOnComplete: '完了通知音',
@@ -1878,6 +1888,8 @@ export default {
   // ターミナル
   terminal: {
     sessions: 'セッション',
+    showSessions: 'セッション一覧を表示',
+    hideSessions: 'セッション一覧を隠す',
     newTab: '新しいターミナル',
     closeSession: 'このセッションを閉じますか？',
     sessionExited: '終了しました',
@@ -2056,6 +2068,8 @@ export default {
     closePreview: '閉じる',
     saveFile: '保存',
     fileTree: 'ファイルツリー',
+    showFileTree: 'ファイルツリーを表示',
+    hideFileTree: 'ファイルツリーを隠す',
   },
 
   // グループチャット
@@ -2119,6 +2133,8 @@ export default {
     list: '成果物',
     backToList: '一覧へ',
     scrollToTop: '先頭へ',
+    hideList: 'アーティファクト一覧を隠す',
+    showList: 'アーティファクト一覧を表示',
     download: 'ダウンロード',
     remove: '成果物を削除',
     emptyTitle: '成果物はまだありません',

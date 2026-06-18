@@ -399,6 +399,8 @@ export default {
     resize: 'Drawer 크기 조절',
     open: '드로어 열기',
     repositionHint: '드래그해서 드로어 버튼을 위, 가운데, 아래로 붙이기',
+    pin: '드로어 고정',
+    unpin: '드로어 고정 해제',
     files: '작업 공간',
     todo: {
       tab: 'Todo',
@@ -1235,6 +1237,14 @@ export default {
       showToolMascotMobileHint: '모바일에서 실시간 툴 호출 왼쪽의 캐릭터를 표시합니다',
       showDrawerRainbow: 'Drawer 무지개빛 효과',
       showDrawerRainbowHint: 'Drawer 버튼 주변의 움직이는 무지개빛 효과를 표시합니다',
+      pinRightDrawer: '오른쪽 드로어 고정',
+      pinRightDrawerHint: '데스크톱에서 오른쪽 드로어를 항상 보이는 고정 패널로 표시합니다',
+      autoOpenPatchDrawer: 'patch 상세 자동 펼치기',
+      autoOpenPatchDrawerHint: 'patch 툴이 끝나면 live tool trace 안에서 diff/상세 내용을 자동으로 펼칩니다',
+      showWorkspaceFileTree: 'Workspace 파일 트리',
+      showWorkspaceFileTreeHint: 'Workspace 드로어 안의 왼쪽 파일 트리 영역을 표시합니다',
+      showTerminalSessionList: 'Terminal 세션 목록',
+      showTerminalSessionListHint: 'Terminal 드로어 안의 왼쪽 세션 목록을 표시합니다',
       inlineDiffs: '인라인 변경사항',
       inlineDiffsHint: '코드 변경사항을 인라인으로 표시',
       bellOnComplete: '완료 알림음',
@@ -1878,6 +1888,8 @@ export default {
   // 터미널
   terminal: {
     sessions: '세션',
+    showSessions: '세션 목록 펼치기',
+    hideSessions: '세션 목록 접기',
     newTab: '새 터미널',
     closeSession: '이 세션을 닫으시겠습니까?',
     sessionExited: '종료됨',
@@ -2056,6 +2068,8 @@ export default {
     closePreview: '닫기',
     saveFile: '저장',
     fileTree: '파일 트리',
+    showFileTree: '파일 트리 펼치기',
+    hideFileTree: '파일 트리 접기',
   },
 
   // 그룹 채팅
@@ -2118,6 +2132,8 @@ export default {
     list: '아티팩트',
     backToList: '목록으로',
     scrollToTop: '맨 위로',
+    hideList: '아티팩트 목록 접기',
+    showList: '아티팩트 목록 펼치기',
     download: '다운로드',
     remove: '아티팩트 제거',
     emptyTitle: '아직 아티팩트가 없습니다',

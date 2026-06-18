@@ -13,6 +13,10 @@ const mockSettingsStore = vi.hoisted(() => ({
     show_tool_mascot_desktop: undefined,
     show_tool_mascot_mobile: undefined,
     show_drawer_rainbow: undefined,
+    pin_right_drawer: false,
+    auto_open_patch_drawer: false,
+    show_workspace_file_tree: undefined,
+    show_terminal_session_list: undefined,
     inline_diffs: true,
     bell_on_complete: false,
     notify_on_complete: false,
@@ -115,6 +119,10 @@ describe('DisplaySettings', () => {
     mockSettingsStore.display.show_tool_mascot_desktop = undefined
     mockSettingsStore.display.show_tool_mascot_mobile = undefined
     mockSettingsStore.display.show_drawer_rainbow = undefined
+    mockSettingsStore.display.pin_right_drawer = false
+    mockSettingsStore.display.auto_open_patch_drawer = false
+    mockSettingsStore.display.show_workspace_file_tree = undefined
+    mockSettingsStore.display.show_terminal_session_list = undefined
     mockSettingsStore.display.terminal_font_size = 14
     mockSettingsStore.display.terminal_font_family = 'Menlo, Monaco, "Courier New", monospace'
   })
@@ -243,6 +251,66 @@ describe('DisplaySettings', () => {
     await toggle?.trigger('click')
 
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_drawer_rainbow: false })
+  })
+
+  it('exposes a fixed right drawer toggle that defaults off and saves changes', async () => {
+    mockSettingsStore.saveSection.mockResolvedValue(undefined)
+    const wrapper = mountDisplaySettings()
+
+    const rows = wrapper.findAll('.setting-row')
+    const pinRow = rows.find(row => row.text().includes('settings.display.pinRightDrawer'))
+    expect(pinRow?.text()).toContain('settings.display.pinRightDrawerHint')
+    const toggle = pinRow?.find('[role="switch"]')
+    expect(toggle?.attributes('aria-checked')).toBe('false')
+
+    await toggle?.trigger('click')
+
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { pin_right_drawer: true })
+  })
+
+  it('exposes a patch auto-expand toggle that defaults off and saves changes', async () => {
+    mockSettingsStore.saveSection.mockResolvedValue(undefined)
+    const wrapper = mountDisplaySettings()
+
+    const rows = wrapper.findAll('.setting-row')
+    const autoOpenRow = rows.find(row => row.text().includes('settings.display.autoOpenPatchDrawer'))
+    expect(autoOpenRow?.text()).toContain('settings.display.autoOpenPatchDrawerHint')
+    const toggle = autoOpenRow?.find('[role="switch"]')
+    expect(toggle?.attributes('aria-checked')).toBe('false')
+
+    await toggle?.trigger('click')
+
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { auto_open_patch_drawer: true })
+  })
+
+  it('exposes a workspace file tree toggle that defaults on and saves changes', async () => {
+    mockSettingsStore.saveSection.mockResolvedValue(undefined)
+    const wrapper = mountDisplaySettings()
+
+    const rows = wrapper.findAll('.setting-row')
+    const fileTreeRow = rows.find(row => row.text().includes('settings.display.showWorkspaceFileTree'))
+    expect(fileTreeRow?.text()).toContain('settings.display.showWorkspaceFileTreeHint')
+    const toggle = fileTreeRow?.find('[role="switch"]')
+    expect(toggle?.attributes('aria-checked')).toBe('true')
+
+    await toggle?.trigger('click')
+
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_workspace_file_tree: false })
+  })
+
+  it('exposes a terminal session list toggle that defaults on and saves changes', async () => {
+    mockSettingsStore.saveSection.mockResolvedValue(undefined)
+    const wrapper = mountDisplaySettings()
+
+    const rows = wrapper.findAll('.setting-row')
+    const sessionListRow = rows.find(row => row.text().includes('settings.display.showTerminalSessionList'))
+    expect(sessionListRow?.text()).toContain('settings.display.showTerminalSessionListHint')
+    const toggle = sessionListRow?.find('[role="switch"]')
+    expect(toggle?.attributes('aria-checked')).toBe('true')
+
+    await toggle?.trigger('click')
+
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_terminal_session_list: false })
   })
 
   it('exposes terminal font controls and saves changes', async () => {

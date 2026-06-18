@@ -17,6 +17,10 @@ export interface DisplayConfig {
   show_tool_mascot_desktop?: boolean
   show_tool_mascot_mobile?: boolean
   show_drawer_rainbow?: boolean
+  pin_right_drawer?: boolean
+  auto_open_patch_drawer?: boolean
+  show_workspace_file_tree?: boolean
+  show_terminal_session_list?: boolean
   skin?: string
   mobile_enter_to_send?: boolean
   terminal_font_size?: number
