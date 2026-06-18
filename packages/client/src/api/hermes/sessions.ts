@@ -81,6 +81,8 @@ export interface HermesMessage {
   token_count: number | null
   finish_reason: string | null
   reasoning: string | null
+  reasoning_content?: string | null
+  reasoning_details?: string | null
 }
 
 export async function fetchSessions(source?: string, limit?: number, profile?: string): Promise<SessionSummary[]> {

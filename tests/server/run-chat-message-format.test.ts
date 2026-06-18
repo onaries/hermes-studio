@@ -77,6 +77,45 @@ describe('run-chat message formatting', () => {
     }))
   })
 
+  it('keeps reasoning-only assistant messages visible when resuming from database messages', () => {
+    const messages: SessionMessage[] = [
+      {
+        id: 1,
+        session_id: 's1',
+        role: 'assistant',
+        content: '',
+        reasoning_content: 'checking the files',
+        timestamp: 1,
+      },
+    ]
+
+    expect(handleMessage(messages, 's1')[0]).toEqual(expect.objectContaining({
+      role: 'assistant',
+      content: '',
+      reasoning: 'checking the files',
+      reasoning_content: 'checking the files',
+    }))
+  })
+
+  it('falls back to reasoning_content when reasoning is empty on resumed assistant messages', () => {
+    const messages: SessionMessage[] = [
+      {
+        id: 1,
+        session_id: 's1',
+        role: 'assistant',
+        content: 'done',
+        reasoning: null,
+        reasoning_content: 'used fallback reasoning',
+        timestamp: 1,
+      },
+    ]
+
+    expect(handleMessage(messages, 's1')[0]).toEqual(expect.objectContaining({
+      content: 'done',
+      reasoning: 'used fallback reasoning',
+    }))
+  })
+
   it('treats assistant tool-call messages as sendable even with empty text', () => {
     expect(isAssistantMessageSendable({
       content: '',

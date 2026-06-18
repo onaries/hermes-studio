@@ -44,6 +44,13 @@ export function isAssistantMessageSendable(message: { content?: unknown; tool_ca
   return cleanToolCalls(message.tool_calls).length > 0
 }
 
+function hasDisplayableAssistantMessage(message: { content?: unknown; tool_calls?: any; reasoning?: unknown; reasoning_content?: unknown; reasoning_details?: unknown }): boolean {
+  if (isAssistantMessageSendable(message)) return true
+  return typeof message.reasoning === 'string' && message.reasoning.trim().length > 0 ||
+    typeof message.reasoning_content === 'string' && message.reasoning_content.trim().length > 0 ||
+    typeof message.reasoning_details === 'string' && message.reasoning_details.trim().length > 0
+}
+
 /**
  * Convert OpenAI format conversation history to Anthropic format.
  */
@@ -103,12 +110,14 @@ export function handleMessage(messages: SessionMessage[], sid: string): any[] {
     _messages = messages
       .filter(m => (m.role === 'user' || m.role === 'assistant' || m.role === 'tool' || m.role === 'command') && m.content !== undefined)
       .map((m, idx, arr) => {
+        const reasoningText = m.reasoning || m.reasoning_content || m.reasoning_details || ''
         const msg: any = {
           id: m.id,
           session_id: sid,
           role: m.role,
           content: m.content || '',
-          reasoning: m.reasoning || '',
+          reasoning: reasoningText,
+          reasoning_content: m.reasoning_content || reasoningText || null,
           timestamp: m.timestamp,
         }
         if (Object.prototype.hasOwnProperty.call(m, 'finish_reason')) {
@@ -188,7 +197,7 @@ export function handleMessage(messages: SessionMessage[], sid: string): any[] {
           if (cleanedToolCalls.length > 0) msg.tool_calls = cleanedToolCalls
         }
 
-        if (m.role === 'assistant' && !isAssistantMessageSendable(msg)) {
+        if (m.role === 'assistant' && !hasDisplayableAssistantMessage(msg)) {
           logger.warn('[chat-run-socket] skipped empty assistant message %s while loading session %s', m.id, sid)
           return null
         }
@@ -208,7 +217,11 @@ export function handleMessage(messages: SessionMessage[], sid: string): any[] {
         }
 
         if (m.tool_name) msg.tool_name = m.tool_name
-        if (m.reasoning) msg.reasoning = m.reasoning
+        if (m.reasoning || m.reasoning_content || m.reasoning_details) {
+          const persistedReasoning = m.reasoning || m.reasoning_content || m.reasoning_details || ''
+          msg.reasoning = persistedReasoning
+          msg.reasoning_content = m.reasoning_content || persistedReasoning
+        }
         return msg
       })
       .filter(m => m !== null)

@@ -424,13 +424,14 @@ function mapHermesMessages(msgs: HermesMessage[]): Message[] {
       continue
     }
 
+    const reasoning = msg.reasoning || msg.reasoning_content || msg.reasoning_details || undefined
     // Normal user/assistant/command messages
     result.push({
       id: String(msg.id),
       role: msg.role,
       content: msg.content || '',
       timestamp: Math.round(msg.timestamp * 1000),
-      reasoning: msg.reasoning ? msg.reasoning : undefined,
+      reasoning,
       systemType: msg.role === 'command' ? 'command' : undefined,
       finishReason: readFinishReason(msg),
       runMarker: readRunMarker(msg),
