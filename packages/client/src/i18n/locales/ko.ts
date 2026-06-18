@@ -578,6 +578,7 @@ export default {
     truncated: '... (잘림)',
     unchangedLines: '변경 없음 {count}줄',
     executionDuration: '실행 시간',
+    terminalRunning: '터미널 실행 중 · {elapsed}',
     toolSummary: {
       query: '검색어: {value}',
       path: '경로: {value}',

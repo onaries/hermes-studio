@@ -578,6 +578,7 @@ export default {
     truncated: '... (truncado)',
     unchangedLines: '{count} linhas inalteradas',
     executionDuration: 'Tempo de execução',
+    terminalRunning: 'Terminal em execução · {elapsed}',
     toolSummary: {
       query: 'Query: {value}',
       path: 'Path: {value}',

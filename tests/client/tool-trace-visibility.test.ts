@@ -6,7 +6,9 @@ import { defineComponent, nextTick } from 'vue'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
-    t: (key: string) => key,
+    t: (key: string, params?: Record<string, unknown>) => (
+      params?.elapsed ? `${key} ${params.elapsed}` : key
+    ),
   }),
 }))
 
@@ -255,6 +257,41 @@ describe('tool trace visibility', () => {
     expect(runningTool.exists()).toBe(true)
     expect(runningTool.find('.tool-call-spinner').exists()).toBe(true)
     expect(runningTool.text()).toContain('search_files')
+  })
+
+  it('shows a clear elapsed running badge for long terminal tools', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-18T01:00:00Z'))
+    try {
+      const messages: Message[] = [
+        { id: 'user-1', role: 'user', content: 'run a long build', timestamp: Date.now() - 65_000 },
+        {
+          id: 'tool-terminal',
+          role: 'tool',
+          content: '',
+          timestamp: Date.now() - 65_000,
+          toolName: 'terminal',
+          toolArgs: { command: 'npm run build' },
+          toolStatus: 'running',
+        },
+      ]
+
+      const wrapper = mountLiveList(messages)
+      let badge = wrapper.find('.tool-call-running-badge')
+
+      expect(badge.exists()).toBe(true)
+      expect(badge.text()).toContain('chat.terminalRunning 1m 5s')
+      expect(wrapper.find('.tool-call-running-dot').exists()).toBe(true)
+
+      vi.advanceTimersByTime(5_000)
+      await nextTick()
+
+      badge = wrapper.find('.tool-call-running-badge')
+      expect(badge.text()).toContain('chat.terminalRunning 1m 10s')
+      expect(wrapper.find('.tool-call-item--running').attributes('title')).toContain('chat.terminalRunning 1m 10s')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('keeps a visible entry animation class on newly added live tool rows', async () => {
