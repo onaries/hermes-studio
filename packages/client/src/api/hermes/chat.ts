@@ -62,7 +62,16 @@ export interface RunEvent {
     input_tokens: number
     output_tokens: number
     total_tokens: number
+    duration_seconds?: number
+    durationSeconds?: number
+    tps?: number
   }
+  inputTokens?: number
+  outputTokens?: number
+  contextTokens?: number
+  duration_seconds?: number
+  durationSeconds?: number
+  tps?: number
   /** session_id tag added by server for client-side filtering */
   session_id?: string
   /** Generated session title from session.title.updated. */

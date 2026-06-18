@@ -65,6 +65,8 @@ export interface SessionState {
   abortController?: AbortController
   runId?: string
   activeRunMarker?: string
+  runStartedAtMs?: number
+  runBaselineOutputTokens?: number
   profile?: string
   inputTokens?: number
   outputTokens?: number

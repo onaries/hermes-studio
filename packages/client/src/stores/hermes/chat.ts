@@ -903,14 +903,24 @@ export const useChatStore = defineStore('chat', () => {
     setSessionLiveTps(sessionId, roundTps(tracker.smoothedTps))
   }
 
-  function finalizeLiveTpsFromUsage(sessionId: string, totalOutputTokens: unknown) {
+  function finalizeLiveTpsFromUsage(sessionId: string, totalOutputTokens: unknown, serverTps?: unknown, serverDurationSeconds?: unknown) {
+    const normalizedServerTps = typeof serverTps === 'number' && Number.isFinite(serverTps) && serverTps > 0
+      ? serverTps
+      : undefined
+    if (normalizedServerTps != null) {
+      setSessionLiveTps(sessionId, roundTps(normalizedServerTps))
+      return
+    }
     const tracker = liveTpsTrackers.get(sessionId)
     if (!tracker?.startedAt) return
     // A single streamed chunk (or an otherwise too-short sample) cannot produce
     // a stable throughput. Do not let run.completed + cumulative usage jump the
     // label to thousands of TPS after live display intentionally stayed hidden.
     if (tracker.deltaCount < 2 || tracker.activeElapsedMs < LIVE_TPS_DISPLAY_DELAY_MS) return
-    const elapsedSeconds = liveTpsElapsedSeconds(tracker, Date.now())
+    const serverElapsedSeconds = typeof serverDurationSeconds === 'number' && Number.isFinite(serverDurationSeconds) && serverDurationSeconds > 0
+      ? serverDurationSeconds
+      : undefined
+    const elapsedSeconds = serverElapsedSeconds ?? liveTpsElapsedSeconds(tracker, Date.now())
     if (!Number.isFinite(elapsedSeconds) || elapsedSeconds <= 0) return
     const normalizedTotalOutput = typeof totalOutputTokens === 'number' && Number.isFinite(totalOutputTokens) && totalOutputTokens > 0
       ? Math.floor(totalOutputTokens)
@@ -2833,7 +2843,12 @@ export const useChatStore = defineStore('chat', () => {
               settleRunningTools(sid, 'done')
               // Server-computed usage (local countTokens, snapshot-aware)
               if ((evt as any).outputTokens != null) {
-                finalizeLiveTpsFromUsage(sid, (evt as any).outputTokens)
+                finalizeLiveTpsFromUsage(
+                  sid,
+                  (evt as any).outputTokens,
+                  (evt as any).tps ?? (evt as any).usage?.tps,
+                  (evt as any).duration_seconds ?? (evt as any).durationSeconds ?? (evt as any).usage?.duration_seconds ?? (evt as any).usage?.durationSeconds,
+                )
               }
               if ((evt as any).inputTokens != null) {
                 const target = sessions.value.find(s => s.id === sid)
@@ -3413,7 +3428,12 @@ export const useChatStore = defineStore('chat', () => {
           settleRunningTools(sid, 'done')
           // Server-computed usage (local countTokens, snapshot-aware)
           if ((evt as any).outputTokens != null) {
-            finalizeLiveTpsFromUsage(sid, (evt as any).outputTokens)
+            finalizeLiveTpsFromUsage(
+              sid,
+              (evt as any).outputTokens,
+              (evt as any).tps ?? (evt as any).usage?.tps,
+              (evt as any).duration_seconds ?? (evt as any).durationSeconds ?? (evt as any).usage?.duration_seconds ?? (evt as any).usage?.durationSeconds,
+            )
           }
           if ((evt as any).inputTokens != null) {
             const target = sessions.value.find(s => s.id === sid)

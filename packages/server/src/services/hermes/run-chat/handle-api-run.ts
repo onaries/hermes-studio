@@ -24,6 +24,7 @@ import { handleMessage } from './message-format'
 import { countTokens, SUMMARY_PREFIX } from '../../../lib/context-compressor'
 import { getCompressionSnapshot } from '../../../db/hermes/compression-snapshot'
 import type { ContentBlock, SessionState, ChatRunSource } from './types'
+import { buildTurnTpsPayload, finiteOutputTokens } from './tps'
 
 export function resolveRunSource(source?: string, sessionId?: string): ChatRunSource {
   if (source === 'api_server' || source === 'cli' || source === 'coding_agent' || source === 'global_agent') return source
@@ -136,6 +137,8 @@ export async function handleApiRun(
     const sessionSource: ChatRunSource = data.source === 'global_agent' ? 'global_agent' : 'api_server'
     state.source = sessionSource
     state.activeRunMarker = runMarker
+    state.runStartedAtMs = Date.now()
+    state.runBaselineOutputTokens = finiteOutputTokens(state.outputTokens) ?? 0
 
     let peerUserMessage: { id?: number; role: 'user'; content: string; timestamp: number } | null = null
     if (!skipUserMessage) {
@@ -314,7 +317,8 @@ export async function handleApiRun(
         const nextQueuedRun = session_id && queueLen > 0
           ? sessionMap.get(session_id)?.queue?.[0]
           : undefined
-        if (session_id) await markApiCompleted(nsp, socket, session_id, sessionMap, {
+        let completedUsage: { inputTokens: number; outputTokens: number } | undefined
+        if (session_id) completedUsage = await markApiCompleted(nsp, socket, session_id, sessionMap, {
           event: upstreamEvent === 'response.completed' ? 'run.completed' : 'run.failed',
           run_id: responseId,
           keepWorking: Boolean(nextQueuedRun),
@@ -322,11 +326,21 @@ export async function handleApiRun(
         })
         const finalOutput = parsed.response || parsed
         const finalText = extractResponseText(finalOutput)
+        const providerUsage = finalOutput.usage || {}
+        const providerOutputTokens = providerUsage.output_tokens ?? providerUsage.outputTokens
+        const state = session_id ? sessionMap.get(session_id) : undefined
+        const tpsPayload = upstreamEvent === 'response.completed' && session_id
+          ? buildTurnTpsPayload({
+              startedAtMs: state?.runStartedAtMs,
+              reportedOutputTokens: providerOutputTokens ?? completedUsage?.outputTokens,
+              previousOutputTokens: state?.runBaselineOutputTokens,
+            })
+          : {}
         if (upstreamEvent === 'response.completed' && session_id) {
-          const usage = finalOutput.usage || {}
+          const usage = providerUsage
           updateUsage(session_id, {
-            inputTokens: usage.input_tokens ?? usage.inputTokens ?? 0,
-            outputTokens: usage.output_tokens ?? usage.outputTokens ?? 0,
+            inputTokens: usage.input_tokens ?? usage.inputTokens ?? completedUsage?.inputTokens ?? 0,
+            outputTokens: usage.output_tokens ?? usage.outputTokens ?? completedUsage?.outputTokens ?? 0,
             cacheReadTokens: usage.cache_read_tokens ?? usage.cacheReadTokens ?? 0,
             cacheWriteTokens: usage.cache_write_tokens ?? usage.cacheWriteTokens ?? 0,
             reasoningTokens: usage.reasoning_tokens ?? usage.reasoningTokens ?? 0,
@@ -334,13 +348,23 @@ export async function handleApiRun(
             profile: sessionMap.get(session_id)?.profile,
           })
         }
+        if (state && !nextQueuedRun) {
+          state.runStartedAtMs = undefined
+          state.runBaselineOutputTokens = undefined
+        }
         const eventName = upstreamEvent === 'response.completed' ? 'run.completed' : 'run.failed'
+        const usagePayload = Object.keys(providerUsage).length > 0 || tpsPayload.tps != null
+          ? { ...providerUsage, ...tpsPayload }
+          : finalOutput.usage
         emit(eventName, {
           event: eventName,
           run_id: responseId || finalOutput.id,
           response_id: responseId || finalOutput.id,
           output: finalText,
-          usage: finalOutput.usage,
+          usage: usagePayload,
+          inputTokens: completedUsage?.inputTokens,
+          outputTokens: completedUsage?.outputTokens,
+          ...tpsPayload,
           error: finalOutput.error || parsed.error,
           queue_remaining: queueLen,
         })
@@ -393,7 +417,7 @@ async function markApiCompleted(
   sessionId: string,
   sessionMap: Map<string, SessionState>,
   info: { event: string; run_id?: string; keepWorking?: boolean; nextSource?: ChatRunSource },
-) {
+): Promise<{ inputTokens: number; outputTokens: number } | undefined> {
   const state = sessionMap.get(sessionId)
   if (state) {
     if (state.isAborting) {
@@ -401,7 +425,7 @@ async function markApiCompleted(
         sessionId,
         runId: state.runId,
       }, '[chat-run-socket][abort] terminal upstream event observed; abort handler will finish cleanup')
-      return
+      return undefined
     }
     state.isWorking = Boolean(info.keepWorking)
     state.abortController = undefined
@@ -419,6 +443,8 @@ async function markApiCompleted(
     const emit = (event: string, payload: any) => {
       nsp.to(`session:${sessionId}`).emit(event, { ...payload, session_id: sessionId })
     }
-    await calcAndUpdateUsage(sessionId, state, emit)
+    const usage = await calcAndUpdateUsage(sessionId, state, emit)
+    return usage
   }
+  return undefined
 }

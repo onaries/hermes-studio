@@ -243,6 +243,52 @@ describe('chat store session.command fanout', () => {
     }
   })
 
+  it('uses backend-settled TPS from completed run payload when available', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(1_000)
+      const store = useChatStore()
+      const session = makeSession()
+      session.outputTokens = 100
+      store.sessions = [session]
+      store.activeSessionId = 'session-1'
+      store.activeSession = session
+
+      chatApi.sessionCommandHandlers[0]({
+        event: 'session.command',
+        session_id: 'session-1',
+        command: 'goal',
+        action: 'resume',
+        message: 'Goal resumed',
+        started: true,
+        terminal: false,
+      })
+
+      const handlers = chatApi.registerSessionHandlers.mock.calls[0]?.[1]
+      handlers.onRunStarted({ event: 'run.started', session_id: 'session-1' })
+      vi.setSystemTime(2_000)
+      handlers.onMessageDelta({ event: 'message.delta', session_id: 'session-1', delta: 'short' })
+      vi.setSystemTime(4_000)
+      handlers.onMessageDelta({ event: 'message.delta', session_id: 'session-1', delta: 'short' })
+      vi.setSystemTime(6_000)
+      handlers.onRunCompleted({
+        event: 'run.completed',
+        session_id: 'session-1',
+        queue_remaining: 0,
+        output: 'shortshort',
+        inputTokens: 50,
+        outputTokens: 130,
+        duration_seconds: 3.75,
+        tps: 8,
+      })
+
+      expect(session.outputTokens).toBe(130)
+      expect(session.liveTps).toBe(8)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('does not show a huge completed TPS from a single streamed chunk', () => {
     vi.useFakeTimers()
     try {

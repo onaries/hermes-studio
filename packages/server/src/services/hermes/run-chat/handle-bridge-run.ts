@@ -32,6 +32,7 @@ import { resolveBridgeRunModelConfig, type RunModelGroup } from './model-config'
 import { filterBridgeToolCallMarkupDelta, flushPendingToolCallMarkup } from './bridge-delta'
 import { markAbortCompleted } from './abort'
 import { writeModelRunProfileToken } from './model-run-prompt'
+import { buildTurnTpsPayload, finiteOutputTokens } from './tps'
 import type { AuthenticatedUser } from '../../../middleware/user-auth'
 
 const BRIDGE_USAGE_FLUSH_DELAY_MS = 200
@@ -357,6 +358,8 @@ export async function handleBridgeRun(
   state.profile = profile
   state.source = runSource
   state.activeRunMarker = runMarker
+  state.runStartedAtMs = Date.now()
+  state.runBaselineOutputTokens = finiteOutputTokens(state.outputTokens) ?? 0
   state.runId = undefined
   state.abortController = undefined
   state.bridgeOutput = ''
@@ -596,6 +599,8 @@ export async function handleBridgeRun(
     state.profile = undefined
     state.runId = undefined
     state.activeRunMarker = undefined
+    state.runStartedAtMs = undefined
+    state.runBaselineOutputTokens = undefined
     state.events = []
     state.bridgePendingToolCallMarkup = undefined
     flushBridgePendingToDb(state, session_id)
@@ -668,6 +673,8 @@ export async function resumeBridgeRun(
   state.source = args.source === 'global_agent' ? 'global_agent' : 'cli'
   state.runId = runId
   state.activeRunMarker = runMarker
+  state.runStartedAtMs = state.runStartedAtMs || Date.now()
+  state.runBaselineOutputTokens = state.runBaselineOutputTokens ?? (finiteOutputTokens(state.outputTokens) ?? 0)
   state.bridgeOutput = state.bridgeOutput || latestAssistantText(state)
   state.bridgePendingAssistantContent = state.bridgePendingAssistantContent || ''
   state.bridgePendingReasoningContent = state.bridgePendingReasoningContent || ''
@@ -762,6 +769,8 @@ export async function resumeBridgeRun(
     state.profile = undefined
     state.runId = undefined
     state.activeRunMarker = undefined
+    state.runStartedAtMs = undefined
+    state.runBaselineOutputTokens = undefined
     state.events = []
     emit('run.failed', {
       event: 'run.failed',
@@ -1249,6 +1258,11 @@ async function applyBridgeChunkAsync(
     profile: state.profile,
   })
   const terminalError = bridgeTerminalError(chunk)
+  const tpsPayload = buildTurnTpsPayload({
+    startedAtMs: state.runStartedAtMs,
+    reportedOutputTokens: usage.outputTokens,
+    previousOutputTokens: state.runBaselineOutputTokens,
+  })
   const hadQueuedRunBeforeGoalEvaluation = state.queue.length > 0
   state.isWorking = hadQueuedRunBeforeGoalEvaluation
   state.isAborting = false
@@ -1256,6 +1270,8 @@ async function applyBridgeChunkAsync(
   state.source = hadQueuedRunBeforeGoalEvaluation ? state.queue[0]?.source : state.source
   state.runId = undefined
   state.activeRunMarker = undefined
+  state.runStartedAtMs = undefined
+  state.runBaselineOutputTokens = undefined
   state.events = []
   const eventName = terminalError ? 'run.failed' : 'run.completed'
   const payload = {
@@ -1267,6 +1283,7 @@ async function applyBridgeChunkAsync(
     inputTokens: usage.inputTokens,
     outputTokens: usage.outputTokens,
     contextTokens,
+    ...tpsPayload,
     queue_remaining: state.queue.length,
   }
   emit(eventName, payload)
