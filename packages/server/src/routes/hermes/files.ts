@@ -1,4 +1,5 @@
 import Router from '@koa/router'
+import { homedir } from 'os'
 import { resolve, normalize, isAbsolute } from 'path'
 import { isPathWithin } from '../../services/hermes/hermes-path'
 import {
@@ -15,7 +16,7 @@ function requestedProfile(ctx: any): string | undefined {
 }
 
 function workspaceBase(): string {
-  return resolve(process.env.WORKSPACE_BASE || '/opt/data/workspace')
+  return resolve(process.env.WORKSPACE_BASE || process.env.HOME || homedir())
 }
 
 function resolveRequestPath(ctx: any, relativePath: string): string {

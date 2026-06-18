@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useFilesStore } from '@/stores/hermes/files'
 import { useChatStore } from '@/stores/hermes/chat'
+import { useSettingsStore } from '@/stores/hermes/settings'
 import { useI18n } from 'vue-i18n'
 import { NButton } from 'naive-ui'
 import FileTree from '@/components/hermes/files/FileTree.vue'
@@ -17,6 +18,7 @@ import type { FileEntry } from '@/api/hermes/files'
 
 const filesStore = useFilesStore()
 const chatStore = useChatStore()
+const settingsStore = useSettingsStore()
 const { t } = useI18n()
 
 const contextMenuRef = ref<InstanceType<typeof FileContextMenu> | null>(null)
@@ -26,6 +28,9 @@ const renameMode = ref<'newFile' | 'newFolder' | 'rename'>('newFile')
 const renameEntry = ref<FileEntry | null>(null)
 const renameTargetPath = ref<string | null>(null)
 const showSidebar = ref(false)
+const fileTreeCollapsed = ref(false)
+const showWorkspaceFileTree = computed(() => settingsStore.display.show_workspace_file_tree !== false)
+const showFileTreePanel = computed(() => showWorkspaceFileTree.value && !fileTreeCollapsed.value)
 const workspaceRoot = computed(() => {
   const activeId = chatStore.activeSessionId
   return chatStore.activeSession?.workspace
@@ -34,13 +39,22 @@ const workspaceRoot = computed(() => {
 })
 
 watch(
-  workspaceRoot,
-  (root) => {
+  [() => chatStore.activeSessionId, workspaceRoot],
+  ([, root]) => {
+    filesStore.closeEditor()
+    filesStore.closePreview()
     filesStore.setRootPath(root)
     void filesStore.fetchEntries(root)
   },
   { immediate: true },
 )
+
+watch(showWorkspaceFileTree, (visible) => {
+  if (!visible) {
+    showSidebar.value = false
+    fileTreeCollapsed.value = false
+  }
+})
 
 function handleContextMenu(e: MouseEvent, entry: FileEntry) {
   contextMenuRef.value?.show(e, entry)
@@ -79,11 +93,12 @@ function handleRename(entry: FileEntry) {
 <template>
   <div class="files-panel-drawer">
     <div
-      v-if="showSidebar"
+      v-if="showSidebar && showFileTreePanel"
       class="sidebar-overlay"
       @click="showSidebar = false"
     ></div>
     <div
+      v-if="showFileTreePanel"
       class="files-tree-panel"
       :class="{ 'mobile-visible': showSidebar }"
     >
@@ -92,6 +107,22 @@ function handleRename(entry: FileEntry) {
     <div class="files-main-panel">
       <div class="main-toolbar">
         <NButton
+          v-if="showWorkspaceFileTree"
+          size="small"
+          @click="fileTreeCollapsed = !fileTreeCollapsed"
+          class="file-tree-collapse-toggle"
+          :title="fileTreeCollapsed ? t('files.showFileTree') : t('files.hideFileTree')"
+        >
+          <template #icon>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline v-if="fileTreeCollapsed" points="9 18 15 12 9 6" />
+              <polyline v-else points="15 18 9 12 15 6" />
+            </svg>
+          </template>
+          {{ fileTreeCollapsed ? t('files.showFileTree') : t('files.hideFileTree') }}
+        </NButton>
+        <NButton
+          v-if="showFileTreePanel"
           size="small"
           @click="showSidebar = !showSidebar"
           class="sidebar-toggle"
@@ -206,6 +237,16 @@ function handleRename(entry: FileEntry) {
     gap: 4px;
     padding: 8px 8px;
     flex-wrap: wrap;
+  }
+}
+
+.file-tree-collapse-toggle {
+  flex-shrink: 0;
+
+  @media (max-width: $breakpoint-mobile) {
+    font-size: 12px;
+    padding: 0 8px;
+    height: 32px;
   }
 }
 

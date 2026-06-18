@@ -87,6 +87,27 @@ describe('file routes path metadata', () => {
     })
   })
 
+  it('allows absolute workspace paths under the configured workspace base', async () => {
+    const originalWorkspaceBase = process.env.WORKSPACE_BASE
+    process.env.WORKSPACE_BASE = '/home/agent'
+    provider.listDir.mockResolvedValue([
+      { name: 'project', path: '/home/agent/Documents/project', isDir: true, size: 0, modTime: '2026-05-20T00:00:00.000Z' },
+    ])
+
+    try {
+      const ctx: any = { query: { path: '/home/agent/Documents' }, state: superAdminState(), body: null }
+      await runFileRoute('/api/hermes/files/list', ctx)
+
+      expect(provider.listDir).toHaveBeenCalledWith('/home/agent/Documents')
+      expect(ctx.body.path).toBe('/home/agent/Documents')
+      expect(ctx.body.absolutePath).toBe('/home/agent/Documents')
+      expect(ctx.body.entries[0].path).toBe('/home/agent/Documents/project')
+    } finally {
+      if (originalWorkspaceBase === undefined) delete process.env.WORKSPACE_BASE
+      else process.env.WORKSPACE_BASE = originalWorkspaceBase
+    }
+  })
+
   it('returns an absolute path in stat responses', async () => {
     provider.stat.mockResolvedValue({
       name: 'app.log',

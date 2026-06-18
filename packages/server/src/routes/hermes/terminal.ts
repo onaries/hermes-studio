@@ -98,6 +98,7 @@ interface PtySession {
   shell: string
   pid: number
   createdAt: number
+  cwd: string
 }
 
 interface Connection {
@@ -112,15 +113,16 @@ function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }
 
-function createSession(shell: string): PtySession {
+function createSession(shell: string, cwdOverride?: string): PtySession {
   const id = generateId()
+  const cwd = resolveTerminalCwd(cwdOverride ? { cwd: cwdOverride } : undefined)
   let ptyProcess: PtySession['pty']
   try {
     ptyProcess = pty.spawn(shell, [], {
       name: 'xterm-color',
       cols: 80,
       rows: 24,
-      cwd: resolveTerminalCwd(),
+      cwd,
     })
   } catch (err: any) {
     throw new Error(`Failed to spawn shell "${shell}": ${err.message}`)
@@ -132,6 +134,7 @@ function createSession(shell: string): PtySession {
     shell,
     pid: ptyProcess.pid,
     createdAt: Date.now(),
+    cwd,
   }
 
   return session
@@ -253,9 +256,11 @@ export function setupTerminalWebSocket(httpServers: HttpServer | HttpServer[]) {
       switch (parsed.type) {
         case 'create': {
           const shell = parsed.shell || defaultShell
+          const cwd = typeof parsed.cwd === 'string' ? parsed.cwd : undefined
+          const chatSessionId = typeof parsed.chatSessionId === 'string' ? parsed.chatSessionId : undefined
           let session: PtySession
           try {
-            session = createSession(shell)
+            session = createSession(shell, cwd)
           } catch (err: any) {
             ws.send(JSON.stringify({ type: 'error', message: err.message }))
             return
@@ -268,6 +273,8 @@ export function setupTerminalWebSocket(httpServers: HttpServer | HttpServer[]) {
             id: session.id,
             pid: session.pid,
             shell: shellName(shell),
+            cwd: session.cwd,
+            chatSessionId,
           }))
           logger.info('Session created: %s (%s, pid %d)', session.id, shellName(shell), session.pid)
           break
@@ -366,6 +373,7 @@ export function setupTerminalWebSocket(httpServers: HttpServer | HttpServer[]) {
       id: firstSession.id,
       pid: firstSession.pid,
       shell: shellName(defaultShell),
+      cwd: firstSession.cwd,
     }))
     logger.info('First session created: %s (%s, pid %d)', firstSession.id, shellName(defaultShell), firstSession.pid)
   })

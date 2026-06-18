@@ -17,6 +17,7 @@ const mockSettingsStore = vi.hoisted(() => ({
   display: {
     terminal_font_size: 14,
     terminal_font_family: 'Menlo, Monaco, "Courier New", monospace',
+    show_terminal_session_list: undefined as boolean | undefined,
   },
   updateLocal: vi.fn((_section: string, values: Record<string, unknown>) => {
     Object.assign(mockSettingsStore.display, values)
@@ -26,8 +27,21 @@ const mockSettingsStore = vi.hoisted(() => ({
   }),
 }))
 
+const mockChatStore = vi.hoisted(() => ({
+  activeSessionId: 'chat-1',
+  activeSession: { id: 'chat-1', workspace: '/workspace-one' },
+  sessions: [
+    { id: 'chat-1', workspace: '/workspace-one' },
+    { id: 'chat-2', workspace: '/workspace-two' },
+  ],
+}))
+
 vi.mock('@/stores/hermes/settings', () => ({
   useSettingsStore: () => mockSettingsStore,
+}))
+
+vi.mock('@/stores/hermes/chat', () => ({
+  useChatStore: () => mockChatStore,
 }))
 
 vi.mock('naive-ui', async () => {
@@ -149,7 +163,7 @@ class FakeWebSocket {
 }
 
 const globalStubs = {
-  NButton: { template: '<button><slot name="icon" /><slot /></button>' },
+  NButton: { template: '<button v-bind="$attrs"><slot name="icon" /><slot /></button>' },
   NPopconfirm: { template: '<span><slot name="trigger" /><slot /></span>' },
   NTooltip: { template: '<span><slot name="trigger" /><slot /></span>' },
   NSelect: {
@@ -198,6 +212,13 @@ describe('TerminalPanel mobile shortcuts visibility', () => {
     })
     mockSettingsStore.display.terminal_font_size = 14
     mockSettingsStore.display.terminal_font_family = 'Menlo, Monaco, "Courier New", monospace'
+    mockSettingsStore.display.show_terminal_session_list = undefined
+    mockChatStore.activeSessionId = 'chat-1'
+    mockChatStore.activeSession = { id: 'chat-1', workspace: '/workspace-one' }
+    mockChatStore.sessions = [
+      { id: 'chat-1', workspace: '/workspace-one' },
+      { id: 'chat-2', workspace: '/workspace-two' },
+    ]
     mockSettingsStore.saveSection.mockClear()
     mockSettingsStore.updateLocal.mockClear()
   })
@@ -261,6 +282,32 @@ describe('TerminalPanel mobile shortcuts visibility', () => {
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { terminal_font_family: '"Fira Code", monospace' })
   })
 
+  it('can hide the terminal session sidebar for narrow fixed drawers', () => {
+    mockSettingsStore.display.show_terminal_session_list = false
+    const wrapper = mountPanel(true)
+
+    expect(wrapper.find('.terminal-sidebar').exists()).toBe(false)
+    expect(wrapper.find('.sidebar-toggle').exists()).toBe(false)
+    expect(wrapper.find('.terminal-main').exists()).toBe(true)
+  })
+
+  it('collapses and expands the terminal session sidebar from the terminal header', async () => {
+    const wrapper = mountPanel(true)
+
+    expect(wrapper.find('.terminal-sidebar').exists()).toBe(true)
+    const toggle = wrapper.find('.session-list-collapse-toggle')
+    expect(toggle.exists()).toBe(true)
+
+    await toggle.trigger('click')
+    expect(wrapper.find('.terminal-sidebar').exists()).toBe(false)
+    expect(wrapper.find('.session-list-collapse-glyph').text()).toBe('>')
+
+    await wrapper.find('.session-list-collapse-toggle').trigger('click')
+    const sidebar = wrapper.find('.terminal-sidebar')
+    expect(sidebar.exists()).toBe(true)
+    expect(sidebar.classes()).toContain('mobile-visible')
+  })
+
   it('keeps mobile terminal header actions horizontally scrollable instead of squeezing font controls', () => {
     const source = terminalPanelSource
 
@@ -292,5 +339,36 @@ describe('TerminalPanel mobile shortcuts visibility', () => {
     expect(terminal.element?.style.fontSize).toBe('22px')
     expect(terminal.element?.style.fontFamily).toBe('"JetBrains Mono", monospace')
     expect(terminal.refresh).toHaveBeenCalled()
+  })
+
+  it('keeps drawer terminal sessions scoped to the active chat session', () => {
+    const source = terminalPanelSource
+
+    expect(source).toContain('const currentSessions = computed(() => sessions.value.filter((s) => s.chatSessionId === activeChatSessionId.value))')
+    expect(source).toContain('v-for="s in currentSessions"')
+    expect(source).toContain('watch(activeChatSessionId')
+  })
+
+  it('sends the active session workspace when creating a drawer terminal', async () => {
+    const wrapper = mountPanel(true)
+    const socket = websocketInstances[0]
+
+    socket.onopen?.()
+    socket.onmessage?.({ data: JSON.stringify({ type: 'created', id: 'term-1', shell: 'zsh', pid: 123 }) })
+    await wrapper.vm.$nextTick()
+
+    const newTabButton = wrapper.findAll('button').find(button => button.text().includes('terminal.newTab'))
+    expect(newTabButton).toBeTruthy()
+    await newTabButton!.trigger('click')
+
+    const sentPayloads = socket.send.mock.calls
+      .map(([payload]) => payload)
+      .filter((payload): payload is string => typeof payload === 'string')
+      .map(payload => JSON.parse(payload))
+    expect(sentPayloads).toContainEqual({
+      type: 'create',
+      cwd: '/workspace-one',
+      chatSessionId: 'chat-1',
+    })
   })
 })

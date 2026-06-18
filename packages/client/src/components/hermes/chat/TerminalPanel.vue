@@ -6,6 +6,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import { getApiKey, getBaseUrlValue } from "@/api/client";
 import { useSettingsStore } from "@/stores/hermes/settings";
+import { useChatStore } from "@/stores/hermes/chat";
 import { NButton, NInputNumber, NPopconfirm, NTooltip, NSelect, useMessage } from "naive-ui";
 import { useI18n } from "vue-i18n";
 import type { ITheme } from "@xterm/xterm";
@@ -19,6 +20,7 @@ import {
 const { t } = useI18n();
 const message = useMessage();
 const settingsStore = useSettingsStore();
+const chatStore = useChatStore();
 
 const props = defineProps<{ visible?: boolean; initialCommand?: string }>();
 
@@ -92,21 +94,44 @@ interface SessionInfo {
   title: string;
   createdAt: number;
   exited: boolean;
+  chatSessionId: string;
+  cwd?: string;
+}
+
+interface PendingCreateContext {
+  chatSessionId: string;
+  cwd: string;
 }
 
 // ─── State ──────────────────────────────────────────────────────
 
 const terminalRef = ref<HTMLDivElement | null>(null);
 const sessions = ref<SessionInfo[]>([]);
-const activeSessionId = ref<string | null>(null);
+const activeTerminalSessionId = ref<string | null>(null);
 const selectedTheme = ref(localStorage.getItem(STORAGE_KEY_THEME) || "default");
 const connectionError = ref<string | null>(null);
 const isConnecting = ref(false);
 const showSidebar = ref(false);
+const terminalSessionListCollapsed = ref(false);
+const showTerminalSessionList = computed(() => settingsStore.display.show_terminal_session_list !== false);
+const showTerminalSidebarPanel = computed(() => showTerminalSessionList.value && !terminalSessionListCollapsed.value);
 const mobileShortcutBottomOffset = ref(0);
 const mobileShortcutHidden = ref(false);
 const ctrlLatchActive = ref(false);
 const shiftLatchActive = ref(false);
+
+watch(showTerminalSessionList, (visible) => {
+  if (!visible) {
+    showSidebar.value = false;
+    terminalSessionListCollapsed.value = false;
+  }
+});
+
+function toggleTerminalSessionList(): void {
+  const nextCollapsed = !terminalSessionListCollapsed.value;
+  terminalSessionListCollapsed.value = nextCollapsed;
+  showSidebar.value = !nextCollapsed;
+}
 
 let ws: WebSocket | null = null;
 const termMap = new Map<string, { term: Terminal; fitAddon: FitAddon; opened: boolean }>();
@@ -122,11 +147,21 @@ const INITIAL_COMMAND_CHUNK_SIZE = 128;
 const INITIAL_COMMAND_CHUNK_DELAY_MS = 8;
 const initialCommandSent = ref(false);
 const initialCommandTimers = new Set<ReturnType<typeof setTimeout>>();
+const pendingCreateContexts: PendingCreateContext[] = [];
+const FALLBACK_CHAT_SESSION_ID = "__global_terminal__";
 
 // ─── Computed ──────────────────────────────────────────────────
 
+const activeChatSessionId = computed(() => chatStore.activeSessionId || FALLBACK_CHAT_SESSION_ID);
+const activeWorkspaceRoot = computed(() => {
+  const activeId = chatStore.activeSessionId;
+  return chatStore.activeSession?.workspace
+    || chatStore.sessions.find(session => session.id === activeId)?.workspace
+    || '';
+});
+const currentSessions = computed(() => sessions.value.filter((s) => s.chatSessionId === activeChatSessionId.value));
 const activeSession = computed(
-  () => sessions.value.find((s) => s.id === activeSessionId.value) || null,
+  () => currentSessions.value.find((s) => s.id === activeTerminalSessionId.value) || null,
 );
 
 const themeOptions = computed(() =>
@@ -377,25 +412,35 @@ function setMobileShortcutHidden(hidden: boolean) {
 
 function handleControl(msg: any) {
   switch (msg.type) {
-    case "created":
+    case "created": {
       reconnectAttempts = 0;
+      const context = pendingCreateContexts.shift() || {
+        chatSessionId: typeof msg.chatSessionId === 'string' && msg.chatSessionId ? msg.chatSessionId : activeChatSessionId.value,
+        cwd: typeof msg.cwd === 'string' ? msg.cwd : activeWorkspaceRoot.value,
+      };
+      const chatSessionCount = sessions.value.filter((session) => session.chatSessionId === context.chatSessionId).length;
       sessions.value.push({
         id: msg.id,
         shell: msg.shell,
         pid: msg.pid,
-        title: `${msg.shell} #${sessions.value.length + 1}`,
+        title: `${msg.shell} #${chatSessionCount + 1}`,
         createdAt: Date.now(),
         exited: false,
+        chatSessionId: context.chatSessionId,
+        cwd: context.cwd,
       });
-      switchSession(msg.id);
-      runInitialCommand();
+      if (context.chatSessionId === activeChatSessionId.value) {
+        switchSession(msg.id);
+        runInitialCommand();
+      }
       break;
+    }
 
     case "exited": {
       const s = sessions.value.find((s) => s.id === msg.id);
       if (s) {
         s.exited = true;
-        if (activeSessionId.value === msg.id) {
+        if (activeTerminalSessionId.value === msg.id) {
           activeTerm?.write(
             `\r\n\x1b[90m[${t("terminal.processExited", { code: msg.exitCode })}]\x1b[0m\r\n`,
           );
@@ -405,6 +450,7 @@ function handleControl(msg: any) {
     }
 
     case "error":
+      pendingCreateContexts.shift();
       message.error(msg.message);
       break;
   }
@@ -413,7 +459,13 @@ function handleControl(msg: any) {
 // ─── Session actions ────────────────────────────────────────────
 
 function createSession() {
-  send({ type: "create" });
+  createSessionForChat(activeChatSessionId.value, activeWorkspaceRoot.value);
+}
+
+function createSessionForChat(chatSessionId: string, cwd: string) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  pendingCreateContexts.push({ chatSessionId, cwd });
+  send({ type: "create", cwd: cwd || undefined, chatSessionId });
 }
 
 function runInitialCommand() {
@@ -460,8 +512,8 @@ function getOrCreateTerm(id: string): { term: Terminal; fitAddon: FitAddon } {
 }
 
 function switchSession(id: string) {
-  if (activeSessionId.value === id) return;
-  activeSessionId.value = id;
+  if (activeTerminalSessionId.value === id) return;
+  activeTerminalSessionId.value = id;
   const entry = getOrCreateTerm(id);
   activeTerm = entry.term;
   activeFitAddon = entry.fitAddon;
@@ -470,6 +522,7 @@ function switchSession(id: string) {
 }
 
 function closeSession(id: string) {
+  const closingSession = sessions.value.find((s) => s.id === id);
   send({ type: "close", sessionId: id });
   sessions.value = sessions.value.filter((s) => s.id !== id);
   const entry = termMap.get(id);
@@ -477,17 +530,39 @@ function closeSession(id: string) {
     entry.term.dispose();
     termMap.delete(id);
   }
-  if (activeSessionId.value === id) {
-    activeSessionId.value = sessions.value.length > 0 ? sessions.value[0].id : null;
+  if (activeTerminalSessionId.value === id) {
+    const replacement = sessions.value.find((s) => s.chatSessionId === (closingSession?.chatSessionId || activeChatSessionId.value) && !s.exited)
+      || sessions.value.find((s) => s.chatSessionId === (closingSession?.chatSessionId || activeChatSessionId.value))
+      || null;
+    activeTerminalSessionId.value = replacement?.id || null;
     activeTerm = null;
     activeFitAddon = null;
-    if (activeSessionId.value) {
-      switchSession(activeSessionId.value);
+    if (activeTerminalSessionId.value) {
+      switchSession(activeTerminalSessionId.value);
     } else {
       unmountActiveTerminal();
-      createSession();
+      createSessionForChat(closingSession?.chatSessionId || activeChatSessionId.value, activeWorkspaceRoot.value);
     }
   }
+}
+
+function ensureActiveChatTerminalSession() {
+  if (!props.visible || !ws || ws.readyState !== WebSocket.OPEN) return;
+  if (sessions.value.length === 0) return;
+  const activeId = activeTerminalSessionId.value;
+  if (activeId && currentSessions.value.some((s) => s.id === activeId && !s.exited)) return;
+
+  const nextSession = currentSessions.value.find((s) => !s.exited) || currentSessions.value[0] || null;
+  if (nextSession) {
+    switchSession(nextSession.id);
+    return;
+  }
+
+  activeTerminalSessionId.value = null;
+  activeTerm = null;
+  activeFitAddon = null;
+  unmountActiveTerminal();
+  createSessionForChat(activeChatSessionId.value, activeWorkspaceRoot.value);
 }
 
 // ─── Terminal mount/unmount ─────────────────────────────────────
@@ -497,7 +572,7 @@ function mountActiveTerminal() {
   const container = terminalRef.value;
   while (container.firstChild) container.removeChild(container.firstChild);
 
-  const entry = termMap.get(activeSessionId.value!);
+  const entry = termMap.get(activeTerminalSessionId.value!);
   if (!entry) return;
 
   if (!entry.opened) {
@@ -650,6 +725,7 @@ watch(() => props.visible, (visible) => {
   }
   if (visible) {
     updateMobileShortcutBottomOffset();
+    ensureActiveChatTerminalSession();
   } else {
     showSidebar.value = false;
     clearMobileShortcutState();
@@ -657,6 +733,10 @@ watch(() => props.visible, (visible) => {
     blurActiveTerminal();
   }
 }, { immediate: true });
+
+watch(activeChatSessionId, () => {
+  ensureActiveChatTerminalSession();
+});
 
 watch([terminalFontSize, terminalFontFamily], () => {
   applyTerminalFontSettings();
@@ -690,11 +770,12 @@ onUnmounted(() => {
 <template>
   <div class="terminal-panel-drawer">
     <div
-      v-if="showSidebar"
+      v-if="showSidebar && showTerminalSidebarPanel"
       class="sidebar-overlay"
       @click="showSidebar = false"
     ></div>
     <div
+      v-if="showTerminalSidebarPanel"
       class="terminal-sidebar"
       :class="{ 'mobile-visible': showSidebar }"
     >
@@ -724,7 +805,7 @@ onUnmounted(() => {
           <span>{{ connectionError }}</span>
           <NButton size="tiny" @click="connect">{{ t("common.retry") }}</NButton>
         </div>
-        <div v-else-if="sessions.length === 0" class="session-empty">
+        <div v-else-if="currentSessions.length === 0" class="session-empty">
           <template v-if="isConnecting">
             {{ t("common.loading") }}
           </template>
@@ -733,10 +814,10 @@ onUnmounted(() => {
           </template>
         </div>
         <button
-          v-for="s in sessions"
+          v-for="s in currentSessions"
           :key="s.id"
           class="session-item"
-          :class="{ active: s.id === activeSessionId, exited: s.exited }"
+          :class="{ active: s.id === activeTerminalSessionId, exited: s.exited }"
           @click="switchSession(s.id)"
         >
           <div class="session-item-content">
@@ -751,7 +832,7 @@ onUnmounted(() => {
               }}</span>
             </span>
           </div>
-          <NPopconfirm v-if="sessions.length > 1" @positive-click="closeSession(s.id)">
+          <NPopconfirm v-if="currentSessions.length > 1" @positive-click="closeSession(s.id)">
             <template #trigger>
               <button class="session-item-delete" @click.stop>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -773,6 +854,21 @@ onUnmounted(() => {
         }}</span>
         <div class="header-actions">
           <NButton
+            v-if="showTerminalSessionList"
+            size="small"
+            quaternary
+            circle
+            @click="toggleTerminalSessionList"
+            class="session-list-collapse-toggle"
+            :title="terminalSessionListCollapsed ? t('terminal.showSessions') : t('terminal.hideSessions')"
+            :aria-label="terminalSessionListCollapsed ? t('terminal.showSessions') : t('terminal.hideSessions')"
+          >
+            <span class="session-list-collapse-glyph" aria-hidden="true">
+              {{ terminalSessionListCollapsed ? '>' : '<' }}
+            </span>
+          </NButton>
+          <NButton
+            v-if="showTerminalSidebarPanel"
             size="small"
             @click="showSidebar = !showSidebar"
             class="sidebar-toggle"
@@ -1156,6 +1252,27 @@ $terminal-panel-header-height: 47px;
 .terminal-font-family-input {
   width: clamp(140px, 18vw, 240px);
   min-width: 0;
+}
+
+.session-list-collapse-toggle {
+  flex: 0 0 28px;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  overflow: visible;
+}
+
+.session-list-collapse-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-family: $font-code;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .sidebar-toggle {
