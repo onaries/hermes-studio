@@ -88,8 +88,16 @@ function isLegacyGlobalDefaultEndpoint(endpoint: string): boolean {
 }
 
 export function buildAgentBridgeProcessEnv(endpoint: string, hermesHome: string | undefined, agentRoot: string | undefined): NodeJS.ProcessEnv {
+  const env = { ...process.env }
+  // Broker restarts can inherit the environment of a prior worker process in
+  // desktop/runtime reload paths. These variables are worker-only: if they leak
+  // into the broker launch, hermes_bridge.py starts BridgeServer directly and
+  // broker-only actions such as status_if_loaded fail with "unknown action".
+  delete env.HERMES_AGENT_BRIDGE_WORKER_PROFILE
+  delete env.HERMES_AGENT_BRIDGE_BROKER_PID
+
   return {
-    ...process.env,
+    ...env,
     HERMES_AGENT_BRIDGE_ENDPOINT: endpoint,
     HERMES_HOME: hermesHome,
     HERMES_OPENROUTER_APP_REFERER: process.env.HERMES_OPENROUTER_APP_REFERER || OPENROUTER_WEB_UI_ATTRIBUTION_ENV.HERMES_OPENROUTER_APP_REFERER,

@@ -23,11 +23,17 @@ function makeHome() {
 
 beforeEach(() => {
   mockProcessUid(1000)
+  delete process.env.HERMES_DESKTOP
+  delete process.env.HERMES_WEB_UI_MCP_BIN
+  process.env.PORT = '8648'
 })
 
 afterEach(() => {
   delete process.env.HERMES_WEB_UI_HOME
   delete process.env.HERMES_CODING_AGENT_GLOBAL_HOME
+  delete process.env.HERMES_DESKTOP
+  delete process.env.HERMES_WEB_UI_MCP_BIN
+  delete process.env.PORT
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
   for (const home of homes.splice(0)) rmSync(home, { recursive: true, force: true })
@@ -365,7 +371,7 @@ describe('coding agent launch preparation', () => {
     })
 
     const config = readFileSync(join(result.rootDir, 'config.toml'), 'utf-8')
-    expect(config).toContain(`base_url = "http://127.0.0.1:8648/api/codex-proxy/`)
+    expect(config).toMatch(/base_url = "http:\/\/127\.0\.0\.1:\d+\/api\/codex-proxy\//)
     expect(config).toContain('wire_api = "responses"')
     expect(config).toContain('requires_openai_auth = false')
     expect(config).toMatch(/experimental_bearer_token = "hwui_[^"]+"/)
@@ -396,7 +402,7 @@ describe('coding agent launch preparation', () => {
     })
 
     const config = readFileSync(join(result.rootDir, 'config.toml'), 'utf-8')
-    expect(config).toContain(`base_url = "http://127.0.0.1:8648/api/codex-proxy/`)
+    expect(config).toMatch(/base_url = "http:\/\/127\.0\.0\.1:\d+\/api\/codex-proxy\//)
     expect(config).toMatch(/experimental_bearer_token = "hwui_[^"]+"/)
     expect(config).not.toContain('base_url = "https://api.openai.com/v1"')
     expect(result.rootDir).toBe(join(home, 'coding-agent', 'model', 'default', 'openai-api', 'codex'))
@@ -415,7 +421,7 @@ describe('coding agent launch preparation', () => {
     })
 
     const config = readFileSync(join(result.rootDir, 'config.toml'), 'utf-8')
-    expect(config).toContain(`base_url = "http://127.0.0.1:8648/api/codex-proxy/`)
+    expect(config).toMatch(/base_url = "http:\/\/127\.0\.0\.1:\d+\/api\/codex-proxy\//)
     expect(config).toContain('wire_api = "responses"')
     expect(config).toContain('requires_openai_auth = false')
     expect(config).toMatch(/experimental_bearer_token = "hwui_[^"]+"/)

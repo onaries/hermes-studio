@@ -135,6 +135,20 @@ describe('agent bridge manager command resolution', () => {
     expect(env.HERMES_OPENROUTER_APP_CATEGORIES).toBe('custom-category')
   })
 
+  it('does not leak worker-only bridge env into broker process launches', async () => {
+    process.env.HERMES_AGENT_BRIDGE_WORKER_PROFILE = 'default'
+    process.env.HERMES_AGENT_BRIDGE_BROKER_PID = '12345'
+    process.env.HERMES_AGENT_BRIDGE_WORKER_TRANSPORT = 'tcp'
+
+    const { buildAgentBridgeProcessEnv } = await import('../../packages/server/src/services/hermes/agent-bridge/manager')
+    const env = buildAgentBridgeProcessEnv('tcp://127.0.0.1:45678', '/tmp/hermes-home', undefined)
+
+    expect(env.HERMES_AGENT_BRIDGE_ENDPOINT).toBe('tcp://127.0.0.1:45678')
+    expect(env.HERMES_AGENT_BRIDGE_WORKER_PROFILE).toBeUndefined()
+    expect(env.HERMES_AGENT_BRIDGE_BROKER_PID).toBeUndefined()
+    expect(env.HERMES_AGENT_BRIDGE_WORKER_TRANSPORT).toBe('tcp')
+  })
+
   it('uses an isolated default bridge endpoint while running under Vitest', async () => {
     const { DEFAULT_AGENT_BRIDGE_ENDPOINT } = await import('../../packages/server/src/services/hermes/agent-bridge/client')
 
