@@ -78,6 +78,24 @@ describe('ArtifactsPanel', () => {
     expect(wrapper.find('.artifact-unsupported').exists()).toBe(false)
   })
 
+  it('collapses and restores the artifact list from controls above the list and toolbar', async () => {
+    const store = useArtifactsStore()
+    store.openContentArtifact({ name: 'notes.md', content: '# Notes', kind: 'markdown', path: '/tmp/notes.md' })
+
+    const wrapper = mount(ArtifactsPanel)
+    expect(wrapper.find('.artifact-list').exists()).toBe(true)
+    expect(wrapper.find('.artifact-list-collapse-toggle').exists()).toBe(true)
+
+    await wrapper.find('.artifact-list-collapse-toggle').trigger('click')
+    expect(wrapper.classes()).toContain('artifacts-panel--list-collapsed')
+    expect(wrapper.find('.artifact-list').exists()).toBe(false)
+    expect(wrapper.find('.artifact-list-show-toggle').exists()).toBe(true)
+
+    await wrapper.find('.artifact-list-show-toggle').trigger('click')
+    expect(wrapper.classes()).not.toContain('artifacts-panel--list-collapsed')
+    expect(wrapper.find('.artifact-list').exists()).toBe(true)
+  })
+
   it('scrolls the artifact list and preview back to the top', async () => {
     const store = useArtifactsStore()
     store.openContentArtifact({ name: 'notes.md', content: '# Notes', kind: 'markdown', path: '/tmp/notes.md' })

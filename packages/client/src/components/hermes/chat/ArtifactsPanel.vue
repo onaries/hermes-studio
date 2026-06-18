@@ -9,6 +9,7 @@ const { t } = useI18n()
 const message = useMessage()
 const artifactsStore = useArtifactsStore()
 const mobileDetailOpen = ref(false)
+const artifactListCollapsed = ref(false)
 const artifactListRef = ref<HTMLElement | null>(null)
 const artifactContentRef = ref<HTMLElement | null>(null)
 
@@ -31,7 +32,15 @@ function handleSelectArtifact(id: string): void {
 }
 
 function showArtifactList(): void {
+  artifactListCollapsed.value = false
   mobileDetailOpen.value = false
+}
+
+function toggleArtifactListCollapsed(): void {
+  artifactListCollapsed.value = !artifactListCollapsed.value
+  if (!artifactListCollapsed.value) {
+    mobileDetailOpen.value = false
+  }
 }
 
 function scrollElementToTop(element: HTMLElement | null): void {
@@ -84,10 +93,25 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
     class="artifacts-panel"
     :class="{
       'artifacts-panel--empty': artifactsStore.artifacts.length === 0,
+      'artifacts-panel--list-collapsed': artifactListCollapsed && artifactsStore.artifacts.length > 0,
       'artifacts-panel--mobile-detail': mobileDetailOpen && !!selectedArtifact,
     }"
   >
-    <aside v-if="artifactsStore.artifacts.length > 0" ref="artifactListRef" class="artifact-list" :aria-label="t('artifacts.list')">
+    <aside v-if="artifactsStore.artifacts.length > 0 && !artifactListCollapsed" ref="artifactListRef" class="artifact-list" :aria-label="t('artifacts.list')">
+      <div class="artifact-list-header">
+        <span class="artifact-list-title">{{ t('artifacts.list') }}</span>
+        <button
+          type="button"
+          class="artifact-list-collapse-toggle"
+          :title="t('artifacts.hideList')"
+          :aria-label="t('artifacts.hideList')"
+          @click="toggleArtifactListCollapsed"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+      </div>
       <button
         v-for="artifact in artifactsStore.artifacts"
         :key="artifact.id"
@@ -134,6 +158,19 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
 
     <section class="artifact-viewer">
       <div v-if="selectedArtifact" class="artifact-toolbar">
+        <button
+          v-if="artifactListCollapsed && artifactsStore.artifacts.length > 0"
+          type="button"
+          class="artifact-list-show-toggle"
+          :title="t('artifacts.showList')"
+          :aria-label="t('artifacts.showList')"
+          @click="toggleArtifactListCollapsed"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+          <span>{{ t('artifacts.showList') }}</span>
+        </button>
         <button
           type="button"
           class="artifact-back"
@@ -222,7 +259,8 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
   min-height: 0;
   background: $bg-primary;
 
-  &.artifacts-panel--empty {
+  &.artifacts-panel--empty,
+  &.artifacts-panel--list-collapsed {
     grid-template-columns: minmax(0, 1fr);
 
     .artifact-viewer {
@@ -261,6 +299,53 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
     border-right: 0;
     border-bottom: 0;
   }
+}
+
+.artifact-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 4px 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(var(--accent-primary-rgb), 0.08);
+}
+
+.artifact-list-title {
+  min-width: 0;
+  color: $text-secondary;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.artifact-list-collapse-toggle,
+.artifact-list-show-toggle {
+  border: 1px solid rgba(var(--accent-primary-rgb), 0.16);
+  background: rgba(var(--accent-primary-rgb), 0.06);
+  color: $text-secondary;
+  border-radius: $radius-md;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover {
+    color: $text-primary;
+    background: rgba(var(--accent-primary-rgb), 0.12);
+  }
+}
+
+.artifact-list-collapse-toggle {
+  padding: 5px 7px;
+  flex-shrink: 0;
+}
+
+.artifact-list-show-toggle {
+  padding: 6px 9px;
+  flex-shrink: 0;
 }
 
 .artifact-list-item {
@@ -363,11 +448,13 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
     }
 
     .artifact-download,
-    .artifact-top {
+    .artifact-top,
+    .artifact-list-show-toggle {
       padding: 6px 8px;
     }
 
-    .artifact-top span {
+    .artifact-top span,
+    .artifact-list-show-toggle span {
       display: none;
     }
   }
