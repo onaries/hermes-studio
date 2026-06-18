@@ -88,16 +88,8 @@ function isLegacyGlobalDefaultEndpoint(endpoint: string): boolean {
 }
 
 export function buildAgentBridgeProcessEnv(endpoint: string, hermesHome: string | undefined, agentRoot: string | undefined): NodeJS.ProcessEnv {
-  const env = { ...process.env }
-  // Broker restarts can inherit the environment of a prior worker process in
-  // desktop/runtime reload paths. These variables are worker-only: if they leak
-  // into the broker launch, hermes_bridge.py starts BridgeServer directly and
-  // broker-only actions such as status_if_loaded fail with "unknown action".
-  delete env.HERMES_AGENT_BRIDGE_WORKER_PROFILE
-  delete env.HERMES_AGENT_BRIDGE_BROKER_PID
-
-  return {
-    ...env,
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
     HERMES_AGENT_BRIDGE_ENDPOINT: endpoint,
     HERMES_HOME: hermesHome,
     HERMES_OPENROUTER_APP_REFERER: process.env.HERMES_OPENROUTER_APP_REFERER || OPENROUTER_WEB_UI_ATTRIBUTION_ENV.HERMES_OPENROUTER_APP_REFERER,
@@ -105,6 +97,14 @@ export function buildAgentBridgeProcessEnv(endpoint: string, hermesHome: string 
     HERMES_OPENROUTER_APP_CATEGORIES: process.env.HERMES_OPENROUTER_APP_CATEGORIES || OPENROUTER_WEB_UI_ATTRIBUTION_ENV.HERMES_OPENROUTER_APP_CATEGORIES,
     ...(agentRoot ? { HERMES_AGENT_ROOT: agentRoot } : {}),
   }
+  // Broker restarts can inherit the environment of a prior worker process in
+  // desktop/runtime reload paths. These variables are worker-only: if they leak
+  // into the broker launch, hermes_bridge.py starts BridgeServer directly and
+  // broker-only actions such as status_if_loaded fail with "unknown action".
+  delete env.HERMES_AGENT_BRIDGE_WORKER_PROFILE
+  delete env.HERMES_AGENT_BRIDGE_BROKER_PID
+  delete env.ANTHROPIC_AUTH_TOKEN
+  return env
 }
 
 function pathCandidates(agentRoot?: string): string[] {
