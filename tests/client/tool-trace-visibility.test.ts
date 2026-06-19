@@ -238,6 +238,8 @@ describe('tool trace visibility', () => {
     expect(liveToolNames).toEqual([
       'web_search',
       'search_files',
+      'terminal',
+      'terminal',
     ])
   })
 
@@ -292,7 +294,7 @@ describe('tool trace visibility', () => {
     }
   })
 
-  it('hides completed terminal tools from the live loading panel', () => {
+  it('keeps completed terminal tools visible during active work without loading affordances', () => {
     const messages: Message[] = [
       { id: 'user-1', role: 'user', content: 'restart bridge', timestamp: 1 },
       {
@@ -322,8 +324,10 @@ describe('tool trace visibility', () => {
       .findAll('.tool-call-item:not(.compression-item) .tool-call-name')
       .map(node => node.text())
 
-    expect(liveToolNames).toEqual(['search_files'])
+    expect(liveToolNames).toEqual(['search_files', 'terminal'])
+    expect(wrapper.findAll('.tool-call-item--done').some(node => node.text().includes('terminal'))).toBe(true)
     expect(wrapper.find('.tool-call-item--running').exists()).toBe(false)
+    expect(wrapper.find('.tool-call-item:not(.compression-item) .tool-call-spinner').exists()).toBe(false)
     expect(wrapper.find('.tool-call-running-badge').exists()).toBe(false)
   })
 
@@ -401,7 +405,7 @@ describe('tool trace visibility', () => {
     }
   })
 
-  it('does not replay completed live tools while final assistant output streams', () => {
+  it('keeps completed live tools visible while final assistant output streams without loading affordances', () => {
     const messages: Message[] = [
       { id: 'user-1', role: 'user', content: 'inspect repo', timestamp: 1 },
       { id: 'tool-done', role: 'tool', content: '', timestamp: 2, toolName: 'read_file', toolArgs: { path: '/tmp/file.ts' }, toolResult: 'ok', toolStatus: 'done' },
@@ -413,8 +417,10 @@ describe('tool trace visibility', () => {
     const liveToolNames = wrapper
       .findAll('.tool-call-item:not(.compression-item) .tool-call-name')
       .map(node => node.text())
-    expect(liveToolNames).toEqual([])
-    expect(wrapper.find('.tool-call-item--done').exists()).toBe(false)
+    expect(liveToolNames).toEqual(['read_file'])
+    expect(wrapper.find('.tool-call-item--done').exists()).toBe(true)
+    expect(wrapper.find('.tool-call-item--running').exists()).toBe(false)
+    expect(wrapper.find('.tool-call-item:not(.compression-item) .tool-call-spinner').exists()).toBe(false)
   })
 
   it('expands live patch tools to show the changed diff', async () => {

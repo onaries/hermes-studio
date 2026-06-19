@@ -321,13 +321,6 @@ const currentToolCalls = computed(() => {
 const visibleToolCalls = computed(() =>
   currentToolCalls.value.filter((tool) => !!tool.toolName),
 );
-const isStreamingAssistantContent = computed(() =>
-  chatStore.messages.some((message) =>
-    message.role === "assistant" &&
-    message.isStreaming &&
-    !!message.content?.trim(),
-  ),
-);
 const hasActiveLivePresentation = computed(() => (
   chatStore.isStreaming || !!chatStore.compressionState || !!chatStore.abortState
 ));
@@ -338,19 +331,11 @@ const liveToolCalls = computed(() => {
   // the transcript but do not keep animating it as current work.
   if (!hasActiveLivePresentation.value) return [];
 
-  const tools = visibleToolCalls.value.filter((tool) => {
-    // Terminal tools are noisy in the live/loading panel after they finish.
-    // Keep them there only while they are genuinely doing work; completed
-    // terminal traces remain available in the transcript.
-    if (isTerminalTool(tool)) return tool.toolStatus === "running";
-    return true;
-  });
-
-  // Once final assistant output is streaming, completed tools should not keep
-  // animating in the live footer. Keep only genuinely running tools visible;
-  // completed tool traces return to the transcript when the run settles.
-  if (!isStreamingAssistantContent.value) return tools;
-  return tools.filter((tool) => tool.toolStatus === "running");
+  // While a run is active, keep completed tool rows visible as settled progress
+  // instead of disappearing mid-run. Row-level loading affordances are already
+  // gated on `toolStatus === "running"`, so completed terminal tools stay visible
+  // without a spinner/badge until the whole run settles.
+  return visibleToolCalls.value;
 });
 const hasRunningTerminalTool = computed(() => liveToolCalls.value.some(isRunningTerminalTool));
 
