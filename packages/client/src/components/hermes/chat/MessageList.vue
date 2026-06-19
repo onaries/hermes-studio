@@ -329,11 +329,19 @@ const isStreamingAssistantContent = computed(() =>
   ),
 );
 const liveToolCalls = computed(() => {
+  const tools = visibleToolCalls.value.filter((tool) => {
+    // Terminal tools are noisy in the live/loading panel after they finish.
+    // Keep them there only while they are genuinely doing work; completed
+    // terminal traces remain available in the transcript.
+    if (isTerminalTool(tool)) return tool.toolStatus === "running";
+    return true;
+  });
+
   // Once final assistant output is streaming, completed tools should not keep
   // animating in the live footer. Keep only genuinely running tools visible;
   // completed tool traces return to the transcript when the run settles.
-  if (!isStreamingAssistantContent.value) return visibleToolCalls.value;
-  return visibleToolCalls.value.filter((tool) => tool.toolStatus === "running");
+  if (!isStreamingAssistantContent.value) return tools;
+  return tools.filter((tool) => tool.toolStatus === "running");
 });
 const hasRunningTerminalTool = computed(() => liveToolCalls.value.some(isRunningTerminalTool));
 

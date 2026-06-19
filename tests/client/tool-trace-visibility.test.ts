@@ -238,8 +238,6 @@ describe('tool trace visibility', () => {
     expect(liveToolNames).toEqual([
       'web_search',
       'search_files',
-      'terminal',
-      'terminal',
     ])
   })
 
@@ -292,6 +290,41 @@ describe('tool trace visibility', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('hides completed terminal tools from the live loading panel', () => {
+    const messages: Message[] = [
+      { id: 'user-1', role: 'user', content: 'restart bridge', timestamp: 1 },
+      {
+        id: 'tool-terminal-done',
+        role: 'tool',
+        content: '',
+        timestamp: 2,
+        toolName: 'terminal',
+        toolArgs: { command: 'kill -USR2 1234' },
+        toolStatus: 'done',
+        toolDuration: 3.2,
+      },
+      {
+        id: 'tool-search-done',
+        role: 'tool',
+        content: '',
+        timestamp: 3,
+        toolName: 'search_files',
+        toolArgs: { pattern: 'terminal' },
+        toolStatus: 'done',
+        toolDuration: 0.5,
+      },
+    ]
+
+    const wrapper = mountLiveList(messages)
+    const liveToolNames = wrapper
+      .findAll('.tool-call-item:not(.compression-item) .tool-call-name')
+      .map(node => node.text())
+
+    expect(liveToolNames).toEqual(['search_files'])
+    expect(wrapper.find('.tool-call-item--running').exists()).toBe(false)
+    expect(wrapper.find('.tool-call-running-badge').exists()).toBe(false)
   })
 
   it('keeps a visible entry animation class on newly added live tool rows', async () => {
