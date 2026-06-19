@@ -9,6 +9,7 @@ import { NButton, NDropdown, NPopconfirm, NTooltip, useMessage, type DropdownOpt
 import { useI18n } from 'vue-i18n'
 import { getSourceLabel } from '@/shared/session-display'
 import { copyToClipboard } from '@/utils/clipboard'
+import { sortSessionsWithInProgressFirst } from '@/utils/session-sort'
 import HistoryMessageList from '@/components/hermes/chat/HistoryMessageList.vue'
 import SessionListItem from '@/components/hermes/chat/SessionListItem.vue'
 import OutlinePanel from '@/components/hermes/chat/OutlinePanel.vue'
@@ -420,10 +421,8 @@ function sourceSortKey(source: string): number {
   return 0
 }
 
-function sortSessionsWithActiveFirst(items: Session[]): Session[] {
-  return [...items].sort((a, b) => {
-    return (b.updatedAt || 0) - (a.updatedAt || 0)
-  })
+function sortSessionsForHistory(items: Session[]): Session[] {
+  return sortSessionsWithInProgressFirst(items)
 }
 
 // Group sessions by source, with sort order
@@ -434,7 +433,7 @@ interface SessionGroup {
 }
 
 const pinnedSessions = computed(() =>
-  sortSessionsWithActiveFirst(historySessions.value.filter(session => sessionBrowserPrefsStore.isPinned(session.id))),
+  sortSessionsForHistory(historySessions.value.filter(session => sessionBrowserPrefsStore.isPinned(session.id))),
 )
 
 const groupedSessions = computed<SessionGroup[]>(() => {
@@ -456,7 +455,7 @@ const groupedSessions = computed<SessionGroup[]>(() => {
   return keys.map(key => ({
     source: key,
     label: key ? getSourceLabel(key) : t('chat.other'),
-    sessions: sortSessionsWithActiveFirst(map.get(key)!),
+    sessions: sortSessionsForHistory(map.get(key)!),
   }))
 })
 

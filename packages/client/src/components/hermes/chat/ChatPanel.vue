@@ -27,6 +27,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { copyToClipboard } from "@/utils/clipboard";
+import { sortSessionsWithInProgressFirst } from "@/utils/session-sort";
 import {
   drawerButtonAnchorY,
   loadDrawerButtonPosition,
@@ -358,14 +359,12 @@ async function handleProfileFilterChange(value: string) {
   await chatStore.loadSessions(chatStore.sessionProfileFilter);
 }
 
-function sortSessionsWithActiveFirst(items: Session[]): Session[] {
-  return [...items].sort((a, b) => {
-    return (b.updatedAt || 0) - (a.updatedAt || 0);
-  });
+function sortSessionsForSidebar(items: Session[]): Session[] {
+  return sortSessionsWithInProgressFirst(items, chatStore.isSessionLive);
 }
 
 const pinnedSessions = computed(() =>
-  sortSessionsWithActiveFirst(
+  sortSessionsForSidebar(
     chatStore.sessions.filter((session) =>
       sessionBrowserPrefsStore.isPinned(session.id),
     ),
@@ -373,7 +372,7 @@ const pinnedSessions = computed(() =>
 );
 
 const unpinnedSessions = computed(() =>
-  sortSessionsWithActiveFirst(
+  sortSessionsForSidebar(
     chatStore.sessions.filter(
       (session) => !sessionBrowserPrefsStore.isPinned(session.id),
     ),
