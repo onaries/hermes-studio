@@ -31,8 +31,8 @@ import {
 import { extractTarGzipArchive } from './runtime-archive'
 import { t } from './desktop-i18n'
 
-const DEFAULT_RUNTIME_BASE_URL = 'https://github.com/onaries/hermes-web-ui/releases/download'
-const DEFAULT_RUNTIME_GITHUB_REPO = 'onaries/hermes-web-ui'
+const DEFAULT_RUNTIME_BASE_URL = 'https://github.com/onaries/hermes-studio/releases/download'
+const DEFAULT_RUNTIME_GITHUB_REPO = 'onaries/hermes-studio'
 const RUNTIME_MANIFEST_NAME = 'runtime-manifest.json'
 const PACKAGED_RUNTIME_RELEASE_NAME = 'runtime-release.json'
 const ACTIVE_RUNTIME_VERSION_NAME = 'active-version.json'

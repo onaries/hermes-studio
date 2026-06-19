@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const repo = 'onaries/hermes-web-ui';
+const repo = 'onaries/hermes-studio';
 const requiredMainRuns = ['NPM Lockfile Check', 'Build', 'Playwright'];
 const releaseRunNames = ['Publish Web UI Artifact to Release'];
 const desktopWorkflow = 'desktop-release.yml';

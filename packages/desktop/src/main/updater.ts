@@ -6,7 +6,7 @@ let initialized = false
 let checking = false
 let updateDownloaded = false
 
-const GITHUB_LATEST_FEED_URL = 'https://github.com/onaries/hermes-web-ui/releases/latest/download'
+const GITHUB_LATEST_FEED_URL = 'https://github.com/onaries/hermes-studio/releases/latest/download'
 
 interface AutoUpdaterOptions {
   beforeQuitAndInstall?: () => void

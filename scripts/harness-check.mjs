@@ -433,7 +433,7 @@ for (const phrase of [
 }
 
 for (const phrase of [
-  'https://github.com/onaries/hermes-web-ui/releases/latest/download',
+  'https://github.com/onaries/hermes-studio/releases/latest/download',
   'checkForUpdatesWithForkFeed()',
 ]) {
   if (!desktopUpdater.includes(phrase)) {
