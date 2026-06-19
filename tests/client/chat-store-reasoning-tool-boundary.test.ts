@@ -132,36 +132,83 @@ describe('chat store reasoning/tool boundaries', () => {
     }))
   })
 
-  it('settles running coding-agent tools when the run completes without a tool.completed event', async () => {
-    const store = useChatStore()
-    const session = makeSession()
-    session.source = 'coding_agent'
-    session.agent = 'claude'
-    session.codingAgentId = 'claude-code'
-    store.sessions = [session]
-    store.activeSessionId = 'session-1'
-    store.activeSession = session
+  it('settles running coding-agent tools with elapsed duration when the run completes without a tool.completed event', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-19T00:00:00Z'))
+    try {
+      const store = useChatStore()
+      const session = makeSession()
+      session.source = 'coding_agent'
+      session.agent = 'claude'
+      session.codingAgentId = 'claude-code'
+      store.sessions = [session]
+      store.activeSessionId = 'session-1'
+      store.activeSession = session
 
-    await store.sendMessage('run pwd')
+      await store.sendMessage('run pwd')
 
-    const onEvent = chatApi.startRunViaSocket.mock.calls[0][1] as (event: RunEvent) => void
-    onEvent({ event: 'run.started', session_id: 'session-1' })
-    onEvent({
-      event: 'tool.started',
-      session_id: 'session-1',
-      tool_call_id: 'tool-1',
-      tool: 'Bash',
-      arguments: '{"command":"pwd"}',
-    } as RunEvent)
-    expect(store.messages.find(message => message.role === 'tool')).toEqual(expect.objectContaining({
-      toolStatus: 'running',
-    }))
+      const onEvent = chatApi.startRunViaSocket.mock.calls[0][1] as (event: RunEvent) => void
+      onEvent({ event: 'run.started', session_id: 'session-1' })
+      onEvent({
+        event: 'tool.started',
+        session_id: 'session-1',
+        tool_call_id: 'tool-1',
+        tool: 'Bash',
+        arguments: '{"command":"pwd"}',
+      } as RunEvent)
+      expect(store.messages.find((message: any) => message.role === 'tool')).toEqual(expect.objectContaining({
+        toolStatus: 'running',
+      }))
 
-    onEvent({ event: 'run.completed', session_id: 'session-1', output: 'done' })
+      vi.setSystemTime(new Date('2026-06-19T00:01:15Z'))
+      onEvent({ event: 'run.completed', session_id: 'session-1', output: 'done' })
 
-    expect(store.messages.find(message => message.role === 'tool')).toEqual(expect.objectContaining({
-      toolStatus: 'done',
-    }))
+      expect(store.messages.find((message: any) => message.role === 'tool')).toEqual(expect.objectContaining({
+        toolStatus: 'done',
+        toolDuration: 75,
+      }))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('falls back to elapsed duration when tool.completed omits duration', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-19T00:00:00Z'))
+    try {
+      const store = useChatStore()
+      const session = makeSession()
+      store.sessions = [session]
+      store.activeSessionId = 'session-1'
+      store.activeSession = session
+
+      await store.sendMessage('run a long command')
+      const onEvent = chatApi.startRunViaSocket.mock.calls[0][1] as (event: RunEvent) => void
+      onEvent({ event: 'run.started', session_id: 'session-1' })
+      onEvent({
+        event: 'tool.started',
+        session_id: 'session-1',
+        tool_call_id: 'tool-1',
+        tool: 'terminal',
+        arguments: '{"command":"sleep 70"}',
+      } as RunEvent)
+
+      vi.setSystemTime(new Date('2026-06-19T00:01:10Z'))
+      onEvent({
+        event: 'tool.completed',
+        session_id: 'session-1',
+        tool_call_id: 'tool-1',
+        output: 'done',
+      } as RunEvent)
+
+      expect(store.messages.find((message: any) => message.role === 'tool')).toEqual(expect.objectContaining({
+        toolStatus: 'done',
+        toolDuration: 70,
+        toolResult: 'done',
+      }))
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('does not drop repeated small markdown delimiters while streaming', async () => {

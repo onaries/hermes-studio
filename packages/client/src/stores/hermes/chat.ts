@@ -1327,9 +1327,10 @@ export const useChatStore = defineStore('chat', () => {
                   : msgs.filter(m => m.role === 'tool' && m.toolStatus === 'running')
                 if (toolMsgs.length > 0) {
                   const output = runtimeToolPayloadOrUndefined((e as any).output)
-                  updateMessage(sessionId, toolMsgs[toolMsgs.length - 1].id, {
+                  const lastTool = toolMsgs[toolMsgs.length - 1]
+                  updateMessage(sessionId, lastTool.id, {
                     toolStatus: e.error === true || runtimeToolOutputHasError(output) ? 'error' : 'done',
-                    toolDuration: e.duration,
+                    toolDuration: resolveToolDurationSeconds(lastTool.timestamp, (e as any).duration),
                     toolResult: output,
                   })
                 }
@@ -1529,11 +1530,28 @@ export const useChatStore = defineStore('chat', () => {
     removeMessage(sessionId, messageId)
   }
 
+  function resolveToolDurationSeconds(startedAt: number | undefined, explicitDuration?: unknown, now = Date.now()): number | undefined {
+    const explicit = typeof explicitDuration === 'number'
+      ? explicitDuration
+      : typeof explicitDuration === 'string'
+        ? Number(explicitDuration)
+        : Number.NaN
+    if (Number.isFinite(explicit) && explicit >= 0) return explicit
+    if (typeof startedAt !== 'number' || !Number.isFinite(startedAt) || startedAt <= 0) return undefined
+    const elapsedSeconds = (now - startedAt) / 1000
+    return Number.isFinite(elapsedSeconds) && elapsedSeconds >= 0 ? elapsedSeconds : undefined
+  }
+
   function settleRunningTools(sessionId: string, status: 'done' | 'error') {
     const msgs = getSessionMsgs(sessionId)
+    const now = Date.now()
     msgs.forEach((m, i) => {
       if (m.role === 'tool' && m.toolStatus === 'running') {
-        msgs[i] = { ...m, toolStatus: status }
+        msgs[i] = {
+          ...m,
+          toolStatus: status,
+          toolDuration: resolveToolDurationSeconds(m.timestamp, m.toolDuration, now),
+        }
       }
     })
   }
@@ -2816,10 +2834,9 @@ export const useChatStore = defineStore('chat', () => {
                 const last = toolMsgs[toolMsgs.length - 1]
                 const output = runtimeToolPayloadOrUndefined((evt as any).output)
                 const hasError = (evt as any).error === true || runtimeToolOutputHasError(output)
-                const duration = (evt as any).duration
                 updateMessage(sid, last.id, {
                   toolStatus: hasError ? 'error' : 'done',
-                  toolDuration: duration,
+                  toolDuration: resolveToolDurationSeconds(last.timestamp, (evt as any).duration),
                   toolResult: output,
                 })
               }

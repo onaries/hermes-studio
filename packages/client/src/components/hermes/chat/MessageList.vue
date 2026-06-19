@@ -146,11 +146,19 @@ function toolCallPreview(tool: ToolCallLike): string {
   return tool.toolPreview || fullToolPreview(tool)
 }
 
+function hasToolDuration(tool: ToolCallLike): boolean {
+  return typeof tool.toolDuration === 'number' && Number.isFinite(tool.toolDuration) && tool.toolDuration >= 0
+}
+
+function toolDurationSeconds(tool: ToolCallLike): number {
+  return hasToolDuration(tool) ? tool.toolDuration! : 0
+}
+
 function toolCallTitle(tool: ToolCallLike): string {
   const parts = [tool.toolName, fullToolPreview(tool)]
   if (isPatchTool(tool)) parts.push(t('chat.patchChanges'))
   if (isRunningTerminalTool(tool)) parts.push(runningTerminalLabel(tool))
-  if (tool.toolDuration && tool.toolStatus !== 'running') parts.push(formatToolDuration(tool.toolDuration))
+  if (hasToolDuration(tool) && tool.toolStatus !== 'running') parts.push(formatToolDuration(toolDurationSeconds(tool)))
   if (tool.toolStatus === 'done') parts.push('✓')
   if (tool.toolStatus === 'error') parts.push('✕')
   return parts.filter(Boolean).join(' ')
@@ -913,10 +921,10 @@ defineExpose({
                     toolCallPreview(tc)
                   }}</span>
                   <span
-                    v-if="tc.toolDuration && tc.toolStatus !== 'running'"
+                    v-if="hasToolDuration(tc) && tc.toolStatus !== 'running'"
                     class="tool-call-duration"
                     :title="t('chat.executionDuration')"
-                  >{{ formatToolDuration(tc.toolDuration) }}</span
+                  >{{ formatToolDuration(toolDurationSeconds(tc)) }}</span
                   >
                   <span
                     v-if="isRunningTerminalTool(tc)"
