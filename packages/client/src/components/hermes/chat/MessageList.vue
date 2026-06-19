@@ -462,6 +462,8 @@ const queuedMessages = computed(() => {
   if (!sid) return [];
   return chatStore.queuedUserMessages.get(sid) || [];
 });
+const editingQueuedMessageId = ref<string | null>(null);
+const editingQueuedMessageDraft = ref("");
 const visibleApproval = computed(() => chatStore.activePendingApproval);
 const visibleClarify = computed(() => chatStore.activePendingClarify);
 const hasFloatingPrompt = computed(() => !!visibleApproval.value || !!visibleClarify.value);
@@ -487,11 +489,25 @@ function removeQueuedMessage(messageId: string) {
   const sid = chatStore.activeSessionId;
   if (!sid) return;
   chatStore.removeQueuedMessage(sid, messageId);
+  if (editingQueuedMessageId.value === messageId) cancelQueuedEdit();
 }
 
-function queuedPreview(content: string): string {
-  const normalized = content.replace(/\s+/g, " ").trim();
-  return normalized.length > 48 ? `${normalized.slice(0, 48)}...` : normalized;
+function startQueuedEdit(message: Message) {
+  editingQueuedMessageId.value = message.id;
+  editingQueuedMessageDraft.value = message.content;
+}
+
+function cancelQueuedEdit() {
+  editingQueuedMessageId.value = null;
+  editingQueuedMessageDraft.value = "";
+}
+
+function saveQueuedEdit(messageId: string) {
+  const sid = chatStore.activeSessionId;
+  const nextContent = editingQueuedMessageDraft.value.trim();
+  if (!sid || !nextContent) return;
+  chatStore.editQueuedMessage(sid, messageId, nextContent);
+  cancelQueuedEdit();
 }
 
 function shouldAutoFollowBottom(threshold = 100): boolean {
@@ -1007,9 +1023,57 @@ defineExpose({
               v-for="(message, index) in queuedMessages"
               :key="message.id"
               class="queue-float-item"
+              :class="{ editing: editingQueuedMessageId === message.id }"
             >
               <span class="queue-index">{{ index + 1 }}</span>
-              <span class="queue-text">{{ queuedPreview(message.content) }}</span>
+              <template v-if="editingQueuedMessageId === message.id">
+                <textarea
+                  v-model="editingQueuedMessageDraft"
+                  class="queue-edit-input"
+                  rows="3"
+                  @keydown.esc.prevent="cancelQueuedEdit"
+                  @keydown.meta.enter.prevent="saveQueuedEdit(message.id)"
+                  @keydown.ctrl.enter.prevent="saveQueuedEdit(message.id)"
+                />
+                <div class="queue-edit-actions">
+                  <button
+                    type="button"
+                    class="queue-action queue-save"
+                    :title="t('common.save')"
+                    :disabled="!editingQueuedMessageDraft.trim()"
+                    @click="saveQueuedEdit(message.id)"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="queue-action"
+                    :title="t('common.cancel')"
+                    @click="cancelQueuedEdit"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+              </template>
+              <template v-else>
+                <span class="queue-text" :title="message.content">{{ message.content }}</span>
+                <button
+                  type="button"
+                  class="queue-action queue-edit"
+                  :title="t('common.edit')"
+                  @click="startQueuedEdit(message)"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
+                </button>
+              </template>
               <button
                 type="button"
                 class="queue-remove"
@@ -1123,7 +1187,7 @@ defineExpose({
 
 .queue-float-panel {
   align-self: flex-end;
-  width: min(380px, 100%);
+  width: min(460px, 100%);
 }
 
 .float-panel-header {
@@ -1267,13 +1331,17 @@ defineExpose({
 
 .queue-float-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   min-height: 34px;
   padding: 7px 8px;
   border-radius: 11px;
   background: rgba(255, 255, 255, 0.68);
   color: $text-primary;
+
+  &.editing {
+    align-items: stretch;
+  }
 
   .dark & {
     background: rgba(255, 255, 255, 0.08);
@@ -1296,12 +1364,49 @@ defineExpose({
 .queue-text {
   min-width: 0;
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-height: 96px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   font-size: 12px;
+  line-height: 1.45;
 }
 
+.queue-edit-input {
+  flex: 1;
+  min-width: 0;
+  max-height: 160px;
+  resize: vertical;
+  overflow: auto;
+  border: 1px solid rgba(var(--accent-info-rgb), 0.28);
+  border-radius: 9px;
+  padding: 7px 9px;
+  color: $text-primary;
+  background: rgba(255, 255, 255, 0.72);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  outline: none;
+
+  &:focus {
+    border-color: rgba(var(--accent-info-rgb), 0.56);
+    box-shadow: 0 0 0 2px rgba(var(--accent-info-rgb), 0.12);
+  }
+
+  .dark & {
+    background: rgba(255, 255, 255, 0.08);
+  }
+}
+
+.queue-edit-actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.queue-action,
 .queue-remove {
   flex: 0 0 auto;
   width: 24px;
@@ -1317,9 +1422,24 @@ defineExpose({
   transition: all $transition-fast;
 
   &:hover {
-    color: $error;
-    background: rgba($error, 0.1);
+    color: var(--accent-info);
+    background: rgba(var(--accent-info-rgb), 0.1);
   }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.queue-remove:hover {
+  color: $error;
+  background: rgba($error, 0.1);
+}
+
+.queue-save:hover:not(:disabled) {
+  color: $success;
+  background: rgba($success, 0.1);
 }
 
 @media (max-width: 640px) {

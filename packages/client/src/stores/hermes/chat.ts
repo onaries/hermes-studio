@@ -1870,6 +1870,17 @@ export const useChatStore = defineStore('chat', () => {
     return true
   }
 
+  function editQueuedMessage(sessionId: string, messageId: string, content: string) {
+    const nextContent = content.trim()
+    if (!nextContent) return
+    updateQueuedUserMessage(sessionId, messageId, { content: nextContent })
+    getChatRunSocket(runtimeTransport())?.emit('update_queued_run', {
+      session_id: sessionId,
+      queue_id: messageId,
+      input: nextContent,
+    })
+  }
+
   function removeQueuedMessage(sessionId: string, messageId: string) {
     if (!dropQueuedUserMessage(sessionId, messageId)) return
     getChatRunSocket(runtimeTransport())?.emit('cancel_queued_run', {
@@ -3905,6 +3916,7 @@ export const useChatStore = defineStore('chat', () => {
     activePendingClarify,
     latestCompletionNotification,
     removeQueuedMessage,
+    editQueuedMessage,
     isLoadingSessions,
     sessionsLoaded,
     isLoadingMessages,

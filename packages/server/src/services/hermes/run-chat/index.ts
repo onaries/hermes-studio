@@ -60,6 +60,26 @@ function isBridgeRunSource(source?: string): boolean {
   return source === 'cli' || source === 'global_agent'
 }
 
+function replaceTextContentBlocks(blocks: ContentBlock[], text: string): ContentBlock[] {
+  let replaced = false
+  const next = blocks.map(block => {
+    if (!replaced && block.type === 'text') {
+      replaced = true
+      return { ...block, text }
+    }
+    return block
+  })
+  return replaced ? next : [{ type: 'text', text }, ...next]
+}
+
+function replaceQueuedRunVisibleText(item: QueuedRun, text: string) {
+  item.input = Array.isArray(item.input) ? replaceTextContentBlocks(item.input, text) : text
+  if (item.displayInput !== null && item.displayInput !== undefined) {
+    item.displayInput = Array.isArray(item.displayInput) ? replaceTextContentBlocks(item.displayInput, text) : text
+  }
+  if (item.storageMessage !== undefined) item.storageMessage = text
+}
+
 export async function ensureBridgeReadyForChatRun(): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const readiness = await getAgentBridgeManager().ensureReady({ timeoutMs: 1000, connectRetryMs: 0, recover: false })
@@ -289,6 +309,25 @@ export class ChatRunSocket {
       })
       logger.info('[chat-run-socket] cancelled queued run %s for session %s (queue: %d)',
         data.queue_id, data.session_id, state.queue.length)
+    })
+
+    socket.on('update_queued_run', (data: { session_id?: string; queue_id?: string; input?: string; content?: string }) => {
+      if (!data.session_id || !data.queue_id) return
+      const content = typeof data.input === 'string' ? data.input : typeof data.content === 'string' ? data.content : ''
+      const nextContent = content.trim()
+      if (!nextContent) return
+      const state = this.sessionMap.get(data.session_id)
+      if (!state?.queue.length) return
+      const queued = state.queue.find(item => item.queue_id === data.queue_id)
+      if (!queued) return
+      replaceQueuedRunVisibleText(queued, nextContent)
+      this.nsp.to(`session:${data.session_id}`).emit('run.queued', {
+        event: 'run.queued',
+        session_id: data.session_id,
+        queue_length: state.queue.length,
+        queued_messages: this.serializeQueuedMessages(state.queue),
+      })
+      logger.info('[chat-run-socket] updated queued run %s for session %s', data.queue_id, data.session_id)
     })
 
     socket.on('resume', async (data: { session_id?: string }) => {

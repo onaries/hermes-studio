@@ -209,6 +209,9 @@ export class GlobalAgentServer {
     socket.on('cancel_queued_run', (payload: unknown) => {
       void this.emitFrontendChatEvent(socket, 'cancel_queued_run', payload)
     })
+    socket.on('update_queued_run', (payload: unknown) => {
+      void this.emitFrontendChatEvent(socket, 'update_queued_run', payload)
+    })
     socket.on('approval.respond', (payload: unknown) => {
       void this.emitFrontendChatEvent(socket, 'approval.respond', payload)
     })

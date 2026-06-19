@@ -194,6 +194,35 @@ describe('ChatRunSocket queued bridge runs', () => {
     expect(call[6]).toBe(false)
   })
 
+  it('updates queued messages before they are dequeued', async () => {
+    const { ChatRunSocket } = await import('../../packages/server/src/services/hermes/run-chat')
+    const { handlers, io, namespace, socket } = makeServerHarness()
+    const server = new ChatRunSocket(io as any)
+    ;(server as any).onConnection(socket)
+    ;(server as any).sessionMap.set('session-1', {
+      messages: [],
+      isWorking: true,
+      isAborting: false,
+      events: [],
+      queue: [{
+        queue_id: 'queue-edit',
+        input: 'original queued text',
+        source: 'cli',
+        profile: 'default',
+      }],
+      source: 'cli',
+    })
+
+    await handlers.get('update_queued_run')?.({
+      session_id: 'session-1',
+      queue_id: 'queue-edit',
+      input: 'edited queued text',
+    })
+
+    expect((server as any).sessionMap.get('session-1').queue[0].input).toBe('edited queued text')
+    expect(namespace.to).toHaveBeenCalledWith('session:session-1')
+  })
+
   it('queues coding-agent messages while a coding-agent turn is active', async () => {
     const { ChatRunSocket } = await import('../../packages/server/src/services/hermes/run-chat')
     const { handlers, io, namespace, socket } = makeServerHarness()
