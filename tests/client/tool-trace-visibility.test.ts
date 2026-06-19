@@ -327,6 +327,27 @@ describe('tool trace visibility', () => {
     expect(wrapper.find('.tool-call-running-badge').exists()).toBe(false)
   })
 
+  it('does not keep stale running terminal placeholders in the live panel after a run is inactive', () => {
+    const messages: Message[] = [
+      { id: 'user-1', role: 'user', content: 'run command', timestamp: 1 },
+      {
+        id: 'tool-terminal-stale',
+        role: 'tool',
+        content: '',
+        timestamp: 2,
+        toolName: 'terminal',
+        toolArgs: { command: 'npm run build' },
+        toolStatus: 'running',
+      },
+      { id: 'assistant-1', role: 'assistant', content: 'done', timestamp: 3 },
+    ]
+
+    const wrapper = mountLiveList(messages, false)
+
+    expect(wrapper.find('.tool-calls-panel').exists()).toBe(false)
+    expect(wrapper.find('.tool-call-running-badge').exists()).toBe(false)
+  })
+
   it('keeps a visible entry animation class on newly added live tool rows', async () => {
     vi.useFakeTimers()
     try {

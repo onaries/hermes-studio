@@ -6,19 +6,22 @@ commit: pending
 impact: Keeps terminal rows in the live loading/progress panel only while the terminal tool is actively running.
 files:
   - packages/client/src/components/hermes/chat/MessageList.vue
+  - packages/client/src/components/hermes/chat/MessageItem.vue
   - tests/client/tool-trace-visibility.test.ts
+  - tests/client/message-item-highlight.test.ts
 ---
 
 # Terminal live panel running-only rows
 
 ## Summary
 
-Completed terminal tool rows no longer remain in the live loading/progress panel. Terminal tools stay visible there only while `toolStatus === 'running'`; completed terminal traces remain available in the transcript.
+Completed terminal tool rows no longer remain in the live loading/progress panel. Terminal tools stay visible there only while `toolStatus === 'running'` during an active live run; completed or restored stale terminal traces remain available in the transcript without loading animation.
 
 ## Why
 
-After a terminal command finishes, keeping its completed row in the live progress area makes the panel look like terminal work is still loading. The live terminal affordance should indicate active work only.
+After a terminal command finishes, keeping its completed/stale row in the live progress area makes the panel look like terminal work is still loading. The live terminal affordance should indicate active work only.
 
 ## Verification
 
 - Added client coverage that completed terminal tools are hidden from the live loading panel while non-terminal rows remain visible.
+- Added coverage that stale `running` terminal placeholders do not keep the live panel or transcript spinner animating after the run is inactive.

@@ -586,6 +586,9 @@ const toolResultPayload = computed(() => formatToolPayload(props.message.toolRes
 const hasToolDetails = computed(
   () => !!(toolArgsPayload.value.full || toolResultPayload.value.full),
 );
+const shouldShowToolSpinner = computed(() => (
+  props.message.toolStatus === 'running' && chatStore.isStreaming
+));
 
 const fullToolArgs = computed(() => toolArgsPayload.value.full);
 const formattedToolArgs = computed(() => toolArgsPayload.value.display);
@@ -847,7 +850,7 @@ function handleBtwEscape(event: KeyboardEvent) {
           >{{ displayToolPreview }}</span
         >
         <span
-          v-if="message.toolStatus === 'running'"
+          v-if="shouldShowToolSpinner"
           class="tool-spinner"
         ></span>
         <span v-if="message.toolStatus === 'error'" class="tool-error-badge">{{

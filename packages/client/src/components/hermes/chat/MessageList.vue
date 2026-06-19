@@ -328,7 +328,16 @@ const isStreamingAssistantContent = computed(() =>
     !!message.content?.trim(),
   ),
 );
+const hasActiveLivePresentation = computed(() => (
+  chatStore.isStreaming || !!chatStore.compressionState || !!chatStore.abortState
+));
 const liveToolCalls = computed(() => {
+  // The floating/loading tool panel belongs only to the active live run. When a
+  // completed/restored transcript still has a stale `running` placeholder (for
+  // example a terminal tool without a persisted result row), keep that trace in
+  // the transcript but do not keep animating it as current work.
+  if (!hasActiveLivePresentation.value) return [];
+
   const tools = visibleToolCalls.value.filter((tool) => {
     // Terminal tools are noisy in the live/loading panel after they finish.
     // Keep them there only while they are genuinely doing work; completed

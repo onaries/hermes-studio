@@ -82,6 +82,25 @@ describe('MessageItem tool details', () => {
     expect(blocks[1].find('.code-lang').text()).toBe('json')
   })
 
+  it('does not animate stale running tool rows when the chat is inactive', () => {
+    const wrapper = mount(MessageItem, {
+      props: {
+        message: {
+          id: 'stale-terminal',
+          role: 'tool',
+          content: '',
+          timestamp: Date.now(),
+          toolName: 'terminal',
+          toolArgs: { command: 'npm run build' },
+          toolStatus: 'running',
+        } satisfies Message,
+      },
+      global: { stubs: { MarkdownRenderer: true } },
+    })
+
+    expect(wrapper.find('.tool-spinner').exists()).toBe(false)
+  })
+
   it('renders patch tool results with diff highlighting instead of plain text', async () => {
     const patchResult = [
       '*** Begin Patch',
