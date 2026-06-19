@@ -346,9 +346,14 @@ function mapHermesMessages(msgs: HermesMessage[]): Message[] {
     return true
   })
 
-  // Build lookups from assistant messages with tool_calls
+  // Build lookups from assistant messages with tool_calls. Also record which
+  // tool calls already have a matching tool-result message. A persisted
+  // assistant tool_call without a result means the session was resumed while
+  // the tool was still running; rendering it as done makes long terminal calls
+  // look completed too early.
   const toolNameMap = new Map<string, string>()
   const toolArgsMap = new Map<string, unknown>()
+  const completedToolCallIds = new Set<string>()
   for (const msg of filteredMsgs) {
     if (msg.role === 'assistant' && msg.tool_calls) {
       for (const tc of msg.tool_calls) {
@@ -357,6 +362,8 @@ function mapHermesMessages(msgs: HermesMessage[]): Message[] {
           if (hasRuntimeToolPayload(tc.function?.arguments)) toolArgsMap.set(tc.id, tc.function.arguments)
         }
       }
+    } else if (msg.role === 'tool' && msg.tool_call_id) {
+      completedToolCallIds.add(msg.tool_call_id)
     }
   }
 
@@ -374,7 +381,7 @@ function mapHermesMessages(msgs: HermesMessage[]): Message[] {
           toolName: tc.function?.name || undefined,
           toolCallId: tc.id,
           toolArgs: runtimeToolPayloadOrUndefined(tc.function?.arguments),
-          toolStatus: 'done',
+          toolStatus: tc.id && completedToolCallIds.has(tc.id) ? 'done' : 'running',
           finishReason: readFinishReason(msg),
           runMarker: readRunMarker(msg),
         })
@@ -1297,7 +1304,7 @@ export const useChatStore = defineStore('chat', () => {
                     toolName: e.tool || e.name,
                     toolArgs: hasRuntimeToolPayload((e as any).arguments) ? (e as any).arguments : existingTool.toolArgs,
                     toolPreview: e.preview || existingTool.toolPreview,
-                    toolStatus: existingTool.toolStatus || 'running',
+                    toolStatus: existingTool.toolResult != null ? (existingTool.toolStatus || 'done') : 'running',
                   })
                 } else {
                   addMessage(sessionId, {
@@ -2779,7 +2786,7 @@ export const useChatStore = defineStore('chat', () => {
                   toolName: evt.tool || evt.name,
                   toolArgs: hasRuntimeToolPayload((evt as any).arguments) ? (evt as any).arguments : existingTool.toolArgs,
                   toolPreview: evt.preview || existingTool.toolPreview,
-                  toolStatus: existingTool.toolStatus || 'running',
+                  toolStatus: existingTool.toolResult != null ? (existingTool.toolStatus || 'done') : 'running',
                 })
                 break
               }

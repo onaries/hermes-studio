@@ -117,6 +117,119 @@ describe('chat store compression state', () => {
     }))
   })
 
+  it('keeps resumed assistant tool-call placeholders running until a tool result exists', async () => {
+    chatApi.resumeSession.mockImplementationOnce((sessionId: string, onResumed: (data: any) => void) => {
+      onResumed({
+        session_id: sessionId,
+        messages: [{
+          id: 10,
+          role: 'assistant',
+          content: '',
+          timestamp: 100,
+          tool_calls: [{
+            id: 'terminal-call',
+            type: 'function',
+            function: { name: 'terminal', arguments: '{"command":"sleep 60"}' },
+          }],
+          finish_reason: 'tool_calls',
+        }],
+        isWorking: true,
+        events: [],
+      })
+      return {} as any
+    })
+
+    const store = useChatStore()
+    store.sessions = [makeSession('session-running-tool')]
+
+    await store.switchSession('session-running-tool')
+    await nextTick()
+
+    expect(store.activeSession?.messages).toHaveLength(1)
+    expect(store.activeSession?.messages[0]).toEqual(expect.objectContaining({
+      role: 'tool',
+      toolName: 'terminal',
+      toolCallId: 'terminal-call',
+      toolStatus: 'running',
+    }))
+  })
+
+  it('keeps completed persisted tool calls done when a matching tool result exists', async () => {
+    chatApi.resumeSession.mockImplementationOnce((sessionId: string, onResumed: (data: any) => void) => {
+      onResumed({
+        session_id: sessionId,
+        messages: [{
+          id: 10,
+          role: 'assistant',
+          content: '',
+          timestamp: 100,
+          tool_calls: [{
+            id: 'terminal-call',
+            type: 'function',
+            function: { name: 'terminal', arguments: '{"command":"pwd"}' },
+          }],
+          finish_reason: 'tool_calls',
+        }, {
+          id: 11,
+          role: 'tool',
+          content: 'done',
+          timestamp: 101,
+          tool_call_id: 'terminal-call',
+          tool_name: 'terminal',
+        }],
+        isWorking: false,
+        events: [],
+      })
+      return {} as any
+    })
+
+    const store = useChatStore()
+    store.sessions = [makeSession('session-completed-tool')]
+
+    await store.switchSession('session-completed-tool')
+    await nextTick()
+
+    expect(store.activeSession?.messages).toHaveLength(1)
+    expect(store.activeSession?.messages[0]).toEqual(expect.objectContaining({
+      role: 'tool',
+      toolName: 'terminal',
+      toolCallId: 'terminal-call',
+      toolStatus: 'done',
+      toolResult: 'done',
+    }))
+  })
+
+  it('reopens a stale done placeholder when a replayed tool.started has no result yet', async () => {
+    const store = useChatStore()
+    store.sessions = [makeSession('session-1')]
+
+    await store.switchSession('session-1')
+    await store.sendMessage('continue')
+    const onEvent = chatApi.startRunViaSocket.mock.calls.at(-1)?.[1] as (event: any) => void
+    store.activeSession!.messages = [{
+      id: 'tool-placeholder',
+      role: 'tool',
+      content: '',
+      timestamp: Date.now(),
+      toolName: 'terminal',
+      toolCallId: 'terminal-call',
+      toolArgs: '{"command":"sleep 60"}',
+      toolStatus: 'done',
+    } as Message]
+
+    onEvent({
+      event: 'tool.started',
+      session_id: 'session-1',
+      tool_call_id: 'terminal-call',
+      tool: 'terminal',
+      arguments: '{"command":"sleep 60"}',
+    })
+
+    expect(store.activeSession?.messages[0]).toEqual(expect.objectContaining({
+      toolStatus: 'running',
+    }))
+  })
+
   it('surfaces non-terminal reattach warnings replayed in a non-working resume payload', async () => {
     chatApi.resumeSession.mockImplementationOnce((sessionId: string, onResumed: (data: any) => void) => {
       onResumed({
