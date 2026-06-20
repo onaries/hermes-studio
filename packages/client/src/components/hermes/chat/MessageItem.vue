@@ -583,6 +583,28 @@ const displayToolPreview = computed(() => todoToolSummary.value ? todoToolSummar
   t,
 ));
 
+function hasToolDuration(): boolean {
+  const duration = props.message.toolDuration;
+  return typeof duration === 'number' && Number.isFinite(duration) && duration >= 0;
+}
+
+function formatToolDuration(seconds: number): string {
+  if (seconds < 1) return `${Math.round(seconds * 1000)}ms`;
+  if (seconds < 60) return `${Math.round(seconds * 10) / 10}s`;
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.round(seconds % 60);
+  return `${mins}m ${secs}s`;
+}
+
+const shouldShowToolDuration = computed(() => (
+  props.message.role === 'tool'
+  && props.message.toolStatus !== 'running'
+  && (hasToolDuration() || props.message.toolStatus === 'done' || props.message.toolStatus === 'error')
+));
+const toolDurationLabel = computed(() => (
+  shouldShowToolDuration.value ? formatToolDuration(hasToolDuration() ? props.message.toolDuration! : 0) : ''
+));
+
 const toolArgsPayload = computed(() => formatToolPayload(props.message.toolArgs));
 const toolResultPayload = computed(() => formatToolPayload(props.message.toolResult, true));
 
@@ -871,6 +893,11 @@ function handleBtwEscape(event: KeyboardEvent) {
           class="tool-preview"
           >{{ displayToolPreview }}</span
         >
+        <span
+          v-if="shouldShowToolDuration"
+          class="tool-duration-badge"
+          :title="t('chat.executionDuration')"
+        >{{ toolDurationLabel }}</span>
         <span
           v-if="shouldShowToolSpinner"
           class="tool-spinner"
@@ -1767,6 +1794,18 @@ function handleBtwEscape(event: KeyboardEvent) {
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: min(400px, 100%);
+  }
+
+  .tool-duration-badge {
+    flex: 0 0 auto;
+    font-family: $font-code;
+    font-size: 10px;
+    line-height: 14px;
+    color: $text-muted;
+    padding: 0 3px;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.035);
+    white-space: nowrap;
   }
 }
 

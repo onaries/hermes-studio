@@ -99,6 +99,45 @@ describe('MessageItem tool details', () => {
     })
 
     expect(wrapper.find('.tool-spinner').exists()).toBe(false)
+    expect(wrapper.find('.tool-duration-badge').exists()).toBe(false)
+  })
+
+  it('shows duration badges on completed tool rows, including fallback duration', () => {
+    const withDuration = mount(MessageItem, {
+      props: {
+        message: {
+          id: 'done-terminal',
+          role: 'tool',
+          content: '',
+          timestamp: Date.now(),
+          toolName: 'terminal',
+          toolArgs: { command: 'npm run build' },
+          toolStatus: 'done',
+          toolDuration: 3.2,
+        } satisfies Message,
+      },
+      global: { stubs: { MarkdownRenderer: true } },
+    })
+
+    expect(withDuration.find('.tool-duration-badge').text()).toBe('3.2s')
+    expect(withDuration.find('.tool-duration-badge').attributes('title')).toBe('chat.executionDuration')
+
+    const fallback = mount(MessageItem, {
+      props: {
+        message: {
+          id: 'done-todo',
+          role: 'tool',
+          content: '',
+          timestamp: Date.now(),
+          toolName: 'todo',
+          toolArgs: { todos: [] },
+          toolStatus: 'done',
+        } satisfies Message,
+      },
+      global: { stubs: { MarkdownRenderer: true } },
+    })
+
+    expect(fallback.find('.tool-duration-badge').text()).toBe('0ms')
   })
 
   it('renders patch tool results with diff highlighting instead of plain text', async () => {
