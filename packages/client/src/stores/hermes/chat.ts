@@ -13,9 +13,11 @@ import { primeCompletionSound, playCompletionSound } from '@/utils/completion-so
 import { showCompletionNotification } from '@/utils/completion-notification'
 import { detectThinkingBoundary } from '@/utils/thinking-parser'
 import { isKnownBridgeSessionCommand } from '@/utils/hermes/bridge-session-commands'
+import { responseErrorMessage } from '@/utils/http-error'
 
 // Re-export ContentBlock for convenience
 export type ContentBlock = ContentBlockImport
+export const LIVE_CHAT_MAX_LOADED_MESSAGES = 300
 
 export interface Attachment {
   id: string
@@ -53,7 +55,7 @@ export interface Message {
   // 不含 <think> 包裹标签；内容自身可以为多段纯文本。
   reasoning?: string
   queued?: boolean
-  systemType?: 'command' | 'error'
+  systemType?: 'command' | 'error' | 'fork-divider'
   commandAction?: string
   commandData?: Record<string, unknown>
   finishReason?: string | null
@@ -109,6 +111,11 @@ export interface Session {
   contextTokens?: number
   liveTps?: number | null
   endedAt?: number | null
+  parentSessionId?: string | null
+  forkPointMessageId?: string | null
+  parentTitle?: string | null
+  parentLastMessage?: string | null
+  parentLastMessageRole?: string | null
   lastActiveAt?: number
   workspace?: string | null
   /** Per-session reasoning effort override.
@@ -183,7 +190,7 @@ async function uploadFiles(attachments: Attachment[]): Promise<{ name: string; p
     body: formData,
     headers,
   })
-  if (!res.ok) throw new Error(`Upload failed: ${res.status}`)
+  if (!res.ok) throw new Error(await responseErrorMessage(res, 'Upload failed'))
   const data = await res.json() as { files: { name: string; path: string }[] }
   return data.files
 }
@@ -455,6 +462,28 @@ function sessionActivitySeconds(s: SessionSummary): number {
   )
 }
 
+function lastVisibleMessage(messages?: Message[] | null): Message | null {
+  if (!messages?.length) return null
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i]
+    if (message.role !== 'user' && message.role !== 'assistant') continue
+    if (!String(message.content || '').trim()) continue
+    return message
+  }
+  return null
+}
+
+function lastVisibleMessageContent(messages?: Message[] | null): string | null {
+  const message = lastVisibleMessage(messages)
+  if (!message) return null
+  const content = String(message.content || '').replace(/\s+/g, ' ').trim()
+  return content.length > 280 ? `${content.slice(0, 277)}...` : content
+}
+
+function lastVisibleMessageRole(messages?: Message[] | null): string | null {
+  return lastVisibleMessage(messages)?.role || null
+}
+
 function mapHermesSession(s: SessionSummary): Session {
   const isCodingAgentSession = s.source === 'coding_agent' || s.agent === 'claude' || s.agent === 'codex'
   const codingAgentId = s.agent === 'codex' ? 'codex' : s.agent === 'claude' ? 'claude-code' : undefined
@@ -486,6 +515,11 @@ function mapHermesSession(s: SessionSummary): Session {
     inputTokens: s.input_tokens,
     outputTokens: s.output_tokens,
     endedAt: s.ended_at != null ? Math.round(s.ended_at * 1000) : null,
+    parentSessionId: s.parent_session_id || null,
+    forkPointMessageId: (s as any).fork_point_message_id != null ? String((s as any).fork_point_message_id) : null,
+    parentTitle: s.parent_title || null,
+    parentLastMessage: s.parent_last_message || null,
+    parentLastMessageRole: s.parent_last_message_role || null,
     lastActiveAt: s.last_active != null ? Math.round(s.last_active * 1000) : undefined,
     workspace: s.workspace || null,
   }
@@ -626,6 +660,8 @@ export const useChatStore = defineStore('chat', () => {
   const latestCompletionNotification = ref<CompletionNotification | null>(null)
   /** sessionId → server-reported isWorking status */
   const serverWorking = ref<Set<string>>(new Set())
+  /** sessionIds with a terminal /fork command submitted but not settled yet */
+  const pendingForkCommands = ref<Set<string>>(new Set())
   const sessionProfileFilter = ref<string | null>(null)
   /** sessionId → queued message count */
   const queueLengths = ref<Map<string, number>>(new Map())
@@ -655,6 +691,10 @@ export const useChatStore = defineStore('chat', () => {
     const sid = activeSessionId.value
     if (sid == null) return false
     return streamStates.value.has(sid) || serverWorking.value.has(sid)
+  })
+  const isForkPending = computed(() => {
+    const sid = activeSessionId.value
+    return sid != null && pendingForkCommands.value.has(sid)
   })
   const isLoadingSessions = ref(false)
   const sessionsLoaded = ref(false)
@@ -693,6 +733,7 @@ export const useChatStore = defineStore('chat', () => {
     liveRunLastEventAt.clear()
     liveRunReconcileInFlight.clear()
     serverWorking.value = new Set()
+    pendingForkCommands.value = new Set()
     sessionsLoaded.value = false
     clearActiveSession()
   }
@@ -1103,6 +1144,11 @@ export const useChatStore = defineStore('chat', () => {
       target.messageCount = detail.total
       target.hasMoreBefore = detail.hasMore
       if (detail.session.title) target.title = detail.session.title
+      target.parentSessionId = detail.session.parent_session_id || target.parentSessionId || null
+      target.forkPointMessageId = (detail.session as any).fork_point_message_id != null ? String((detail.session as any).fork_point_message_id) : target.forkPointMessageId || null
+      target.parentTitle = detail.session.parent_title || target.parentTitle || null
+      target.parentLastMessage = detail.session.parent_last_message || target.parentLastMessage || null
+      target.parentLastMessageRole = detail.session.parent_last_message_role || target.parentLastMessageRole || null
       return true
     } catch (err) {
       console.error('Failed to refresh active session:', err)
@@ -1231,6 +1277,11 @@ export const useChatStore = defineStore('chat', () => {
           if (data.inputTokens != null) target.inputTokens = data.inputTokens
           if (data.outputTokens != null) target.outputTokens = data.outputTokens
           if ((data as any).contextTokens != null) target.contextTokens = (data as any).contextTokens
+          target.parentSessionId = (data as any).parentSessionId || target.parentSessionId || null
+          target.forkPointMessageId = (data as any).forkPointMessageId != null ? String((data as any).forkPointMessageId) : target.forkPointMessageId || null
+          target.parentTitle = (data as any).parentTitle || target.parentTitle || null
+          target.parentLastMessage = (data as any).parentLastMessage || target.parentLastMessage || null
+          target.parentLastMessageRole = (data as any).parentLastMessageRole || target.parentLastMessageRole || null
           if (data.messages?.length) {
             target.messages = mapHermesMessages(data.messages as any[]).filter(m => m.commandAction !== 'btw')
             target.loadedMessageCount = data.messageLoadedCount ?? data.messages.length
@@ -1633,13 +1684,24 @@ export const useChatStore = defineStore('chat', () => {
     const msgs = getSessionMsgs(sessionId)
     const last = msgs[msgs.length - 1]
     if (last?.isStreaming) {
-      updateMessage(sessionId, last.id, {
-        role: 'assistant',
-        content,
-        isStreaming: false,
-        systemType: 'error',
-      })
-      return
+      // If the streaming message already has substantial content (the assistant
+      // produced a meaningful reply before the error), don't overwrite it —
+      // just close the stream and append a separate error message. Only
+      // overwrite when the message is still empty or trivially short, meaning
+      // the run failed before producing useful output.
+      const hasSubstantialContent = (last.content || '').trim().length > 100
+      if (hasSubstantialContent) {
+        updateMessage(sessionId, last.id, { isStreaming: false })
+        // fall through to append a separate error message
+      } else {
+        updateMessage(sessionId, last.id, {
+          role: 'assistant',
+          content,
+          isStreaming: false,
+          systemType: 'error',
+        })
+        return
+      }
     }
     if (last?.role === 'assistant' && last.systemType === 'error' && last.content === content) return
     addMessage(sessionId, {
@@ -1662,6 +1724,11 @@ export const useChatStore = defineStore('chat', () => {
     const command = String((evt as any).command || '').toLowerCase()
     if (action !== 'btw' && (evt as any).started === true && (evt as any).terminal === false) {
       serverWorking.value.add(sid)
+    }
+    if ((evt as any).terminal === true) {
+      streamStates.value.delete(sid)
+      serverWorking.value.delete(sid)
+      pendingForkCommands.value.delete(sid)
     }
 
     if (action === 'clear' && command === 'clear') {
@@ -1812,6 +1879,40 @@ export const useChatStore = defineStore('chat', () => {
         if (m.isStreaming) updateMessage(sid, m.id, { isStreaming: false })
         if (m.role === 'tool' && m.toolStatus === 'running') m.toolStatus = 'error'
       })
+    }
+
+    if (action === 'branch' && (evt as any).ok !== false) {
+      const branch = ((evt as any).branchSession || {}) as Record<string, unknown>
+      const newSessionId = String((evt as any).newSessionId || branch.id || '').trim()
+      if (newSessionId) {
+        const existing = sessions.value.find(s => s.id === newSessionId)
+        if (!existing) {
+          sessions.value.unshift({
+            id: newSessionId,
+            profile: typeof branch.profile === 'string' ? branch.profile : undefined,
+            title: String((evt as any).newSessionTitle || branch.title || 'Branch'),
+            source: typeof branch.source === 'string' ? branch.source : 'cli',
+            messages: [],
+            createdAt: typeof branch.createdAt === 'number' ? branch.createdAt : Date.now(),
+            updatedAt: typeof branch.updatedAt === 'number' ? branch.updatedAt : Date.now(),
+            model: typeof branch.model === 'string' ? branch.model : undefined,
+            provider: typeof branch.provider === 'string' ? branch.provider : undefined,
+            messageCount: typeof branch.messageCount === 'number' ? branch.messageCount : undefined,
+            messageTotal: typeof branch.messageCount === 'number' ? branch.messageCount : undefined,
+            loadedMessageCount: 0,
+            hasMoreBefore: false,
+            parentSessionId: typeof branch.parentSessionId === 'string'
+              ? branch.parentSessionId
+              : typeof (evt as any).parentSessionId === 'string' ? (evt as any).parentSessionId : sid,
+            forkPointMessageId: branch.forkPointMessageId != null ? String(branch.forkPointMessageId) : null,
+            parentTitle: typeof branch.parentTitle === 'string' ? branch.parentTitle : target?.title || null,
+            parentLastMessage: typeof branch.parentLastMessage === 'string' ? branch.parentLastMessage : lastVisibleMessageContent(target?.messages),
+            parentLastMessageRole: typeof branch.parentLastMessageRole === 'string' ? branch.parentLastMessageRole : lastVisibleMessageRole(target?.messages),
+            workspace: typeof branch.workspace === 'string' ? branch.workspace : null,
+          })
+        }
+        void switchSession(newSessionId)
+      }
     }
 
     const message = String((evt as any).message || '')
@@ -2269,14 +2370,21 @@ export const useChatStore = defineStore('chat', () => {
       ? activeSession.value.messageCount == null || activeSession.value.messageCount === 0
       : false
     const isCodingAgentSession = isCodingAgentLikeSession(activeSession.value)
-    const wasLiveBeforeSend = isSessionLive(sid)
     const bridgeCommandContent = trimmedContent
     const isBridgeSlashCommand = !isCodingAgentSession && isKnownBridgeSessionCommand(bridgeCommandContent)
     const isBridgeCompressCommand = isBridgeSlashCommand && /^\/compress(?:\s|$)/i.test(bridgeCommandContent)
     const isBridgePlanCommand = isBridgeSlashCommand && /^\/plan(?:\s|$)/i.test(bridgeCommandContent)
     const isBridgeSkillCommand = isBridgeSlashCommand && /^\/skill(?:\s|$)/i.test(bridgeCommandContent)
     const isBridgeGoalCommand = isBridgeSlashCommand && /^\/goal(?:\s|$)/i.test(bridgeCommandContent)
+    const isBridgeForkCommand = isBridgeSlashCommand && /^\/fork(?:\s|$)/i.test(bridgeCommandContent)
     const isBridgeBackgroundCommand = isBridgeSlashCommand && /^\/(?:btw|bg|background)(?:\s|$)/i.test(bridgeCommandContent)
+    const shouldOptimisticallyShowRunStatus = !isCodingAgentSession && !isBridgeForkCommand
+    const wasLiveBeforeSend = isSessionLive(sid)
+    if (isBridgeForkCommand) {
+      if (pendingForkCommands.value.has(sid)) return
+      pendingForkCommands.value = new Set(pendingForkCommands.value).add(sid)
+    }
+
     const shouldQueue = wasLiveBeforeSend && (!isBridgeSlashCommand || isBridgePlanCommand || isBridgeSkillCommand)
 
     const userMsg: Message = {
@@ -2298,7 +2406,7 @@ export const useChatStore = defineStore('chat', () => {
     } else {
       addMessage(sid, userMsg)
       updateSessionTitle(sid)
-      if (!isCodingAgentSession) serverWorking.value.add(sid)
+      if (shouldOptimisticallyShowRunStatus) serverWorking.value.add(sid)
     }
 
     let runSubmitted = false
@@ -2348,11 +2456,14 @@ export const useChatStore = defineStore('chat', () => {
         : undefined
       const runModelGroups = profileModelGroups?.length ? profileModelGroups : appStore.modelGroups
       const providerGroup = runModelGroups.find(group => group.provider === sessionProvider)
-      const sessionSource: StartRunRequest['source'] = activeSession.value?.source === 'global_agent'
+      const storedSource = activeSession.value?.source
+      const sessionSource: StartRunRequest['source'] = storedSource === 'global_agent'
         ? 'global_agent'
         : isCodingAgentSession
           ? 'coding_agent'
-          : 'cli'
+          : storedSource === 'api_server'
+            ? 'api_server'
+            : 'cli'
       const codingAgentId: 'claude-code' | 'codex' =
         activeSession.value?.codingAgentId ||
         (activeSession.value?.agent === 'codex' ? 'codex' : 'claude-code')
@@ -3100,6 +3211,11 @@ export const useChatStore = defineStore('chat', () => {
         streamStates.value.set(sid, ctrl)
       }
     } catch (err: any) {
+      if (isBridgeForkCommand) {
+        const nextPendingForkCommands = new Set(pendingForkCommands.value)
+        nextPendingForkCommands.delete(sid)
+        pendingForkCommands.value = nextPendingForkCommands
+      }
       if (shouldQueue && !runSubmitted) {
         dropQueuedUserMessage(sid, userMsg.id)
       }
@@ -3926,6 +4042,7 @@ export const useChatStore = defineStore('chat', () => {
     focusMessageId,
     messages,
     isStreaming,
+    isForkPending,
     isRunActive,
     isSessionLive,
     sessionProfileFilter,

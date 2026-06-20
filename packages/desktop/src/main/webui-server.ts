@@ -469,6 +469,7 @@ export async function startWebUiServer(
   }
 
   serverProc = spawn(process.execPath, [entry], {
+    cwd: webuiDir(),
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,

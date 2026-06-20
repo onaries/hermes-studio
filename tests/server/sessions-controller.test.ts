@@ -389,6 +389,47 @@ describe('session conversations controller', () => {
     expect(ctx.body.sessions).toEqual([expect.objectContaining({ id: 'global-1', source: 'global_agent' })])
   })
 
+  it('counts visible single-chat sessions with the same filters as the list endpoint', async () => {
+    listUserProfilesMock.mockReturnValue([{ profile_name: 'default' }, { profile_name: 'travel' }])
+    localListSessionsMock.mockReturnValue([
+      { id: 'default-session', profile: 'default', source: 'cli' },
+      { id: 'travel-session', profile: 'travel', source: 'coding_agent' },
+      { id: 'secret-session', profile: 'secret', source: 'cli' },
+      { id: 'unknown-profile-session', profile: 'missing', source: 'cli' },
+      { id: 'api-session', profile: 'default', source: 'api_server' },
+    ])
+
+    const mod = await import('../../packages/server/src/controllers/hermes/sessions')
+    const ctx: any = {
+      query: {},
+      state: {
+        user: { id: 1, role: 'admin' },
+      },
+      body: null,
+    }
+    await mod.count(ctx)
+
+    expect(localListSessionsMock).toHaveBeenCalledWith(undefined, undefined, 2147483647)
+    expect(ctx.body).toEqual({ count: 3 })
+  })
+
+  it('counts sessions for an explicit profile and source', async () => {
+    localListSessionsMock.mockReturnValue([
+      { id: 'travel-global', profile: 'travel', source: 'global_agent' },
+    ])
+
+    const mod = await import('../../packages/server/src/controllers/hermes/sessions')
+    const ctx: any = {
+      query: { profile: 'travel', source: 'global_agent' },
+      state: {},
+      body: null,
+    }
+    await mod.count(ctx)
+
+    expect(localListSessionsMock).toHaveBeenCalledWith('travel', 'global_agent', 2147483647)
+    expect(ctx.body).toEqual({ count: 1 })
+  })
+
   it('marks Hermes history sessions that already exist in the Web UI store', async () => {
     localListSessionsMock.mockReturnValue([{ id: 'cli-1', profile: 'travel' }])
     listSessionSummariesMock.mockResolvedValue([
@@ -517,6 +558,24 @@ describe('session conversations controller', () => {
       session_id: 'root',
       messages: [{ id: 1, session_id: 'root', role: 'user', content: 'hello', timestamp: 1 }],
       visible_count: 1,
+      thread_session_count: 1,
+    })
+  })
+
+  it('treats missing conversation message arrays as empty', async () => {
+    localGetSessionDetailMock.mockReturnValue({
+      id: 'root',
+    })
+
+    const mod = await import('../../packages/server/src/controllers/hermes/sessions')
+    const ctx: any = { params: { id: 'root' }, query: { humanOnly: 'false' }, body: null }
+    await mod.getConversationMessages(ctx)
+
+    expect(localGetSessionDetailMock).toHaveBeenCalledWith('root')
+    expect(ctx.body).toEqual({
+      session_id: 'root',
+      messages: [],
+      visible_count: 0,
       thread_session_count: 1,
     })
   })

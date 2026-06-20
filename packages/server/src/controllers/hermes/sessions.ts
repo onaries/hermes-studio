@@ -339,7 +339,7 @@ export async function getConversationMessages(ctx: any) {
     return
   }
   if (denySessionAccess(ctx, detail)) return
-  const messages = detail.messages
+  const messages = (detail.messages || [])
     .filter(m => {
       if (humanOnly && m.role !== 'user' && m.role !== 'assistant') return false
       if (!m.content) return false
@@ -374,6 +374,18 @@ export async function list(ctx: any) {
       (!knownProfiles || knownProfiles.has(s.profile || 'default')),
     )),
   }
+}
+
+export async function count(ctx: any) {
+  const source = (ctx.query.source as string) || undefined
+  const profile = explicitProfileFilter(ctx)
+  const allSessions = localListSessions(profile, source, 2147483647)
+  const knownProfiles = profile ? null : new Set(listProfileNamesFromDisk())
+  const sessions = filterPendingDeletedSessions(filterByAllowedProfiles(ctx, allSessions).filter(s =>
+    isRequestedSessionSource(source, s.source) &&
+    (!knownProfiles || knownProfiles.has(s.profile || 'default')),
+  ))
+  ctx.body = { count: sessions.length }
 }
 
 /**
@@ -1136,6 +1148,11 @@ export async function getConversationMessagesPaginated(ctx: any) {
       source: session.source,
       model: session.model,
       title: session.title,
+      parent_session_id: (session as any).parent_session_id,
+      fork_point_message_id: (session as any).fork_point_message_id,
+      parent_title: (session as any).parent_title,
+      parent_last_message: (session as any).parent_last_message,
+      parent_last_message_role: (session as any).parent_last_message_role,
       started_at: session.started_at,
       ended_at: session.ended_at,
       last_active: session.last_active,
