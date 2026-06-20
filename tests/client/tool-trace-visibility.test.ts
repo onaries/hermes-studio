@@ -298,10 +298,19 @@ describe('tool trace visibility', () => {
         toolDuration: 3.2,
       },
       {
-        id: 'tool-search-done',
+        id: 'tool-todo-done',
         role: 'tool',
         content: '',
         timestamp: 3,
+        toolName: 'todo',
+        toolArgs: { todos: [] },
+        toolStatus: 'done',
+      },
+      {
+        id: 'tool-search-done',
+        role: 'tool',
+        content: '',
+        timestamp: 4,
         toolName: 'search_files',
         toolArgs: { pattern: 'terminal' },
         toolStatus: 'done',
@@ -314,8 +323,10 @@ describe('tool trace visibility', () => {
       .findAll('.tool-call-item:not(.compression-item) .tool-call-name')
       .map(node => node.text())
 
-    expect(liveToolNames).toEqual(['search_files', 'terminal'])
-    expect(wrapper.findAll('.tool-call-item--done').some(node => node.text().includes('terminal'))).toBe(true)
+    expect(liveToolNames).toEqual(['search_files', 'todo', 'terminal'])
+    const doneRows = wrapper.findAll('.tool-call-item--done')
+    expect(doneRows.some(node => node.text().includes('terminal') && node.text().includes('3.2s'))).toBe(true)
+    expect(doneRows.some(node => node.text().includes('todo') && node.text().includes('0ms'))).toBe(true)
     expect(wrapper.find('.tool-call-item--running').exists()).toBe(false)
     expect(wrapper.find('.tool-call-item:not(.compression-item) .tool-call-spinner').exists()).toBe(false)
     expect(wrapper.find('.tool-call-running-badge').exists()).toBe(false)

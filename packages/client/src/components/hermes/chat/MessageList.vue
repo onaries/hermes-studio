@@ -154,10 +154,14 @@ function toolDurationSeconds(tool: ToolCallLike): number {
   return hasToolDuration(tool) ? tool.toolDuration! : 0
 }
 
+function shouldShowToolDuration(tool: ToolCallLike): boolean {
+  return tool.toolStatus !== 'running' && (hasToolDuration(tool) || tool.toolStatus === 'done' || tool.toolStatus === 'error')
+}
+
 function toolCallTitle(tool: ToolCallLike): string {
   const parts = [tool.toolName, fullToolPreview(tool)]
   if (isPatchTool(tool)) parts.push(t('chat.patchChanges'))
-  if (hasToolDuration(tool) && tool.toolStatus !== 'running') parts.push(formatToolDuration(toolDurationSeconds(tool)))
+  if (shouldShowToolDuration(tool)) parts.push(formatToolDuration(toolDurationSeconds(tool)))
   if (tool.toolStatus === 'done') parts.push('✓')
   if (tool.toolStatus === 'error') parts.push('✕')
   return parts.filter(Boolean).join(' ')
@@ -975,7 +979,7 @@ defineExpose({
                     toolCallPreview(tc)
                   }}</span>
                   <span
-                    v-if="hasToolDuration(tc) && tc.toolStatus !== 'running'"
+                    v-if="shouldShowToolDuration(tc)"
                     class="tool-call-duration"
                     :title="t('chat.executionDuration')"
                   >{{ formatToolDuration(toolDurationSeconds(tc)) }}</span

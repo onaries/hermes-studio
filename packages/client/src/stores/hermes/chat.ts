@@ -2799,7 +2799,11 @@ export const useChatStore = defineStore('chat', () => {
               }
               msgs.forEach((m, i) => {
                 if (m.role === 'tool' && m.toolStatus === 'running') {
-                  msgs[i] = { ...m, toolStatus: 'done' }
+                  msgs[i] = {
+                    ...m,
+                    toolStatus: 'done',
+                    toolDuration: resolveToolDurationSeconds(m.timestamp, m.toolDuration),
+                  }
                 }
               })
               cleanup()
@@ -3529,9 +3533,10 @@ export const useChatStore = defineStore('chat', () => {
           if (toolMsgs.length > 0) {
             const output = runtimeToolPayloadOrUndefined((evt as any).output)
             const hasError = (evt as any).error === true || runtimeToolOutputHasError(output)
-            updateMessage(sid, toolMsgs[toolMsgs.length - 1].id, {
+            const lastTool = toolMsgs[toolMsgs.length - 1]
+            updateMessage(sid, lastTool.id, {
               toolStatus: hasError ? 'error' : 'done',
-              toolDuration: (evt as any).duration,
+              toolDuration: resolveToolDurationSeconds(lastTool.timestamp, (evt as any).duration),
               toolResult: output,
             })
           }
