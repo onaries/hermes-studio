@@ -544,7 +544,6 @@ export default {
     truncated: '... (обрезано)',
     unchangedLines: '{count} строк без изменений',
     executionDuration: 'Длительность выполнения',
-    terminalRunning: 'Терминал выполняется · {elapsed}',
     toolSummary: {
       query: 'Query: {value}',
       path: 'Path: {value}',

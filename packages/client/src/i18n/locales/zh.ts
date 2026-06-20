@@ -637,7 +637,6 @@ export default {
     truncated: '... (已截断)',
     unchangedLines: '{count} 行未修改',
     executionDuration: '执行时间',
-    terminalRunning: '终端正在运行 · {elapsed}',
     toolSummary: {
       query: 'Query: {value}',
       path: 'Path: {value}',

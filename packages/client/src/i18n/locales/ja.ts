@@ -580,7 +580,6 @@ export default {
     truncated: '... (省略)',
     unchangedLines: '変更なし {count} 行',
     executionDuration: '実行時間',
-    terminalRunning: 'ターミナル実行中 · {elapsed}',
     toolSummary: {
       query: 'Query: {value}',
       path: 'Path: {value}',

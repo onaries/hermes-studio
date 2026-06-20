@@ -157,31 +157,10 @@ function toolDurationSeconds(tool: ToolCallLike): number {
 function toolCallTitle(tool: ToolCallLike): string {
   const parts = [tool.toolName, fullToolPreview(tool)]
   if (isPatchTool(tool)) parts.push(t('chat.patchChanges'))
-  if (isRunningTerminalTool(tool)) parts.push(runningTerminalLabel(tool))
   if (hasToolDuration(tool) && tool.toolStatus !== 'running') parts.push(formatToolDuration(toolDurationSeconds(tool)))
   if (tool.toolStatus === 'done') parts.push('✓')
   if (tool.toolStatus === 'error') parts.push('✕')
   return parts.filter(Boolean).join(' ')
-}
-
-function isTerminalTool(tool: ToolCallLike): boolean {
-  const name = (tool.toolName || '').toLowerCase()
-  return name === 'terminal' || name.endsWith('.terminal') || name.endsWith('_terminal') || name.includes('functions.terminal')
-}
-
-function isRunningTerminalTool(tool: ToolCallLike): boolean {
-  return tool.toolStatus === 'running' && isTerminalTool(tool)
-}
-
-const runningClockNow = ref(Date.now())
-
-function runningToolElapsedSeconds(tool: ToolCallLike): number {
-  if (!tool.timestamp) return 0
-  return Math.max(0, (runningClockNow.value - tool.timestamp) / 1000)
-}
-
-function runningTerminalLabel(tool: ToolCallLike): string {
-  return t('chat.terminalRunning', { elapsed: formatToolDuration(runningToolElapsedSeconds(tool)) })
 }
 
 const expandedPatchToolIds = ref<Set<string>>(new Set());
@@ -337,8 +316,6 @@ const liveToolCalls = computed(() => {
   // without a spinner/badge until the whole run settles.
   return visibleToolCalls.value;
 });
-const hasRunningTerminalTool = computed(() => liveToolCalls.value.some(isRunningTerminalTool));
-
 watch(
   () => chatStore.activeSessionId,
   () => {
@@ -358,28 +335,6 @@ watch(
       return;
     }
     autoExpandCompletedPatchTools(tools);
-  },
-  { immediate: true },
-);
-
-let runningClockTimer: number | null = null;
-
-function stopRunningClock() {
-  if (runningClockTimer == null || typeof window === 'undefined') return;
-  window.clearInterval(runningClockTimer);
-  runningClockTimer = null;
-}
-
-watch(
-  hasRunningTerminalTool,
-  (active) => {
-    stopRunningClock();
-    runningClockNow.value = Date.now();
-    if (active && typeof window !== 'undefined') {
-      runningClockTimer = window.setInterval(() => {
-        runningClockNow.value = Date.now();
-      }, 1000);
-    }
   },
   { immediate: true },
 );
@@ -778,7 +733,6 @@ function updateMobileViewport(event?: MediaQueryListEvent | MediaQueryList) {
 
 onBeforeUnmount(() => {
   saveSessionScrollPosition(chatStore.activeSessionId);
-  stopRunningClock();
   if (mobileViewportQuery) {
     mobileViewportQuery.removeEventListener?.('change', updateMobileViewport);
   }
@@ -1026,14 +980,6 @@ defineExpose({
                     :title="t('chat.executionDuration')"
                   >{{ formatToolDuration(toolDurationSeconds(tc)) }}</span
                   >
-                  <span
-                    v-if="isRunningTerminalTool(tc)"
-                    class="tool-call-running-badge"
-                    :title="runningTerminalLabel(tc)"
-                  >
-                    <span class="tool-call-running-dot" aria-hidden="true"></span>
-                    {{ runningTerminalLabel(tc) }}
-                  </span>
                   <svg
                     v-if="tc.toolStatus === 'done'"
                     width="16"
@@ -2102,34 +2048,6 @@ defineExpose({
   flex-shrink: 0;
 }
 
-.tool-call-running-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex: 0 0 auto;
-  margin-left: auto;
-  padding: 1px 6px;
-  border-radius: 999px;
-  border: 1px solid rgba(var(--accent-primary-rgb), 0.28);
-  background: rgba(var(--accent-primary-rgb), 0.12);
-  color: $accent-primary;
-  font-family: $font-code;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.4;
-  white-space: nowrap;
-  box-shadow: 0 0 14px rgba(var(--accent-primary-rgb), 0.08);
-}
-
-.tool-call-running-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 0 0 rgba(var(--accent-primary-rgb), 0.44);
-  animation: tool-running-dot-pulse 1.2s ease-in-out infinite;
-}
-
 .tool-call-success-icon {
   color: #52c41a;
   flex-shrink: 0;
@@ -2201,19 +2119,6 @@ defineExpose({
   }
 }
 
-@keyframes tool-running-dot-pulse {
-  0%, 100% {
-    opacity: 0.65;
-    transform: scale(0.86);
-    box-shadow: 0 0 0 0 rgba(var(--accent-primary-rgb), 0.36);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1);
-    box-shadow: 0 0 0 5px rgba(var(--accent-primary-rgb), 0);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .tool-call-list-enter-active,
   .tool-call-list-appear-active,
@@ -2234,7 +2139,6 @@ defineExpose({
   .tool-call-item--entering,
   .tool-call-item--running::before,
   .tool-call-item--running::after,
-  .tool-call-running-dot,
   .tool-call-spinner {
     animation: none;
   }
