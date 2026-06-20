@@ -247,6 +247,9 @@ function handleOutlineNavigate(target: { messageId: string; anchorId: string }) 
 
 
 async function handleSessionClick(sessionId: string) {
+  if (chatStore.activeSessionId !== sessionId) {
+    await chatStore.switchSession(sessionId);
+  }
   await router.push({
     name: sessionRouteName(),
     params: { sessionId },
