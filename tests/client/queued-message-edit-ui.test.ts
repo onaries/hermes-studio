@@ -15,4 +15,12 @@ describe('queued message panel editing', () => {
     expect(file).toContain('overflow-wrap: anywhere;')
     expect(file).not.toContain('queuedPreview(')
   })
+
+  it('hides the destructive remove button while a queued message is being edited', () => {
+    const file = source()
+
+    expect(file).toContain('v-if="editingQueuedMessageId !== message.id"')
+    expect(file).toContain('class="queue-remove"')
+    expect(file).toContain(':title="t(\'chat.removeQueuedMessage\')"')
+  })
 })

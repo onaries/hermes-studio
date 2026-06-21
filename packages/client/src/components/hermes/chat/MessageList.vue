@@ -1133,6 +1133,7 @@ defineExpose({
                 </button>
               </template>
               <button
+                v-if="editingQueuedMessageId !== message.id"
                 type="button"
                 class="queue-remove"
                 :title="t('chat.removeQueuedMessage')"
