@@ -343,6 +343,20 @@ function resolveResumedAssistantState(
   }
 }
 
+function resolveElapsedToolDurationSeconds(startedAt: number | undefined, explicitDuration?: unknown, now = Date.now()): number | undefined {
+  const explicit = typeof explicitDuration === 'number'
+    ? explicitDuration
+    : typeof explicitDuration === 'string'
+      ? Number(explicitDuration)
+      : Number.NaN
+  if (typeof startedAt !== 'number' || !Number.isFinite(startedAt) || startedAt <= 0) {
+    return Number.isFinite(explicit) && explicit >= 0 ? explicit : undefined
+  }
+  const elapsedSeconds = (now - startedAt) / 1000
+  if (Number.isFinite(explicit) && explicit > 0) return explicit
+  return Number.isFinite(elapsedSeconds) && elapsedSeconds >= 0 ? elapsedSeconds : undefined
+}
+
 function mapHermesMessages(msgs: HermesMessage[]): Message[] {
   // Filter out assistant messages with no display content unless they carry tool call metadata
   // needed to name later tool result rows when resuming persisted history.
@@ -418,6 +432,11 @@ function mapHermesMessages(msgs: HermesMessage[]): Message[] {
       const placeholderIdx = result.findIndex(
         m => m.role === 'tool' && m.toolName === toolName && !m.toolResult && m.id.includes('_' + tcId)
       )
+      const placeholder = placeholderIdx !== -1 ? result[placeholderIdx] : null
+      const completedAt = Math.round(msg.timestamp * 1000)
+      const restoredDuration = placeholder?.timestamp
+        ? resolveElapsedToolDurationSeconds(placeholder.timestamp, undefined, completedAt)
+        : undefined
       if (placeholderIdx !== -1) {
         result.splice(placeholderIdx, 1)
       }
@@ -425,13 +444,14 @@ function mapHermesMessages(msgs: HermesMessage[]): Message[] {
         id: String(msg.id),
         role: 'tool',
         content: '',
-        timestamp: Math.round(msg.timestamp * 1000),
+        timestamp: completedAt,
         toolName,
         toolCallId: tcId || undefined,
         toolArgs,
         toolPreview: typeof preview === 'string' ? preview.slice(0, 100) || undefined : undefined,
         toolResult: runtimeToolPayloadOrUndefined((msg as any).content),
         toolStatus: 'done',
+        toolDuration: restoredDuration,
         finishReason: readFinishReason(msg),
         runMarker: readRunMarker(msg),
       })
@@ -1582,15 +1602,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   function resolveToolDurationSeconds(startedAt: number | undefined, explicitDuration?: unknown, now = Date.now()): number | undefined {
-    const explicit = typeof explicitDuration === 'number'
-      ? explicitDuration
-      : typeof explicitDuration === 'string'
-        ? Number(explicitDuration)
-        : Number.NaN
-    if (Number.isFinite(explicit) && explicit >= 0) return explicit
-    if (typeof startedAt !== 'number' || !Number.isFinite(startedAt) || startedAt <= 0) return undefined
-    const elapsedSeconds = (now - startedAt) / 1000
-    return Number.isFinite(elapsedSeconds) && elapsedSeconds >= 0 ? elapsedSeconds : undefined
+    return resolveElapsedToolDurationSeconds(startedAt, explicitDuration, now)
   }
 
   function settleRunningTools(sessionId: string, status: 'done' | 'error') {

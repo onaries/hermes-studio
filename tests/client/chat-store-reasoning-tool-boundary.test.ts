@@ -211,6 +211,46 @@ describe('chat store reasoning/tool boundaries', () => {
     }
   })
 
+  it('falls back to elapsed duration when tool.completed reports zero duration', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-19T00:00:00Z'))
+    try {
+      const store = useChatStore()
+      const session = makeSession()
+      store.sessions = [session]
+      store.activeSessionId = 'session-1'
+      store.activeSession = session
+
+      await store.sendMessage('run a command with zero reported duration')
+      const onEvent = chatApi.startRunViaSocket.mock.calls[0][1] as (event: RunEvent) => void
+      onEvent({ event: 'run.started', session_id: 'session-1' })
+      onEvent({
+        event: 'tool.started',
+        session_id: 'session-1',
+        tool_call_id: 'tool-1',
+        tool: 'terminal',
+        arguments: '{"command":"sleep 12"}',
+      } as RunEvent)
+
+      vi.setSystemTime(new Date('2026-06-19T00:00:12Z'))
+      onEvent({
+        event: 'tool.completed',
+        session_id: 'session-1',
+        tool_call_id: 'tool-1',
+        duration: 0,
+        output: 'done',
+      } as RunEvent)
+
+      expect(store.messages.find((message: any) => message.role === 'tool')).toEqual(expect.objectContaining({
+        toolStatus: 'done',
+        toolDuration: 12,
+        toolResult: 'done',
+      }))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('does not drop repeated small markdown delimiters while streaming', async () => {
     const store = useChatStore()
     const session = makeSession()

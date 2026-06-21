@@ -196,6 +196,7 @@ describe('chat store compression state', () => {
       toolCallId: 'terminal-call',
       toolStatus: 'done',
       toolResult: 'done',
+      toolDuration: 1,
     }))
   })
 
