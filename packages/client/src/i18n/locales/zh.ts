@@ -866,6 +866,13 @@ export default {
     createJob: '创建任务',
     editJob: '编辑任务',
     noJobs: '暂无定时任务，创建一个开始吧。',
+    sortBy: '排序',
+    sortByName: '名称排序',
+    sortByTime: '时间排序',
+    sortByNameHint: '点击按名称排序',
+    sortByTimeHint: '点击按时间排序',
+    sortAsc: '升序',
+    sortDesc: '降序',
     name: '名称',
     namePlaceholder: '任务名称',
     schedule: '调度表达式 (Cron)',
@@ -931,6 +938,12 @@ export default {
   // 技能
   skills: {
     title: '技能',
+    targetFilter: '运行时',
+    targets: {
+      hermes: 'Hermes',
+      claude: 'Claude',
+      codex: 'Codex',
+    },
     searchPlaceholder: '搜索技能...',
     noMatch: '没有匹配的技能',
     noSkills: '暂无技能',

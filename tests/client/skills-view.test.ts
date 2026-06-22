@@ -60,6 +60,11 @@ vi.mock('naive-ui', () => ({
     emits: ['update:value'],
     template: '<button class="n-switch-stub" type="button" @click="$emit(\'update:value\', !value)"></button>',
   }),
+  NSelect: defineComponent({
+    props: ['value', 'options', 'size'],
+    emits: ['update:value'],
+    template: '<select class="n-select-stub" :value="value" @change="$emit(\'update:value\', $event.target.value)"><option v-for="option in options" :key="option.value" :value="option.value">{{ option.label }}</option></select>',
+  }),
   useMessage: () => ({
     success: vi.fn(),
     error: vi.fn(),

@@ -726,6 +726,13 @@ export default {
     createJob: '작업 생성',
     editJob: '작업 편집',
     noJobs: '예약된 작업이 없습니다. 새로 만들어 시작하세요.',
+    sortBy: '정렬',
+    sortByName: '이름순',
+    sortByTime: '날짜순',
+    sortByNameHint: '이름으로 정렬',
+    sortByTimeHint: '날짜로 정렬',
+    sortAsc: '오름차순',
+    sortDesc: '내림차순',
     name: '이름',
     namePlaceholder: '작업 이름',
     schedule: '스케줄 (Cron 표현식)',
@@ -789,6 +796,12 @@ export default {
   // 스킬
   skills: {
     title: '스킬',
+    targetFilter: '런타임',
+    targets: {
+      hermes: 'Hermes',
+      claude: 'Claude',
+      codex: 'Codex',
+    },
     searchPlaceholder: '스킬 검색...',
     noMatch: '검색과 일치하는 스킬이 없습니다',
     noSkills: '스킬을 찾을 수 없습니다',

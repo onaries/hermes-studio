@@ -866,6 +866,13 @@ export default {
     createJob: 'Create Job',
     editJob: 'Edit Job',
     noJobs: 'No scheduled jobs yet. Create one to get started.',
+    sortBy: 'Sort',
+    sortByName: 'Name Sort',
+    sortByTime: 'Time Sort',
+    sortByNameHint: 'Click to sort by name',
+    sortByTimeHint: 'Click to sort by time',
+    sortAsc: 'Ascending',
+    sortDesc: 'Descending',
     name: 'Name',
     namePlaceholder: 'Job name',
     schedule: 'Schedule (Cron Expression)',
@@ -931,6 +938,12 @@ export default {
   // Skills
   skills: {
     title: 'Skills',
+    targetFilter: 'Runtime',
+    targets: {
+      hermes: 'Hermes',
+      claude: 'Claude',
+      codex: 'Codex',
+    },
     searchPlaceholder: 'Search skills...',
     noMatch: 'No skills match your search',
     noSkills: 'No skills found',

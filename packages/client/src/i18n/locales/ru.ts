@@ -763,6 +763,13 @@ export default {
     createJob: 'Создать задачу',
     editJob: 'Редактировать задачу',
     noJobs: 'Нет периодических задач. Создайте первую.',
+    sortBy: 'Сортировка',
+    sortByName: 'По имени',
+    sortByTime: 'По дате',
+    sortByNameHint: 'Сортировать по имени',
+    sortByTimeHint: 'Сортировать по дате',
+    sortAsc: 'По возрастанию',
+    sortDesc: 'По убыванию',
     name: 'Название',
     namePlaceholder: 'Название задачи',
     schedule: 'Выражение расписания (Cron)',
@@ -828,6 +835,12 @@ export default {
 
   skills: {
     title: 'Навыки',
+    targetFilter: 'Среда',
+    targets: {
+      hermes: 'Hermes',
+      claude: 'Claude',
+      codex: 'Codex',
+    },
     searchPlaceholder: 'Поиск навыков...',
     noMatch: 'Нет подходящих навыков',
     noSkills: 'Нет навыков',

@@ -726,6 +726,13 @@ export default {
     createJob: 'ジョブを作成',
     editJob: 'ジョブを編集',
     noJobs: 'スケジュールジョブがありません。作成して始めましょう。',
+    sortBy: '並べ替え',
+    sortByName: '名前順',
+    sortByTime: '日付順',
+    sortByNameHint: '名前で並べ替え',
+    sortByTimeHint: '日付で並べ替え',
+    sortAsc: '昇順',
+    sortDesc: '降順',
     name: '名前',
     namePlaceholder: 'ジョブ名',
     schedule: 'スケジュール (Cron 式)',
@@ -789,6 +796,12 @@ export default {
   // スキル
   skills: {
     title: 'スキル',
+    targetFilter: 'ランタイム',
+    targets: {
+      hermes: 'Hermes',
+      claude: 'Claude',
+      codex: 'Codex',
+    },
     searchPlaceholder: 'スキルを検索...',
     noMatch: '検索に一致するスキルがありません',
     noSkills: 'スキルがありません',

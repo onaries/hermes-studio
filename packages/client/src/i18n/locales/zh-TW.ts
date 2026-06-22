@@ -854,6 +854,13 @@ export default {
     createJob: '建立任務',
     editJob: '編輯任務',
     noJobs: '目前無排程任務，建立一個開始吧。',
+    sortBy: '排序',
+    sortByName: '名稱排序',
+    sortByTime: '時間排序',
+    sortByNameHint: '點擊依名稱排序',
+    sortByTimeHint: '點擊依時間排序',
+    sortAsc: '升序',
+    sortDesc: '降序',
     name: '名稱',
     namePlaceholder: '任務名稱',
     schedule: '排程運算式 (Cron)',
@@ -919,6 +926,12 @@ export default {
   // 技能
   skills: {
     title: '技能',
+    targetFilter: '執行環境',
+    targets: {
+      hermes: 'Hermes',
+      claude: 'Claude',
+      codex: 'Codex',
+    },
     searchPlaceholder: '搜尋技能...',
     noMatch: '沒有符合的技能',
     noSkills: '目前無技能',
