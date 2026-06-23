@@ -43,6 +43,7 @@ import MessageList from "./MessageList.vue";
 import SessionListItem from "./SessionListItem.vue";
 import DrawerPanel from "./DrawerPanel.vue";
 import OutlinePanel from "./OutlinePanel.vue";
+import SettingsCircuitBadge from "@/components/layout/SettingsCircuitBadge.vue";
 
 const chatStore = useChatStore();
 const appStore = useAppStore();
@@ -236,6 +237,10 @@ function sessionHref(sessionId: string) {
   }).href;
 }
 
+function openSettingsPage() {
+  router.push({ name: "hermes.settings" });
+}
+
 function openSessionInNewTab(sessionId: string) {
   if (typeof window === "undefined") return;
   window.open(sessionHref(sessionId), "_blank", "noopener,noreferrer");
@@ -399,6 +404,12 @@ const activeSessionTitle = computed(
   () => chatStore.activeSession?.title || t("chat.newChat"),
 );
 
+const activeSessionModelLabel = computed(() => {
+  const session = chatStore.activeSession;
+  if (!session?.model) return t("models.selectModel");
+  return appStore.displayModelName(session.model, session.provider);
+});
+
 const headerTitle = computed(() =>
   currentMode.value === "live"
     ? t("chat.liveSessions")
@@ -549,6 +560,21 @@ function getSelectableModelGroupsForProfile(profile: string) {
 
 function getDefaultModelForProfile(profile: string) {
   const groups = getSelectableModelGroupsForProfile(profile);
+  const activeProfileName = profilesStore.activeProfileName || "default";
+  const selectedProvider = appStore.selectedProvider || "";
+  const selectedModel = appStore.selectedModel || "";
+  const selectedGroup = selectedProvider
+    ? groups.find((group) => group.provider === selectedProvider)
+    : undefined;
+  if (
+    profile === activeProfileName &&
+    selectedGroup?.models.includes(selectedModel)
+  ) {
+    return {
+      provider: selectedProvider,
+      model: selectedModel,
+    };
+  }
   const profileModels = appStore.profileModelGroups.find(
     (entry) => entry.profile === profile,
   );
@@ -902,7 +928,7 @@ const contextMenuOptions = computed(() => {
   { label: t("chat.rename"), key: "rename" },
   { label: t("chat.setWorkspace"), key: "workspace" }]
 
-  if (contextSession.value?.source === "cli") {
+  if (contextSession.value?.source === "cli" || contextSession.value?.source === "coding_agent") {
     options.push({ label: t("chat.setModel"), key: "model" })
   }
 
@@ -1051,6 +1077,7 @@ async function handleWorkspaceConfirm() {
 }
 
 const showSessionModelModal = ref(false);
+const showSessionModelModeModal = ref(false);
 const sessionModelSessionId = ref<string | null>(null);
 const sessionModelSearch = ref("");
 const sessionModelCollapsedGroups = ref<Record<string, boolean>>({});
@@ -1058,14 +1085,30 @@ const sessionModelValue = ref("");
 const sessionModelProvider = ref("");
 const sessionModelCustomInput = ref("");
 const sessionModelCustomProvider = ref("");
+const sessionModelApiMode = ref<CodingAgentApiMode>("codex_responses");
+const pendingSessionModelSwitch = ref<{ model: string; provider: string } | null>(null);
 
 const sessionModelProfile = computed<string | null>(() => {
   const session = chatStore.sessions.find((s) => s.id === sessionModelSessionId.value);
   return session?.profile || null;
 });
 
+const sessionModelSession = computed(() =>
+  chatStore.sessions.find((s) => s.id === sessionModelSessionId.value) ||
+  (chatStore.activeSession?.id === sessionModelSessionId.value ? chatStore.activeSession : undefined),
+);
+
+const isSessionModelScopedCodingAgent = computed(() =>
+  sessionModelSession.value?.source === "coding_agent" &&
+  sessionModelSession.value?.codingAgentMode !== "global",
+);
+
 const sessionModelBaseGroups = computed(() =>
-  sessionModelProfile.value ? getModelGroupsForProfile(sessionModelProfile.value) : [],
+  sessionModelProfile.value
+    ? getModelGroupsForProfile(sessionModelProfile.value).filter((group) => (
+        !isSessionModelScopedCodingAgent.value || !isCodingAgentAuthProvider(group.provider)
+      ))
+    : [],
 );
 
 const sessionModelProviderOptions = computed(() =>
@@ -1102,18 +1145,37 @@ async function openSessionModelModal(sessionId: string) {
   if (appStore.modelGroups.length === 0 && appStore.profileModelGroups.length === 0) {
     await appStore.loadModels();
   }
-  const session = chatStore.sessions.find((s) => s.id === sessionId);
-  const defaults = session?.profile
-    ? getDefaultModelForProfile(session.profile)
-    : { provider: "", model: "" };
+  const session =
+    chatStore.sessions.find((s) => s.id === sessionId) ||
+    (chatStore.activeSession?.id === sessionId ? chatStore.activeSession : undefined);
   sessionModelSessionId.value = sessionId;
-  sessionModelValue.value = session?.model || defaults.model || "";
-  sessionModelProvider.value = session?.provider || defaults.provider || "";
+  const groups = sessionModelBaseGroups.value;
+  const providerGroup = session?.provider
+    ? groups.find((group) => group.provider === session.provider)
+    : undefined;
+  const fallbackGroup = providerGroup || groups.find((group) => group.models.length > 0);
+  const defaults = {
+    provider: fallbackGroup?.provider || "",
+    model: fallbackGroup?.models.includes(session?.model || "")
+      ? session?.model || ""
+      : fallbackGroup?.models[0] || "",
+  };
+  sessionModelValue.value = providerGroup ? session?.model || defaults.model || "" : defaults.model || "";
+  sessionModelProvider.value = providerGroup ? session?.provider || "" : defaults.provider || "";
   sessionModelCustomProvider.value = sessionModelProvider.value;
   sessionModelSearch.value = "";
   sessionModelCustomInput.value = "";
   sessionModelCollapsedGroups.value = {};
   showSessionModelModal.value = true;
+}
+
+function handleHeaderModelClick() {
+  const sessionId = chatStore.activeSession?.id;
+  if (!sessionId) {
+    openNewChatModal();
+    return;
+  }
+  openSessionModelModal(sessionId);
 }
 
 function isSessionModelGroupCollapsed(provider: string) {
@@ -1171,18 +1233,53 @@ function handleChatFileDrop(event: DragEvent) {
   chatInputRef.value?.addFiles(files);
 }
 
-async function selectSessionModel(model: string, provider: string) {
-  const meta = sessionModelBaseGroups.value.find((group) => group.provider === provider)?.model_meta?.[model];
-  if (meta?.disabled || !sessionModelSessionId.value) return;
-  const ok = await chatStore.switchSessionModel(model, provider, sessionModelSessionId.value);
+function defaultSessionModelApiMode(provider: string): CodingAgentApiMode {
+  const group = sessionModelBaseGroups.value.find((item) => item.provider === provider);
+  const providerKey = String(group?.provider || provider || "").toLowerCase();
+  const baseUrl = String(group?.base_url || "").toLowerCase();
+  return normalizeCodingAgentApiMode(
+    group?.api_mode,
+    inferCodingAgentApiMode(providerKey, baseUrl),
+  );
+}
+
+async function applySessionModelSwitch(model: string, provider: string, apiMode?: CodingAgentApiMode) {
+  if (!sessionModelSessionId.value) return;
+  const ok = await chatStore.switchSessionModel(model, provider, sessionModelSessionId.value, apiMode);
   if (ok) {
     sessionModelValue.value = model;
     sessionModelProvider.value = provider;
+    if (apiMode) sessionModelApiMode.value = apiMode;
+    pendingSessionModelSwitch.value = null;
+    showSessionModelModeModal.value = false;
     showSessionModelModal.value = false;
     message.success(t("chat.modelSet"));
   } else {
     message.error(t("chat.modelSetFailed"));
   }
+}
+
+async function selectSessionModel(model: string, provider: string) {
+  const meta = sessionModelBaseGroups.value.find((group) => group.provider === provider)?.model_meta?.[model];
+  if (meta?.disabled || !sessionModelSessionId.value) return;
+  if (isSessionModelScopedCodingAgent.value) {
+    pendingSessionModelSwitch.value = { model, provider };
+    sessionModelApiMode.value = defaultSessionModelApiMode(provider);
+    showSessionModelModeModal.value = true;
+    return;
+  }
+  await applySessionModelSwitch(model, provider);
+}
+
+async function confirmSessionModelMode() {
+  const pending = pendingSessionModelSwitch.value;
+  if (!pending) return;
+  await applySessionModelSwitch(pending.model, pending.provider, sessionModelApiMode.value);
+}
+
+function cancelSessionModelMode() {
+  pendingSessionModelSwitch.value = null;
+  showSessionModelModeModal.value = false;
 }
 
 async function handleSessionModelCustomSubmit() {
@@ -1401,6 +1498,25 @@ async function handleSessionModelCustomSubmit() {
           @toggle-select="toggleSessionSelection(s)"
         />
       </div>
+      <div v-if="showSessions" class="page-sidebar-bottom">
+        <button class="page-sidebar-menu-btn" type="button" @click="openSettingsPage">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+          <span>{{ t("sidebar.settings") }}</span>
+        </button>
+        <SettingsCircuitBadge />
+      </div>
     </aside>
 
     <NDropdown
@@ -1538,6 +1654,27 @@ async function handleSessionModelCustomSubmit() {
           </div>
         </div>
       </div>
+    </NModal>
+
+    <NModal
+      v-model:show="showSessionModelModeModal"
+      preset="dialog"
+      :title="t('codingAgents.protocolScope')"
+      :mask-closable="true"
+      style="width: min(420px, calc(100vw - 32px))"
+    >
+      <NSelect
+        v-model:value="sessionModelApiMode"
+        :options="newChatApiModeOptions"
+      />
+      <template #action>
+        <NButton size="small" @click="cancelSessionModelMode">
+          {{ t('common.cancel') }}
+        </NButton>
+        <NButton size="small" type="primary" @click="confirmSessionModelMode">
+          {{ t('common.confirm') }}
+        </NButton>
+      </template>
     </NModal>
 
     <NDrawer
@@ -1734,7 +1871,13 @@ async function handleSessionModelCustomSubmit() {
               </template>
               {{ t("chat.copySessionId") }}
             </NTooltip>
-            <NButton size="small" :circle="isMobile" @click="openNewChatModal">
+            <NButton
+              class="header-model-button"
+              size="small"
+              :circle="isMobile"
+              :title="activeSessionModelLabel"
+              @click="handleHeaderModelClick"
+            >
               <template #icon>
                 <svg
                   width="14"
@@ -2407,7 +2550,49 @@ async function handleSessionModelCustomSubmit() {
 .session-items {
   flex: 1;
   overflow-y: auto;
-  padding: 0 6px 12px;
+  padding: 10px 6px 12px;
+}
+
+.page-sidebar-bottom {
+  flex-shrink: 0;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-sidebar-menu-btn {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  height: 36px;
+  border: none;
+  border-radius: $radius-sm;
+  background: transparent;
+  color: $text-secondary;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition:
+    background-color $transition-fast,
+    color $transition-fast;
+
+  &:hover {
+    background: rgba(var(--accent-primary-rgb), 0.06);
+    color: $text-primary;
+  }
+}
+
+.page-sidebar-menu-btn span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 18px;
 }
 
 .session-loading,
@@ -2686,6 +2871,17 @@ async function handleSessionModelCustomSubmit() {
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+}
+
+.header-model-button {
+  max-width: 220px;
+}
+
+.header-model-button :deep(.n-button__content) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat-mode-toggle {

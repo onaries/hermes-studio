@@ -61,8 +61,10 @@ constexpr uint32_t kMcuAudioDefaultDurationMs = 1800;
 constexpr uint32_t kMcuAudioMaxDurationMs = 9000;
 constexpr uint32_t kMcuAudioHttpTimeoutMs = 30000;
 constexpr uint32_t kBootDebounceMs = 80;
+constexpr uint32_t kBootInputArmDelayMs = 2500;
 constexpr uint32_t kBootLongPressMs = 360;
 constexpr uint32_t kBootDoubleClickMs = 320;
+constexpr uint32_t kWifiDisconnectGraceMs = 8000;
 constexpr uint32_t kVoiceRecordMs = 4000;
 constexpr uint32_t kVoiceStreamRecordMs = 10000;
 constexpr uint32_t kVoiceRecordMinMs = 300;
@@ -102,6 +104,8 @@ bool es8311Ready = false;
 bool bootWasPressed = false;
 bool bootLongPressHandled = false;
 bool bootClickPending = false;
+bool bootSecondClickStarted = false;
+bool bootInputArmed = false;
 uint32_t lastOledAtMs = 0;
 uint32_t restartAtMs = 0;
 uint32_t lastLanDiscoveryAtMs = 0;
@@ -110,7 +114,9 @@ uint32_t lastMcuSocketConnectAtMs = 0;
 uint32_t lastBootButtonAtMs = 0;
 uint32_t bootPressedAtMs = 0;
 uint32_t bootClickPendingAtMs = 0;
+uint32_t bootReleaseStartedAtMs = 0;
 uint32_t audioInterruptPressStartedAtMs = 0;
+uint32_t wifiDisconnectedSinceMs = 0;
 uint8_t oledProgress = 0;
 String oledTitle = "BOOT";
 String oledHint = "starting";
@@ -141,6 +147,7 @@ bool mcuInteractionActive = false;
 bool mcuAudioPlaying = false;
 bool mcuVoiceAfterAudioInterrupt = false;
 bool mcuAudioStopOnlyAfterInterrupt = false;
+bool mcuSessionClearAfterAudioInterrupt = false;
 bool voiceRecordHeardSpeech = false;
 uint32_t mcuInteractionUpdatedAtMs = 0;
 uint32_t mcuAudioStartedAtMs = 0;
@@ -172,13 +179,23 @@ void triggerBootVoiceTurn();
 bool broadcastMcuInterrupt(const String &interactionId, const String &reason);
 void clearMcuAudioQueue();
 void finishMcuAudio(bool interrupted);
+void clearMcuSessionByButton();
 void disconnectMcuSocketClient();
 void connectMcuSocketClient();
 void mcuSocketLoop();
 bool waitForMcuSocketReady(uint32_t timeoutMs);
 void enqueueNoDevicePrompt(const String &interactionId);
 String activeDeviceEndpoint(const __FlashStringHelper *path);
-bool checkMcuFirmwareUpdate(bool force);
+bool downloadAndApplyMcuFirmware(const String &url, const String &md5, int expectedSize);
+
+enum class McuOtaResult : uint8_t {
+  Failed,
+  NoUpdate,
+  UpdateAvailable,
+  Updated,
+};
+
+McuOtaResult checkMcuFirmwareUpdate(bool force, bool applyUpdate = true, String *outFirmwareUrl = nullptr, String *outMd5 = nullptr, int *outSize = nullptr);
 
 struct LanDevice {
   String id;
@@ -1083,28 +1100,59 @@ void shapePcmBuffer(uint8_t *buffer, size_t length) {
 bool shouldInterruptAudioForVoice() {
   bool pressed = digitalRead(kPinBoot) == LOW;
   uint32_t now = millis();
-  if (!pressed) {
-    if (audioInterruptPressStartedAtMs != 0 &&
-        now - audioInterruptPressStartedAtMs >= kBootDebounceMs &&
-        now - audioInterruptPressStartedAtMs < kBootLongPressMs) {
-      mcuAudioStopOnlyAfterInterrupt = true;
-      lastBootButtonAtMs = now;
-      audioInterruptPressStartedAtMs = 0;
-      return true;
+  if (!bootInputArmed) return false;
+
+  if (pressed) {
+    if (audioInterruptPressStartedAtMs == 0) {
+      if (bootClickPending && now - bootClickPendingAtMs <= kBootDoubleClickMs) {
+        bootSecondClickStarted = true;
+      }
+      audioInterruptPressStartedAtMs = now;
+      return false;
     }
+    if (now - audioInterruptPressStartedAtMs < kBootLongPressMs) return false;
+
+    bootClickPending = false;
+    bootSecondClickStarted = false;
+    mcuVoiceAfterAudioInterrupt = true;
+    mcuAudioStopOnlyAfterInterrupt = false;
+    mcuSessionClearAfterAudioInterrupt = false;
+    lastBootButtonAtMs = now;
     audioInterruptPressStartedAtMs = 0;
-    return false;
+    return true;
   }
-  if (audioInterruptPressStartedAtMs == 0) {
-    audioInterruptPressStartedAtMs = now;
-    return false;
+
+  if (audioInterruptPressStartedAtMs != 0) {
+    uint32_t heldMs = now - audioInterruptPressStartedAtMs;
+    audioInterruptPressStartedAtMs = 0;
+    if (heldMs >= kBootDebounceMs && heldMs < kBootLongPressMs) {
+      if (bootClickPending && (bootSecondClickStarted || now - bootClickPendingAtMs <= kBootDoubleClickMs)) {
+        bootClickPending = false;
+        bootSecondClickStarted = false;
+        mcuAudioStopOnlyAfterInterrupt = false;
+        mcuSessionClearAfterAudioInterrupt = true;
+        lastBootButtonAtMs = now;
+        return true;
+      }
+      bootClickPending = true;
+      bootSecondClickStarted = false;
+      bootClickPendingAtMs = now;
+    }
   }
-  if (now - audioInterruptPressStartedAtMs < kBootLongPressMs) return false;
-  mcuVoiceAfterAudioInterrupt = true;
-  mcuAudioStopOnlyAfterInterrupt = false;
-  lastBootButtonAtMs = now;
-  audioInterruptPressStartedAtMs = 0;
-  return true;
+
+  if (bootClickPending && !bootSecondClickStarted && now - bootClickPendingAtMs > kBootDoubleClickMs) {
+    bootClickPending = false;
+    mcuAudioStopOnlyAfterInterrupt = true;
+    mcuSessionClearAfterAudioInterrupt = false;
+    lastBootButtonAtMs = now;
+    return true;
+  }
+
+  if (!bootClickPending) {
+    bootSecondClickStarted = false;
+  }
+
+  return false;
 }
 
 void initAudioHardware() {
@@ -1893,10 +1941,52 @@ void sendOtaPage(const String &notice = "") {
   server.send(200, F("text/html; charset=utf-8"), html);
 }
 
+void sendOtaUpdatingPage() {
+  String html = pageStart(F("OTA"));
+  html += F("<section class='panel'><p class='meta'>HStudio ESP32-C3</p><h1>OTA</h1><p class='lead'>固件正在更新</p>");
+  html += F("<p class='hint'>固件正在下载并写入，请勿关闭单片机或断开电源。设备会自动重启，页面检测到恢复后会弹窗提示完成。</p>");
+  html += F("<div class='info-grid'>");
+  appendInfoRow(html, F("当前状态"), F("正在更新，请勿关闭单片机"));
+  appendInfoRow(html, F("服务端"), activeDeviceUrl.length() > 0 ? activeDeviceUrl : String(F("未连接")));
+  html += F("</div><p id='ota-status' class='hint'>等待设备重启...</p>");
+  html += F("<script>");
+  html += F("let seenOffline=false,done=false,start=Date.now();");
+  html += F("const s=document.getElementById('ota-status');");
+  html += F("async function poll(){if(done)return;");
+  html += F("try{const r=await fetch('/health?ota='+Date.now(),{cache:'no-store'});");
+  html += F("if(r.ok&&seenOffline){done=true;s.textContent='固件更新完成，设备已恢复在线。';alert('固件更新完成，设备已重启。');location.href='/ota';return;}");
+  html += F("if(r.ok){s.textContent='正在写入固件，请勿关闭单片机...';}");
+  html += F("}catch(e){seenOffline=true;s.textContent='设备正在重启，请等待恢复...';}");
+  html += F("if(Date.now()-start>120000&&!done){done=true;s.textContent='更新超时，请重新打开设备页面确认状态。';alert('更新状态确认超时，请重新打开设备页面确认。');return;}");
+  html += F("setTimeout(poll,1500)}setTimeout(poll,3000);");
+  html += F("</script>");
+  html += F("</section>");
+  html += pageEnd();
+  server.send(200, F("text/html; charset=utf-8"), html);
+}
+
 void handleOtaCheck() {
-  bool ok = checkMcuFirmwareUpdate(true);
+  String firmwareUrl;
+  String md5;
+  int size = 0;
+  McuOtaResult result = checkMcuFirmwareUpdate(true, false, &firmwareUrl, &md5, &size);
+  bool ok = result != McuOtaResult::Failed;
   nextMcuOtaCheckAtMs = millis() + (ok ? kMcuOtaIntervalMs : kMcuOtaRetryMs);
-  sendOtaPage(ok ? String(F("检查完成，没有需要立即处理的错误。")) : String(F("检查失败，请确认已登录机器且服务端已重启。")));
+  if (result == McuOtaResult::NoUpdate) {
+    sendOtaPage(F("当前已经是最新固件，无需更新。"));
+    return;
+  }
+  if (result == McuOtaResult::UpdateAvailable) {
+    sendOtaUpdatingPage();
+    delay(800);
+    bool applied = downloadAndApplyMcuFirmware(firmwareUrl, md5, size);
+    if (!applied) {
+      nextMcuOtaCheckAtMs = millis() + kMcuOtaRetryMs;
+      setOledStatus(OledMode::Error, F("OTA"), F("FAIL"), 0);
+    }
+    return;
+  }
+  sendOtaPage(F("检查失败，请确认已登录机器且服务端已重启。"));
 }
 
 void scanAndSendStatusPage() {
@@ -2784,6 +2874,14 @@ void startNextMcuAudio() {
     String interruptedInteractionId = mcuCurrentAudio.interactionId;
     bool completionManagedByServer = mcuCurrentAudio.completionManagedByServer;
     finishMcuAudio(!played);
+    if (mcuSessionClearAfterAudioInterrupt) {
+      mcuSessionClearAfterAudioInterrupt = false;
+      mcuAudioStopOnlyAfterInterrupt = false;
+      mcuVoiceAfterAudioInterrupt = false;
+      clearMcuAudioQueue();
+      clearMcuSessionByButton();
+      return;
+    }
     if (mcuVoiceAfterAudioInterrupt) {
       mcuVoiceAfterAudioInterrupt = false;
       broadcastMcuInterrupt(interruptedInteractionId, F("listen"));
@@ -2875,6 +2973,7 @@ void stopMcuAudioQueueByButton() {
   clearMcuAudioQueue();
   mcuVoiceAfterAudioInterrupt = false;
   mcuAudioStopOnlyAfterInterrupt = false;
+  mcuSessionClearAfterAudioInterrupt = false;
   broadcastMcuInterrupt(interactionId, F("button"));
   markMcuInteraction(interactionId, F("aborted"), F(""));
   broadcastMcuStatus();
@@ -2911,6 +3010,7 @@ void clearMcuSessionByButton() {
   clearMcuAudioQueue();
   mcuVoiceAfterAudioInterrupt = false;
   mcuAudioStopOnlyAfterInterrupt = false;
+  mcuSessionClearAfterAudioInterrupt = false;
   broadcastMcuInterrupt(interactionId, F("session_clear"));
   if (!broadcastMcuSessionClear(interactionId)) {
     markMcuInteraction(interactionId, F("failed"), F("SOCKET OFF"));
@@ -3157,31 +3257,31 @@ bool downloadAndApplyMcuFirmware(const String &url, const String &md5, int expec
   return true;
 }
 
-bool checkMcuFirmwareUpdate(bool force) {
+McuOtaResult checkMcuFirmwareUpdate(bool force, bool applyUpdate, String *outFirmwareUrl, String *outMd5, int *outSize) {
   if (!wifiReady || WiFi.status() != WL_CONNECTED || activeDeviceUrl.length() == 0 || mcuAuthToken.length() == 0) {
-    return false;
+    return McuOtaResult::Failed;
   }
   if (!force && (audioBusy || mcuAudioPlaying || mcuInteractionStatus == F("listening") || mcuInteractionStatus == F("transcribing"))) {
-    return false;
+    return McuOtaResult::Failed;
   }
 
   String endpoint = activeDeviceEndpoint(F("/api/hermes/mcu/firmware/manifest"));
-  if (endpoint.length() == 0) return false;
+  if (endpoint.length() == 0) return McuOtaResult::Failed;
 
   HTTPClient http;
   http.setTimeout(12000);
-  if (!http.begin(endpoint)) return false;
+  if (!http.begin(endpoint)) return McuOtaResult::Failed;
   http.addHeader(F("Authorization"), String(F("Bearer ")) + mcuAuthToken);
   int code = http.GET();
   String body = http.getString();
   http.end();
   if (code == 404) {
     Serial.println(F("MCU OTA manifest not available"));
-    return true;
+    return McuOtaResult::NoUpdate;
   }
   if (code < 200 || code >= 300) {
     Serial.printf("MCU OTA manifest HTTP %d\n", code);
-    return false;
+    return McuOtaResult::Failed;
   }
 
   String md5 = jsonStringValue(body, F("md5"));
@@ -3189,21 +3289,25 @@ bool checkMcuFirmwareUpdate(bool force) {
   int size = jsonIntValue(body, F("size"));
   if (md5.length() != 32 || firmwarePath.length() == 0 || size <= 0) {
     Serial.println(F("MCU OTA manifest missing md5/url/size"));
-    return false;
+    return McuOtaResult::Failed;
   }
 
   String currentMd5 = ESP.getSketchMD5();
-  if (!force && currentMd5.equalsIgnoreCase(md5)) {
+  if (currentMd5.equalsIgnoreCase(md5)) {
     Serial.printf("MCU OTA already current md5=%s\n", currentMd5.c_str());
-    return true;
+    return McuOtaResult::NoUpdate;
   }
 
   String firmwareUrl = firmwarePath;
   if (firmwareUrl.startsWith(F("/"))) {
     firmwareUrl = activeDeviceEndpoint(firmwarePath.c_str());
   }
+  if (outFirmwareUrl) *outFirmwareUrl = firmwareUrl;
+  if (outMd5) *outMd5 = md5;
+  if (outSize) *outSize = size;
   Serial.printf("MCU OTA update available current=%s next=%s size=%d\n", currentMd5.c_str(), md5.c_str(), size);
-  return downloadAndApplyMcuFirmware(firmwareUrl, md5, size);
+  if (!applyUpdate) return McuOtaResult::UpdateAvailable;
+  return downloadAndApplyMcuFirmware(firmwareUrl, md5, size) ? McuOtaResult::Updated : McuOtaResult::Failed;
 }
 
 bool broadcastMcuVoiceWav(const String &interactionId, const uint8_t *wav, size_t wavLen) {
@@ -3615,7 +3719,38 @@ void handleBootButton() {
   bool bootPressed = digitalRead(kPinBoot) == LOW;
   uint32_t now = millis();
 
+  if (!bootInputArmed) {
+    bootWasPressed = false;
+    bootLongPressHandled = false;
+    bootClickPending = false;
+    bootSecondClickStarted = false;
+    audioInterruptPressStartedAtMs = 0;
+    if (now < kBootInputArmDelayMs || bootPressed) {
+      bootReleaseStartedAtMs = 0;
+      return;
+    }
+    if (bootReleaseStartedAtMs == 0) {
+      bootReleaseStartedAtMs = now;
+      return;
+    }
+    if (now - bootReleaseStartedAtMs < kBootDebounceMs) return;
+    bootInputArmed = true;
+    lastBootButtonAtMs = now;
+    Serial.println(F("BOOT button armed after startup release"));
+    return;
+  }
+
   if (bootPressed && !bootWasPressed && now - lastBootButtonAtMs > kBootDebounceMs) {
+    if (bootClickPending && now - bootClickPendingAtMs > kBootDoubleClickMs) {
+      bootClickPending = false;
+      bootSecondClickStarted = false;
+      lastBootButtonAtMs = now;
+      stopMcuAudioQueueByButton();
+      return;
+    }
+    if (bootClickPending && now - bootClickPendingAtMs <= kBootDoubleClickMs) {
+      bootSecondClickStarted = true;
+    }
     bootWasPressed = true;
     bootLongPressHandled = false;
     bootPressedAtMs = now;
@@ -3626,6 +3761,7 @@ void handleBootButton() {
       now - bootPressedAtMs >= kBootLongPressMs) {
     bootLongPressHandled = true;
     bootClickPending = false;
+    bootSecondClickStarted = false;
     lastBootButtonAtMs = now;
     triggerBootVoiceTurn();
     return;
@@ -3635,19 +3771,22 @@ void handleBootButton() {
     bootWasPressed = false;
     uint32_t heldMs = now - bootPressedAtMs;
     if (!bootLongPressHandled && heldMs >= kBootDebounceMs) {
-      if (bootClickPending && now - bootClickPendingAtMs <= kBootDoubleClickMs) {
+      if (bootClickPending && (bootSecondClickStarted || now - bootClickPendingAtMs <= kBootDoubleClickMs)) {
         bootClickPending = false;
+        bootSecondClickStarted = false;
         lastBootButtonAtMs = now;
         clearMcuSessionByButton();
       } else {
         bootClickPending = true;
+        bootSecondClickStarted = false;
         bootClickPendingAtMs = now;
       }
     }
   }
 
-  if (bootClickPending && now - bootClickPendingAtMs > kBootDoubleClickMs) {
+  if (!bootWasPressed && bootClickPending && now - bootClickPendingAtMs > kBootDoubleClickMs) {
     bootClickPending = false;
+    bootSecondClickStarted = false;
     lastBootButtonAtMs = now;
     stopMcuAudioQueueByButton();
   }
@@ -3967,6 +4106,7 @@ bool connectWifiCredentials(const String &ssid, const String &pass, wifi_mode_t 
 
   wifiReady = WiFi.status() == WL_CONNECTED;
   if (wifiReady) {
+    wifiDisconnectedSinceMs = 0;
     if (mode == WIFI_STA) setupApMode = false;
     connectMcuSocketClient();
     setOledStatus(OledMode::Ready, F("ONLINE"), WiFi.localIP().toString(), 100);
@@ -4211,13 +4351,26 @@ void loop() {
   refreshOled();
   handleBootButton();
   if (static_cast<int32_t>(millis() - nextMcuOtaCheckAtMs) >= 0) {
-    bool checked = checkMcuFirmwareUpdate(false);
-    nextMcuOtaCheckAtMs = millis() + (checked ? kMcuOtaIntervalMs : kMcuOtaRetryMs);
+    McuOtaResult otaResult = checkMcuFirmwareUpdate(false);
+    nextMcuOtaCheckAtMs = millis() + (otaResult == McuOtaResult::Failed ? kMcuOtaRetryMs : kMcuOtaIntervalMs);
   }
 
   if (wifiReady && WiFi.status() != WL_CONNECTED) {
-    setOledStatus(OledMode::Error, F("WIFI"), F("LOST"), 0);
-    delay(500);
-    startSetupAp();
+    uint32_t now = millis();
+    if (wifiDisconnectedSinceMs == 0) {
+      wifiDisconnectedSinceMs = now;
+      setOledStatus(OledMode::Think, F("WIFI"), F("RECONNECT"), 60);
+      Serial.printf("WiFi disconnected status=%d, waiting %lu ms before setup AP\n",
+                    static_cast<int>(WiFi.status()),
+                    static_cast<unsigned long>(kWifiDisconnectGraceMs));
+      WiFi.reconnect();
+    } else if (now - wifiDisconnectedSinceMs >= kWifiDisconnectGraceMs) {
+      setOledStatus(OledMode::Error, F("WIFI"), F("LOST"), 0);
+      delay(500);
+      wifiDisconnectedSinceMs = 0;
+      startSetupAp();
+    }
+  } else if (wifiReady) {
+    wifiDisconnectedSinceMs = 0;
   }
 }

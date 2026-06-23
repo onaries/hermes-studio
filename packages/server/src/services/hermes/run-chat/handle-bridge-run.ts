@@ -34,6 +34,7 @@ import { markAbortCompleted } from './abort'
 import { writeModelRunProfileToken } from './model-run-prompt'
 import { buildTurnTpsPayload, resolveRunBaselineOutputTokens } from './tps'
 import type { AuthenticatedUser } from '../../../middleware/user-auth'
+import { ensureHermesRunWorkspace } from './workspace'
 
 const BRIDGE_USAGE_FLUSH_DELAY_MS = 200
 const BRIDGE_TITLE_EVENT_POLL_INTERVAL_MS = 500
@@ -317,7 +318,8 @@ export async function handleBridgeRun(
     ? `${getSystemPrompt()}\n${instructions}`
     : getSystemPrompt()
   const sessionRow = getSession(session_id)
-  const workspace = sessionRow?.workspace || String(data.workspace || '').trim()
+  const workspace = await ensureHermesRunWorkspace(profile, sessionRow?.workspace || data.workspace)
+  if (sessionRow && !sessionRow.workspace) updateSession(session_id, { workspace })
   const sessionModel = sessionRow?.model || ''
   const sessionProvider = sessionRow?.provider || ''
   const { model: resolvedModel, provider: resolvedProvider } = await resolveBridgeRunModelConfig({
@@ -399,7 +401,7 @@ export async function handleBridgeRun(
     if (!getSession(session_id)) {
       const previewText = extractTextForPreview(displayInput || input)
       const preview = previewText.replace(/[\r\n]/g, ' ').substring(0, 100)
-      createSession({ id: session_id, profile, source: runSource, model: resolvedModel, provider: resolvedProvider, title: preview, workspace: data.workspace || undefined })
+      createSession({ id: session_id, profile, source: runSource, model: resolvedModel, provider: resolvedProvider, title: preview, workspace })
     }
     messageId = addMessage({
       session_id,
@@ -412,7 +414,7 @@ export async function handleBridgeRun(
   } else if (!getSession(session_id)) {
     const previewText = displayInput === null ? extractTextForPreview(input) : extractTextForPreview(displayInput || input)
     const preview = previewText.replace(/[\r\n]/g, ' ').substring(0, 100)
-    createSession({ id: session_id, profile, source: runSource, model: resolvedModel, provider: resolvedProvider, title: preview, workspace: data.workspace || undefined })
+    createSession({ id: session_id, profile, source: runSource, model: resolvedModel, provider: resolvedProvider, title: preview, workspace })
   }
 
   socket.join(`session:${session_id}`)
