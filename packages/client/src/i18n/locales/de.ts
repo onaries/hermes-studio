@@ -210,6 +210,7 @@ export default {
     groupMonitoring: 'Überwachung',
     groupMonitoringShort: 'Überw.',
     settings: 'Einstellungen',
+    miniBox: 'Mini-Box',
     connected: 'Verbunden',
     disconnected: 'Getrennt',
     updateTip: 'Fuhren Sie "hermes-web-ui update" im Terminal aus, um zu aktualisieren',

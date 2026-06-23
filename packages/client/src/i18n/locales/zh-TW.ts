@@ -217,6 +217,7 @@ export default {
     codingAgents: "編程工具",
     versionPreview: "版本預覽",
     settings: '設定',
+    miniBox: '小方盒',
     connected: '已連線',
     disconnected: '未連線',
     collapse: '收起選單',

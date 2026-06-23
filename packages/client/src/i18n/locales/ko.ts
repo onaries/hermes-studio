@@ -210,6 +210,7 @@ export default {
     groupMonitoring: '모니터링',
     groupMonitoringShort: '모니터',
     settings: '설정',
+    miniBox: '미니 박스',
     connected: '연결됨',
     disconnected: '연결 끊김',
     updateTip: '터미널에서 "hermes-web-ui update"를 실행하여 업데이트하세요',

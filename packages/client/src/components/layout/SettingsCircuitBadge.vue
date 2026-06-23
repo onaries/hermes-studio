@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { NTooltip } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -32,7 +35,7 @@ import { NTooltip } from 'naive-ui'
   -->
   <NTooltip trigger="hover" placement="top">
     <template #trigger>
-      <a class="settings-circuit-link" href="https://hermes-studio.ai/docs/hermes-esp32-intro/index.html" target="_blank" rel="noopener noreferrer" aria-label="小方盒" @click.stop>
+      <a class="settings-circuit-link" href="https://hermes-studio.ai/docs/hermes-esp32-intro/index.html" target="_blank" rel="noopener noreferrer" :aria-label="t('sidebar.miniBox')" @click.stop>
         <svg class="settings-circuit-badge settings-circuit-badge--pcb" viewBox="0 0 36 22" fill="none" aria-hidden="true">
           <rect class="settings-pcb-board" x="3" y="3" width="30" height="16" rx="3" />
           <path class="settings-pcb-copper" d="M7 7h6v4h7v-3h9" />
@@ -54,7 +57,7 @@ import { NTooltip } from 'naive-ui'
         </svg>
       </a>
     </template>
-    小方盒
+    {{ t('sidebar.miniBox') }}
   </NTooltip>
   <!-- Style 3: current scan line
   <svg class="settings-circuit-badge settings-circuit-badge--scan" viewBox="0 0 36 20" fill="none" aria-hidden="true">

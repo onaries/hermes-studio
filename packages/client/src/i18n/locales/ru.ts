@@ -139,6 +139,7 @@ export default {
     groupMonitoringShort: 'Мониторинг',
     groupTools: 'Инструменты',
     settings: 'Настройки',
+    miniBox: 'Мини-бокс',
     connected: 'Подключено',
     disconnected: 'Отключено',
     collapse: 'Свернуть меню',

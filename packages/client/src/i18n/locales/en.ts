@@ -217,6 +217,7 @@ export default {
     codingAgents: "Coding Agents",
     versionPreview: "Version Preview",
     settings: 'Settings',
+    miniBox: 'Mini Box',
     connected: 'Connected',
     disconnected: 'Disconnected',
     collapse: 'Collapse menu',
