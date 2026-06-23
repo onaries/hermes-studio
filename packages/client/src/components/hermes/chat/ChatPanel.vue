@@ -1885,6 +1885,31 @@ async function handleSessionModelCustomSubmit() {
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M12 1v4" />
+                  <path d="M12 19v4" />
+                  <path d="M1 12h4" />
+                  <path d="M19 12h4" />
+                  <path d="M4.22 4.22l2.83 2.83" />
+                  <path d="M16.95 16.95l2.83 2.83" />
+                  <path d="M4.22 19.78l2.83-2.83" />
+                  <path d="M16.95 7.05l2.83-2.83" />
+                </svg>
+              </template>
+              <template v-if="!isMobile">{{ activeSessionModelLabel }}</template>
+            </NButton>
+            <NButton size="small" :circle="isMobile" @click="openNewChatModal">
+              <template #icon>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
                   stroke-width="2"
                 >
                   <line x1="12" y1="5" x2="12" y2="19" />
