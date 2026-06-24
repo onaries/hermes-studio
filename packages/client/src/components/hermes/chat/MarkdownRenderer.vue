@@ -19,6 +19,7 @@ import {
 } from './mermaidRenderer'
 import { downloadFile, getDownloadUrl } from '@/api/hermes/download'
 import { useArtifactsStore } from '@/stores/hermes/artifacts'
+import { copyToClipboard } from '@/utils/clipboard'
 
 const LATEX_FENCE_LANGS = new Set(['latex', 'tex', 'math', 'katex'])
 
@@ -400,13 +401,7 @@ onBeforeUnmount(() => {
 })
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
-  try {
-    if (!navigator.clipboard?.writeText) return false
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch {
-    return false
-  }
+  return copyToClipboard(text)
 }
 
 function normalizeTableCellText(value: string): string {

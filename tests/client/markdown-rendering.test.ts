@@ -738,6 +738,36 @@ describe('MarkdownRenderer', () => {
     expect(writeText).toHaveBeenCalledWith('Name\tNotes\nAlpha\tfirst value\nBeta\tsecond value')
   })
 
+  it('falls back to legacy clipboard copy for markdown tables when the Clipboard API is unavailable', async () => {
+    Object.defineProperty(window, 'isSecureContext', {
+      configurable: true,
+      value: false,
+    })
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: undefined,
+    })
+    const execCommand = vi.fn(() => true)
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: execCommand,
+    })
+
+    const wrapper = mount(MarkdownRenderer, {
+      props: {
+        content: [
+          '| Name | Notes |',
+          '| --- | --- |',
+          '| Alpha | first value |',
+        ].join('\n'),
+      },
+    })
+
+    await wrapper.find('.markdown-table-copy-btn').trigger('click')
+
+    expect(execCommand).toHaveBeenCalledWith('copy')
+  })
+
   it('falls back to legacy clipboard copy when the Clipboard API is unavailable', async () => {
     Object.defineProperty(window, 'isSecureContext', {
       configurable: true,
