@@ -1792,11 +1792,35 @@ defineExpose({
     border-radius: 999px;
     background: linear-gradient(
       180deg,
-      rgba(var(--accent-primary-rgb), 0.24),
-      rgba(var(--accent-primary-rgb), 0.78),
-      rgba(var(--accent-info-rgb), 0.42)
+      rgba(var(--accent-primary-rgb), 0.22),
+      rgba(var(--accent-primary-rgb), 0.82),
+      rgba(var(--accent-info-rgb), 0.38),
+      rgba(var(--accent-primary-rgb), 0.22)
     );
+    background-size: 100% 240%;
     box-shadow: 0 0 18px rgba(var(--accent-primary-rgb), 0.16);
+    animation: hidden-mascot-activity-bar 5.6s ease-in-out infinite;
+  }
+}
+
+@keyframes hidden-mascot-activity-bar {
+  0%,
+  100% {
+    background-position: 50% 0%;
+    box-shadow: 0 0 14px rgba(var(--accent-primary-rgb), 0.12);
+    opacity: 0.66;
+  }
+
+  50% {
+    background-position: 50% 100%;
+    box-shadow: 0 0 22px rgba(var(--accent-primary-rgb), 0.24);
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .streaming-indicator.streaming-indicator--no-mascot::before {
+    animation: none;
   }
 }
 
