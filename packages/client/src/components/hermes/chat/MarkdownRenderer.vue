@@ -400,12 +400,21 @@ onBeforeUnmount(() => {
   renderGeneration += 1
 })
 
-async function copyTextToClipboard(text: string): Promise<boolean> {
-  return copyToClipboard(text)
+async function copyTextToClipboard(content: Parameters<typeof copyToClipboard>[0]): Promise<boolean> {
+  return copyToClipboard(content)
 }
 
 function normalizeTableCellText(value: string): string {
   return value.replace(/[\t\r\n]+/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function escapeClipboardHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 function tableToClipboardText(table: HTMLTableElement): string {
@@ -414,6 +423,25 @@ function tableToClipboardText(table: HTMLTableElement): string {
       .map(cell => normalizeTableCellText(cell.textContent || ''))
       .join('\t'))
     .join('\n')
+}
+
+function tableToClipboardHtml(table: HTMLTableElement): string {
+  const rows = Array.from(table.rows)
+    .map(row => {
+      const cells = Array.from(row.cells)
+        .map(cell => {
+          const tag = cell.tagName.toLowerCase() === 'th' ? 'th' : 'td'
+          const attributes = [] as string[]
+          if (cell.colSpan > 1) attributes.push(`colspan="${cell.colSpan}"`)
+          if (cell.rowSpan > 1) attributes.push(`rowspan="${cell.rowSpan}"`)
+          const text = escapeClipboardHtml(normalizeTableCellText(cell.textContent || ''))
+          return `<${tag}${attributes.length ? ` ${attributes.join(' ')}` : ''}>${text}</${tag}>`
+        })
+        .join('')
+      return `<tr>${cells}</tr>`
+    })
+    .join('')
+  return `<table>${rows}</table>`
 }
 
 async function handleMarkdownClick(event: MouseEvent): Promise<void> {
@@ -434,7 +462,12 @@ async function handleMarkdownClick(event: MouseEvent): Promise<void> {
     event.preventDefault()
     event.stopPropagation()
     const table = tableCopyButton.closest('.markdown-table-wrapper')?.querySelector('table') as HTMLTableElement | null
-    const copied = table ? await copyTextToClipboard(tableToClipboardText(table)) : false
+    const copied = table
+      ? await copyTextToClipboard({
+        text: tableToClipboardText(table),
+        html: tableToClipboardHtml(table),
+      })
+      : false
     if (copied) {
       message.success(t('common.copied'))
     } else {

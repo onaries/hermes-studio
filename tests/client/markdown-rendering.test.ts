@@ -77,6 +77,7 @@ import MarkdownRenderer from '@/components/hermes/chat/MarkdownRenderer.vue'
 describe('MarkdownRenderer', () => {
   afterEach(() => {
     vi.useRealTimers()
+    vi.unstubAllGlobals()
   })
 
   beforeEach(() => {
@@ -716,7 +717,7 @@ describe('MarkdownRenderer', () => {
     expect(writeText).toHaveBeenCalledWith(expected)
   })
 
-  it('copies markdown tables as tab-separated text', async () => {
+  it('copies markdown tables as tab-separated text when rich clipboard writes are unavailable', async () => {
     const writeText = vi.mocked(navigator.clipboard.writeText)
     const wrapper = mount(MarkdownRenderer, {
       props: {
@@ -736,6 +737,50 @@ describe('MarkdownRenderer', () => {
     await copyButton.trigger('click')
 
     expect(writeText).toHaveBeenCalledWith('Name\tNotes\nAlpha\tfirst value\nBeta\tsecond value')
+  })
+
+  it('copies markdown tables with HTML and plain-text clipboard formats when supported', async () => {
+    class ClipboardItemMock {
+      readonly items: Record<string, Blob>
+
+      constructor(items: Record<string, Blob>) {
+        this.items = items
+      }
+    }
+
+    const write = vi.fn().mockResolvedValue(undefined)
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { write, writeText },
+    })
+    vi.stubGlobal('ClipboardItem', ClipboardItemMock)
+
+    const wrapper = mount(MarkdownRenderer, {
+      props: {
+        content: [
+          '| Name | Notes |',
+          '| --- | --- |',
+          '| Alpha | first & <value> |',
+          '| Beta | second value |',
+        ].join('\n'),
+      },
+    })
+
+    await wrapper.find('.markdown-table-copy-btn').trigger('click')
+
+    expect(write).toHaveBeenCalledTimes(1)
+    expect(writeText).not.toHaveBeenCalled()
+    const [items] = write.mock.calls[0]
+    const clipboardItem = items[0] as ClipboardItemMock
+    const readBlobText = (blob: Blob) => new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = () => reject(reader.error)
+      reader.readAsText(blob)
+    })
+    await expect(readBlobText(clipboardItem.items['text/plain'])).resolves.toBe('Name\tNotes\nAlpha\tfirst & <value>\nBeta\tsecond value')
+    await expect(readBlobText(clipboardItem.items['text/html'])).resolves.toContain('<table><tr><th>Name</th><th>Notes</th></tr><tr><td>Alpha</td><td>first &amp; &lt;value&gt;</td></tr><tr><td>Beta</td><td>second value</td></tr></table>')
   })
 
   it('falls back to legacy clipboard copy for markdown tables when the Clipboard API is unavailable', async () => {
