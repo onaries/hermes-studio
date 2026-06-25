@@ -3,6 +3,8 @@ interface CompletionNotificationPayload {
   body?: string
   icon?: string
   tag?: string
+  targetUrl?: string
+  sessionId?: string
 }
 
 interface HermesDesktopBridge {
@@ -49,16 +51,35 @@ function isBrowserNotificationSecureContext(): boolean {
   return window.isSecureContext
 }
 
+function notificationTargetUrl(payload: CompletionNotificationPayload): string {
+  if (payload.targetUrl?.startsWith('/#/hermes/')) return payload.targetUrl
+  if (payload.sessionId) return `/#/hermes/session/${encodeURIComponent(payload.sessionId)}`
+  return '/#/hermes/chat'
+}
+
+function openNotificationTarget(payload: CompletionNotificationPayload) {
+  const targetUrl = notificationTargetUrl(payload)
+  window.focus()
+  const targetHash = targetUrl.startsWith('/#') ? targetUrl.slice(1) : targetUrl
+  if (targetHash.startsWith('#/') && window.location.hash !== targetHash) {
+    window.location.hash = targetHash
+  }
+}
+
 function browserNotificationOptions(payload: CompletionNotificationPayload): NotificationOptions {
   return {
     body: payload.body,
     icon: payload.icon ? new URL(payload.icon, window.location.origin).href : undefined,
     tag: payload.tag,
+    data: {
+      targetUrl: notificationTargetUrl(payload),
+      sessionId: payload.sessionId,
+    },
   }
 }
 
 async function showServiceWorkerNotification(payload: CompletionNotificationPayload): Promise<boolean> {
-  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return false
+  if (typeof navigator === 'undefined' || !navigator.serviceWorker) return false
 
   try {
     const registration = await withTimeout(
@@ -121,7 +142,7 @@ export async function showCompletionNotification(payload: CompletionNotification
 
     const notification = new Notification(payload.title, browserNotificationOptions(payload))
     notification.onclick = () => {
-      window.focus()
+      openNotificationTarget(payload)
       notification.close()
     }
     return true

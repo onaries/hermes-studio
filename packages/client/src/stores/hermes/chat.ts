@@ -2377,6 +2377,13 @@ export const useChatStore = defineStore('chat', () => {
     return truncateNotificationText(preview, 140)
   }
 
+  function completionNotificationTargetUrl(session: Session): string {
+    if (session.source === 'global_agent') {
+      return `/#/hermes/global-agent/session/${encodeURIComponent(session.id)}`
+    }
+    return `/#/hermes/session/${encodeURIComponent(session.id)}`
+  }
+
   function showCompletionNotificationIfEnabled(sessionId: string, messageId?: string | null) {
     const settingsStore = useSettingsStore()
     if (!settingsStore.display.notify_on_complete) return
@@ -2393,6 +2400,8 @@ export const useChatStore = defineStore('chat', () => {
       body: completionNotificationBody(session, message),
       icon: agent.icon,
       tag: `hermes-complete-${sessionId}-${message?.id || Date.now()}`,
+      sessionId,
+      targetUrl: completionNotificationTargetUrl(session),
     })
 
   }

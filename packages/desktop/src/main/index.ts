@@ -546,7 +546,23 @@ function resolveNotificationIcon(icon: unknown): string {
   return candidates.find(candidate => existsSync(candidate)) || desktopIcon()
 }
 
-ipcMain.handle('hermes-desktop:notify-completion', (_event, payload?: { title?: unknown; body?: unknown; icon?: unknown; tag?: unknown }) => {
+function resolveNotificationTargetUrl(payload?: { targetUrl?: unknown; sessionId?: unknown }): string {
+  const targetUrl = typeof payload?.targetUrl === 'string' ? payload.targetUrl.trim() : ''
+  if (targetUrl.startsWith('/#/hermes/')) return targetUrl
+  const sessionId = typeof payload?.sessionId === 'string' ? payload.sessionId.trim() : ''
+  if (sessionId) return `/#/hermes/session/${encodeURIComponent(sessionId)}`
+  return '/#/hermes/chat'
+}
+
+function navigateMainWindowToNotificationTarget(targetUrl: string) {
+  showMainWindow()
+  const hash = targetUrl.startsWith('/#') ? targetUrl.slice(1) : targetUrl
+  mainWindow?.webContents.executeJavaScript(`window.location.hash = ${JSON.stringify(hash)}`).catch(err => {
+    console.warn('[desktop-notification] failed to navigate notification target', err)
+  })
+}
+
+ipcMain.handle('hermes-desktop:notify-completion', (_event, payload?: { title?: unknown; body?: unknown; icon?: unknown; tag?: unknown; targetUrl?: unknown; sessionId?: unknown }) => {
   const supported = Notification.isSupported()
   if (!supported) {
     console.warn('[desktop-notification] Electron notifications are not supported on this system')
@@ -558,6 +574,7 @@ ipcMain.handle('hermes-desktop:notify-completion', (_event, payload?: { title?: 
     : 'Hermes Studio'
   const body = typeof payload?.body === 'string' ? payload.body.trim().slice(0, 240) : ''
   const icon = resolveNotificationIcon(payload?.icon)
+  const targetUrl = resolveNotificationTargetUrl(payload)
   const notification = new Notification({
     title,
     body,
@@ -570,7 +587,7 @@ ipcMain.handle('hermes-desktop:notify-completion', (_event, payload?: { title?: 
   }
   notification.on('click', () => {
     releaseNotification()
-    showMainWindow()
+    navigateMainWindowToNotificationTarget(targetUrl)
   })
   notification.on('close', releaseNotification)
   notification.on('failed', (_event, error) => {

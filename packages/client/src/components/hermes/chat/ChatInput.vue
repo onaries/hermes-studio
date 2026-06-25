@@ -182,6 +182,16 @@ const voiceDialogueError = computed(() =>
   ?? null,
 )
 
+watch(() => browserRecognition.status.value, (status) => {
+  if (status !== 'error' || activeVoiceCaptureMode.value !== 'browser') return
+
+  const captureId = voiceDialogue.activeCaptureId.value
+  activeVoiceCaptureMode.value = null
+  if (captureId) {
+    voiceDialogue.cancelCapture(captureId)
+  }
+})
+
 const bridgeCommands = computed<SlashCommandOption[]>(() =>
   BRIDGE_SESSION_COMMAND_DEFINITIONS.map(command => ({
     key: command.key,
@@ -297,19 +307,26 @@ function resizeTextareaToContent() {
   const el = textareaRef.value
   if (!el || textareaHeight.value !== null) return
   el.style.height = 'auto'
-  autoTextareaHeight.value = Math.min(
+  const nextHeight = Math.min(
     Math.max(el.scrollHeight, TEXTAREA_AUTO_MIN_HEIGHT),
     TEXTAREA_AUTO_MAX_HEIGHT,
   )
+  autoTextareaHeight.value = nextHeight
+  // Apply immediately too; the reactive style binding catches the next render,
+  // but this makes native key/newline paths visible in the same frame.
+  el.style.height = `${nextHeight}px`
 }
 
 function scheduleTextareaResize() {
   nextTick(() => {
     resizeTextareaToContent()
     const frame = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
-      ? window.requestAnimationFrame
+      ? window.requestAnimationFrame.bind(window)
       : (callback: FrameRequestCallback) => window.setTimeout(() => callback(Date.now()), 0)
-    frame(() => resizeTextareaToContent())
+    frame(() => {
+      resizeTextareaToContent()
+      frame(() => resizeTextareaToContent())
+    })
   })
 }
 

@@ -5,7 +5,7 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
   showWindow: (): Promise<void> => ipcRenderer.invoke('hermes-desktop:show-window'),
   retryBootstrap: (source?: 'cf' | 'github'): Promise<void> => ipcRenderer.invoke('hermes-desktop:retry-bootstrap', source),
   restartWebUi: (): Promise<void> => ipcRenderer.invoke('hermes-desktop:restart-webui'),
-  notifyCompletion: (payload: { title: string; body?: string; icon?: string; tag?: string }): Promise<boolean> => ipcRenderer.invoke('hermes-desktop:notify-completion', payload),
+  notifyCompletion: (payload: { title: string; body?: string; icon?: string; tag?: string; targetUrl?: string; sessionId?: string }): Promise<boolean> => ipcRenderer.invoke('hermes-desktop:notify-completion', payload),
   getWindowState: (): Promise<{ isMaximized: boolean }> => ipcRenderer.invoke('hermes-desktop:get-window-state'),
   windowControl: (action: 'minimize' | 'toggle-maximize' | 'close'): Promise<{ isMaximized: boolean }> => ipcRenderer.invoke('hermes-desktop:window-control', action),
   platform: process.platform,
