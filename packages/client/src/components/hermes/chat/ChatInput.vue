@@ -284,15 +284,33 @@ async function loadSkills() {
 }
 
 // 自定义高度拖拽
-const textareaHeight = ref<number | null>(null) // null = auto
 const TEXTAREA_AUTO_MIN_HEIGHT = 20
 const TEXTAREA_AUTO_MAX_HEIGHT = 240
+const textareaHeight = ref<number | null>(null) // null = auto
+const autoTextareaHeight = ref(TEXTAREA_AUTO_MIN_HEIGHT)
+
+const textareaStyle = computed(() => ({
+  height: `${textareaHeight.value ?? autoTextareaHeight.value}px`,
+}))
 
 function resizeTextareaToContent() {
   const el = textareaRef.value
   if (!el || textareaHeight.value !== null) return
   el.style.height = 'auto'
-  el.style.height = `${Math.min(Math.max(el.scrollHeight, TEXTAREA_AUTO_MIN_HEIGHT), TEXTAREA_AUTO_MAX_HEIGHT)}px`
+  autoTextareaHeight.value = Math.min(
+    Math.max(el.scrollHeight, TEXTAREA_AUTO_MIN_HEIGHT),
+    TEXTAREA_AUTO_MAX_HEIGHT,
+  )
+}
+
+function scheduleTextareaResize() {
+  nextTick(() => {
+    resizeTextareaToContent()
+    const frame = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+      ? window.requestAnimationFrame
+      : (callback: FrameRequestCallback) => window.setTimeout(() => callback(Date.now()), 0)
+    frame(() => resizeTextareaToContent())
+  })
 }
 
 function startResize(e: MouseEvent) {
@@ -363,7 +381,7 @@ function saveDraftForActiveSession(value: string) {
 // 从 localStorage 读取设置
 onMounted(() => {
   loadDraftForActiveSession()
-  nextTick(resizeTextareaToContent)
+  scheduleTextareaResize()
   const saved = localStorage.getItem('autoPlaySpeech')
   if (saved !== null) {
     autoPlaySpeech.value = saved === 'true'
@@ -381,15 +399,15 @@ watch(autoPlaySpeech, (value) => {
 
 watch(inputText, (value) => {
   saveDraftForActiveSession(value)
+  scheduleTextareaResize()
   nextTick(() => {
     updateSlashState()
-    resizeTextareaToContent()
   })
 })
 
 watch(() => chatStore.activeSession?.id, () => {
   loadDraftForActiveSession()
-  nextTick(resizeTextareaToContent)
+  scheduleTextareaResize()
 })
 
 watch(
@@ -709,7 +727,7 @@ function handleSend() {
 
   if (textareaRef.value) {
     textareaRef.value.style.height = 'auto'
-    nextTick(resizeTextareaToContent)
+    scheduleTextareaResize()
   }
 }
 
@@ -845,7 +863,7 @@ function handleKeydown(e: KeyboardEvent) {
     isMobileLike: isMobileLikeInputDevice(),
     mobileEnterToSend: settingsStore.display.mobile_enter_to_send === true,
   })) {
-    if (e.key === 'Enter') nextTick(resizeTextareaToContent)
+    if (e.key === 'Enter') scheduleTextareaResize()
     return
   }
   if (isImeEnter(e)) return
@@ -856,7 +874,7 @@ function handleKeydown(e: KeyboardEvent) {
 
 function handleInput() {
   if (!isComposing.value) updateSlashState()
-  resizeTextareaToContent()
+  scheduleTextareaResize()
 }
 
 function handleCommandHover(index: number) {
@@ -1053,7 +1071,7 @@ function isImage(type: string): boolean {
         ref="textareaRef"
         v-model="inputText"
         class="input-textarea"
-        :style="textareaHeight ? { height: textareaHeight + 'px' } : {}"
+        :style="textareaStyle"
         :placeholder="t('chat.inputPlaceholder')"
         rows="1"
         @keydown="handleKeydown"
@@ -1553,6 +1571,7 @@ function isImage(type: string): boolean {
   font-size: 14px;
   line-height: 1.5;
   resize: none;
+  box-sizing: border-box;
   max-height: 400px;
   min-height: 20px;
   overflow-y: auto;

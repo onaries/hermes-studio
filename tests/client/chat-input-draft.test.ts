@@ -77,6 +77,13 @@ function mountForSession(
 describe('ChatInput draft persistence', () => {
   beforeEach(() => {
     localStorage.clear()
+    Object.defineProperty(window, 'requestAnimationFrame', {
+      configurable: true,
+      value: (callback: FrameRequestCallback) => {
+        callback(0)
+        return 1
+      },
+    })
     fetchSkillsMock.mockReset()
     fetchSkillsMock.mockResolvedValue({ categories: [], archived: [] })
   })
@@ -115,6 +122,36 @@ describe('ChatInput draft persistence', () => {
     const remountedA = mountForSession('session-a')
     await nextTick()
     expect((remountedA.get('textarea').element as HTMLTextAreaElement).value).toBe('draft for session a')
+  })
+
+  it('grows the textarea as multiline draft text is entered', async () => {
+    const wrapper = mountForSession('session-autogrow')
+    const textarea = wrapper.get('textarea')
+    Object.defineProperty(textarea.element, 'scrollHeight', {
+      configurable: true,
+      get() {
+        return (textarea.element as HTMLTextAreaElement).value.split('\n').length * 24
+      },
+    })
+
+    await textarea.setValue('line one\nline two\nline three')
+    await nextTick()
+
+    expect((textarea.element as HTMLTextAreaElement).style.height).toBe('72px')
+  })
+
+  it('resizes after Shift+Enter schedules a non-submit newline path', async () => {
+    const wrapper = mountForSession('session-shift-enter')
+    const textarea = wrapper.get('textarea')
+    Object.defineProperty(textarea.element, 'scrollHeight', {
+      configurable: true,
+      value: 64,
+    })
+
+    await textarea.trigger('keydown', { key: 'Enter', shiftKey: true })
+    await nextTick()
+
+    expect((textarea.element as HTMLTextAreaElement).style.height).toBe('64px')
   })
 
   it('hides context usage for coding-agent sessions', async () => {
