@@ -42,10 +42,10 @@ const { t } = useI18n()
           <path class="settings-pcb-copper" d="M7 15h5v-3h5v4h12" />
           <path class="settings-pcb-copper" d="M12 7v-2h8" />
           <path class="settings-pcb-copper" d="M24 15v2h5" />
-          <path class="settings-pcb-current settings-pcb-current-main" d="M7 7h6v4h7v-3h9" pathLength="1" />
-          <path class="settings-pcb-current settings-pcb-current-main settings-pcb-current-late" d="M7 15h5v-3h5v4h12" pathLength="1" />
-          <path class="settings-pcb-current settings-pcb-current-branch" d="M12 7v-2h8" pathLength="1" />
-          <path class="settings-pcb-current settings-pcb-current-branch settings-pcb-current-late" d="M24 15v2h5" pathLength="1" />
+          <path class="settings-pcb-current settings-pcb-current-main" d="M7 7h6v4h7v-3h9" />
+          <path class="settings-pcb-current settings-pcb-current-main settings-pcb-current-late" d="M7 15h5v-3h5v4h12" />
+          <path class="settings-pcb-current settings-pcb-current-branch" d="M12 7v-2h8" />
+          <path class="settings-pcb-current settings-pcb-current-branch settings-pcb-current-late" d="M24 15v2h5" />
           <circle class="settings-pcb-pad settings-pcb-pad-live" cx="7" cy="7" r="1.2" />
           <circle class="settings-pcb-pad" cx="13" cy="11" r="1" />
           <circle class="settings-pcb-pad settings-pcb-pad-live" cx="20" cy="11" r="1.2" />
@@ -131,7 +131,7 @@ const { t } = useI18n()
 
 .settings-scan-glow {
   stroke-width: 1.85;
-  stroke-dasharray: 0.12 0.88;
+  stroke-dasharray: 4 18;
   animation: settings-circuit-flow 1.05s linear infinite;
 }
 
@@ -179,11 +179,12 @@ const { t } = useI18n()
 
 .settings-pcb-current {
   stroke-width: 1.75;
-  stroke-dasharray: 0.18 0.82;
+  stroke-dasharray: 4 16;
   animation: settings-circuit-flow 1.35s linear infinite;
 }
 
 .settings-pcb-current-branch {
+  stroke-dasharray: 3 13;
   animation-duration: 1.8s;
 }
 
@@ -243,11 +244,12 @@ const { t } = useI18n()
 
 .settings-circuit-pulse {
   stroke-width: 1.6;
-  stroke-dasharray: 0.2 0.8;
+  stroke-dasharray: 4 16;
   animation: settings-circuit-flow 1.2s linear infinite;
 }
 
 .settings-circuit-pulse-branch {
+  stroke-dasharray: 3 13;
   animation-duration: 1.9s;
 }
 
@@ -268,7 +270,7 @@ const { t } = useI18n()
 
 @keyframes settings-circuit-flow {
   to {
-    stroke-dashoffset: -1;
+    stroke-dashoffset: -20;
   }
 }
 
