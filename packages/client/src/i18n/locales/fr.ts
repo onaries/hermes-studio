@@ -449,6 +449,7 @@ export default {
       queue: 'Mettre un message en file après l’exécution active',
       background: 'Exécuter une invite dans une session en arrière-plan séparée',
       btw: 'Poser une question annexe sans l’enregistrer dans l’historique',
+      learn: 'Apprendre une compétence réutilisable depuis les sources décrites',
       plan: 'Rédiger un plan d’implémentation Markdown',
       goal: 'Set a standing goal that continues across turns',
       goalStatus: 'Show the active goal status',

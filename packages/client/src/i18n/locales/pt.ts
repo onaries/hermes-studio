@@ -449,6 +449,7 @@ export default {
       queue: 'Enfileirar uma mensagem após a execução ativa',
       background: 'Executar um prompt em uma sessão em segundo plano separada',
       btw: 'Fazer uma pergunta lateral sem salvá-la no histórico',
+      learn: 'Aprender uma skill reutilizável a partir de fontes descritas',
       plan: 'Escrever um plano de implementação em Markdown',
       goal: 'Set a standing goal that continues across turns',
       goalStatus: 'Show the active goal status',

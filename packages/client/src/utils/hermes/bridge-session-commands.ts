@@ -6,6 +6,7 @@ export type BridgeSessionCommandName =
   | 'btw'
   | 'background'
   | 'skill'
+  | 'learn'
   | 'plan'
   | 'goal'
   | 'subgoal'
@@ -36,6 +37,7 @@ export const BRIDGE_SESSION_COMMAND_DEFINITIONS: BridgeSessionCommandDefinition[
   { key: 'command:btw', name: 'btw', argsKey: 'chat.slashCommandArgs.message', descriptionKey: 'chat.slashCommands.btw' },
   { key: 'command:background', name: 'background', argsKey: 'chat.slashCommandArgs.message', descriptionKey: 'chat.slashCommands.background' },
   { key: 'command:skill', name: 'skill', args: '', descriptionKey: 'skills.title', opensSkillPicker: true },
+  { key: 'command:learn', name: 'learn', argsKey: 'chat.slashCommandArgs.text', descriptionKey: 'chat.slashCommands.learn' },
   { key: 'command:plan', name: 'plan', argsKey: 'chat.slashCommandArgs.text', descriptionKey: 'chat.slashCommands.plan' },
   { key: 'command:goal', name: 'goal', argsKey: 'chat.slashCommandArgs.text', descriptionKey: 'chat.slashCommands.goal' },
   { key: 'command:goal-status', name: 'goal', args: 'status', insertText: 'goal status', descriptionKey: 'chat.slashCommands.goalStatus' },

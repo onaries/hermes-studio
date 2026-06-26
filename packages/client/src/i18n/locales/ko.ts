@@ -449,6 +449,7 @@ export default {
       queue: '활성 실행 뒤에 메시지 대기열 추가',
       background: '별도 백그라운드 세션에서 프롬프트 실행',
       btw: '기록에 저장하지 않는 사이드 질문',
+      learn: '설명한 소스에서 재사용 가능한 스킬 학습',
       plan: 'Markdown 구현 계획 작성',
       goal: 'Set a standing goal that continues across turns',
       goalStatus: 'Show the active goal status',

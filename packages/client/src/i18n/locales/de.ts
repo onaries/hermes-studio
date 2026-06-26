@@ -449,6 +449,7 @@ export default {
       queue: 'Nachricht hinter dem aktiven Lauf einreihen',
       background: 'Prompt in einer separaten Hintergrundsitzung ausführen',
       btw: 'Eine Nebenfrage stellen, ohne sie im Verlauf zu speichern',
+      learn: 'Wiederverwendbaren Skill aus beschriebenen Quellen lernen',
       plan: 'Markdown-Implementierungsplan schreiben',
       goal: 'Set a standing goal that continues across turns',
       goalStatus: 'Show the active goal status',

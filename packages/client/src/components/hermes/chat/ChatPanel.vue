@@ -2931,6 +2931,17 @@ async function handleSessionModelCustomSubmit() {
   margin-right: 4px;
 }
 
+@media (max-width: $breakpoint-mobile) {
+  .chat-header {
+    padding: calc(16px + env(safe-area-inset-top, 0px)) 12px 16px 52px;
+  }
+
+  .header-sidebar-toggle {
+    display: none;
+  }
+}
+
+
 .workspace-badge {
   border: 0;
   font-size: 11px;

@@ -449,6 +449,7 @@ export default {
       queue: '実行中の処理の後ろにメッセージをキュー追加',
       background: '別のバックグラウンドセッションでプロンプトを実行',
       btw: '履歴に保存せずサイド質問する',
+      learn: '説明されたソースから再利用可能なスキルを学習',
       plan: 'Markdown の実装計画を作成',
       goal: 'Set a standing goal that continues across turns',
       goalStatus: 'Show the active goal status',
