@@ -13,7 +13,7 @@ import { sortSessionsWithInProgressFirst } from '@/utils/session-sort'
 import HistoryMessageList from '@/components/hermes/chat/HistoryMessageList.vue'
 import SessionListItem from '@/components/hermes/chat/SessionListItem.vue'
 import OutlinePanel from '@/components/hermes/chat/OutlinePanel.vue'
-import { batchDeleteSessions, deleteSession, fetchHermesSessions, fetchHermesSession, fetchSessionMessagesPage, importHermesSession, type HermesMessage, type SessionSummary } from '@/api/hermes/sessions'
+import { batchDeleteSessions, deleteSession, fetchHermesSessions, fetchHermesSession, fetchSessionMessagesPage, importHermesSession, unarchiveSession, type HermesMessage, type SessionSummary } from '@/api/hermes/sessions'
 
 const appStore = useAppStore()
 const profilesStore = useProfilesStore()
@@ -104,6 +104,7 @@ const contextMenuOptions = computed<DropdownOption[]>(() => {
       disabled: Boolean(contextSessionSummary.value?.webui_imported),
     },
     { label: t(contextSessionPinned.value ? 'chat.unpin' : 'chat.pin'), key: 'pin' },
+    ...(contextSessionSummary.value?.is_archived ? [{ label: t('chat.unarchiveSession'), key: 'unarchive' }] : []),
     { label: t('chat.copySessionLink'), key: 'copy-link' },
     { label: t('chat.copySessionId'), key: 'copy-id' },
   ]
@@ -136,12 +137,28 @@ function mapHistoryMessages(messages: HermesMessage[]): Session['messages'] {
   })
 }
 
+function codingAgentFields(summary: SessionSummary): Pick<Session, 'agent' | 'agentSessionId' | 'agentNativeSessionId' | 'codingAgentId' | 'codingAgentMode'> {
+  const isCodingAgentSession = summary.source === 'coding_agent' || summary.agent === 'claude' || summary.agent === 'codex'
+  return {
+    agent: summary.agent || undefined,
+    agentSessionId: summary.agent_session_id || undefined,
+    agentNativeSessionId: summary.agent_native_session_id || undefined,
+    codingAgentId: summary.agent === 'codex' ? 'codex' : summary.agent === 'claude' ? 'claude-code' : undefined,
+    codingAgentMode: isCodingAgentSession
+      ? (summary.agent_mode === 'global' || summary.agent_mode === 'scoped'
+          ? summary.agent_mode
+          : summary.provider === 'global' ? 'global' : 'scoped')
+      : undefined,
+  }
+}
+
 function sessionFromSummary(summary: SessionSummary, messages: Session['messages'] = []): Session {
   return {
     id: summary.id,
     profile: summary.profile || undefined,
     title: summary.title || '',
     source: summary.source,
+    ...codingAgentFields(summary),
     createdAt: summary.started_at * 1000,
     updatedAt: (summary.last_active || summary.ended_at || summary.started_at) * 1000,
     model: summary.model,
@@ -154,6 +171,7 @@ function sessionFromSummary(summary: SessionSummary, messages: Session['messages
     outputTokens: summary.output_tokens,
     endedAt: summary.ended_at ? summary.ended_at * 1000 : undefined,
     lastActiveAt: summary.last_active ? summary.last_active * 1000 : undefined,
+    isArchived: Boolean(summary.is_archived),
     workspace: summary.workspace || undefined,
     messages,
   }
@@ -343,6 +361,7 @@ function sessionSummaryToSession(summary: SessionSummary): Session {
     profile: summary.profile || undefined,
     title: summary.title || '',
     source: summary.source,
+    ...codingAgentFields(summary),
     createdAt: summary.started_at * 1000,
     updatedAt: (summary.last_active || summary.started_at) * 1000,
     model: summary.model,
@@ -352,6 +371,7 @@ function sessionSummaryToSession(summary: SessionSummary): Session {
     outputTokens: summary.output_tokens,
     endedAt: summary.ended_at ? summary.ended_at * 1000 : undefined,
     lastActiveAt: summary.last_active ? summary.last_active * 1000 : undefined,
+    isArchived: Boolean(summary.is_archived),
     workspace: summary.workspace || undefined,
     messages: [],
   }
@@ -578,6 +598,22 @@ async function handleContextMenuSelect(key: string) {
     await copySessionId(contextSessionId.value)
   } else if (key === 'import-webui') {
     await handleImportToWebUi(contextSessionId.value)
+  } else if (key === 'unarchive') {
+    const summary = contextSessionSummary.value
+    if (!summary?.is_archived) return
+    const ok = await unarchiveSession(contextSessionId.value)
+    if (!ok) {
+      message.error(t('chat.unarchiveSessionFailed'))
+      return
+    }
+    message.success(t('chat.sessionUnarchived'))
+    await loadHermesSessions()
+    if (!findHistorySession(contextSessionId.value)) {
+      historySessionId.value = null
+      historySession.value = null
+      await router.replace({ name: 'hermes.history' })
+      await openDefaultHistorySession(true)
+    }
   }
 }
 

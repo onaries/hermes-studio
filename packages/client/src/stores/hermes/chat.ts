@@ -1,5 +1,5 @@
 import { startRunViaSocket, resumeSession, registerSessionHandlers, unregisterSessionHandlers, getChatRunSocket, connectChatRun, respondToolApproval, onPeerUserMessage, onSessionCommand, onSessionTitleUpdated, respondClarify, type ChatRunTransport, type RunEvent, type ResumeSessionPayload, type StartRunRequest, type ContentBlock as ContentBlockImport } from '@/api/hermes/chat'
-import { deleteSession as deleteSessionApi, fetchSessionMessagesPage, fetchSessions, setSessionModel, type HermesMessage, type SessionSummary } from '@/api/hermes/sessions'
+import { archiveSession as archiveSessionApi, deleteSession as deleteSessionApi, fetchSessionMessagesPage, fetchSessions, setSessionModel, type HermesMessage, type SessionSummary } from '@/api/hermes/sessions'
 import { getActiveProfileName } from '@/api/client'
 import { inferCodingAgentApiMode, normalizeCodingAgentApiMode } from '@/api/coding-agents'
 import { getDownloadUrl } from '@/api/hermes/download'
@@ -117,6 +117,7 @@ export interface Session {
   parentLastMessage?: string | null
   parentLastMessageRole?: string | null
   lastActiveAt?: number
+  isArchived?: boolean
   workspace?: string | null
   /** Per-session reasoning effort override.
    * Empty string / undefined = use config.yaml default.
@@ -541,6 +542,7 @@ function mapHermesSession(s: SessionSummary): Session {
     parentLastMessage: s.parent_last_message || null,
     parentLastMessageRole: s.parent_last_message_role || null,
     lastActiveAt: s.last_active != null ? Math.round(s.last_active * 1000) : undefined,
+    isArchived: Boolean(s.is_archived),
     workspace: s.workspace || null,
   }
 }
@@ -688,6 +690,8 @@ export const useChatStore = defineStore('chat', () => {
   const serverWorking = ref<Set<string>>(new Set())
   /** sessionIds with a terminal /fork command submitted but not settled yet */
   const pendingForkCommands = ref<Set<string>>(new Set())
+  /** Sessions that completed while the user was viewing another session. */
+  const completedUnreadSessions = ref<Set<string>>(new Set())
   const sessionProfileFilter = ref<string | null>(null)
   /** sessionId → queued message count */
   const queueLengths = ref<Map<string, number>>(new Map())
@@ -751,6 +755,7 @@ export const useChatStore = defineStore('chat', () => {
     activeRuntimeMode = mode
     runtimeMode.value = mode
     sessions.value = []
+    completedUnreadSessions.value = new Set()
     queueLengths.value = new Map()
     queuedUserMessages.value = new Map()
     pendingApprovals.value = new Map()
@@ -1551,6 +1556,29 @@ export const useChatStore = defineStore('chat', () => {
         const session = createSession()
         switchSession(session.id)
       }
+    }
+    return true
+  }
+
+  async function archiveSession(sessionId: string): Promise<boolean> {
+    const target = sessions.value.find(s => s.id === sessionId)
+    const ok = await archiveSessionApi(sessionId)
+    if (!ok) return false
+    sessions.value = sessions.value.filter(s => s.id !== sessionId)
+    if (completedUnreadSessions.value.has(sessionId)) {
+      const next = new Set(completedUnreadSessions.value)
+      next.delete(sessionId)
+      completedUnreadSessions.value = next
+    }
+    if (activeSessionId.value === sessionId) {
+      if (sessions.value.length > 0) {
+        await switchSession(sessions.value[0].id)
+      } else {
+        const session = createSession()
+        switchSession(session.id)
+      }
+    } else if (target) {
+      await refreshSessionListOnly(sessionProfileFilter.value)
     }
     return true
   }
@@ -4134,6 +4162,7 @@ export const useChatStore = defineStore('chat', () => {
     addOrUpdateSession,
     clearProviderFromSessions,
     deleteSession,
+    archiveSession,
     sendMessage,
     stopStreaming,
     dismissBtwMessage,
