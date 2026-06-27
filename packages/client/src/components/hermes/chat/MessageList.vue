@@ -115,6 +115,21 @@ function firstRawString(record: Record<string, unknown>, keys: string[]): string
   return ''
 }
 
+function fileChangePreview(args: Record<string, unknown>): string {
+  const summary = firstRawString(args, ['summary'])
+  if (summary) return summary
+  const changes = Array.isArray(args.changes) ? args.changes : []
+  return changes
+    .map((change) => {
+      if (!isRecord(change)) return ''
+      return [firstRawString(change, ['action', 'kind', 'change', 'status']), firstRawString(change, ['path', 'file', 'file_path', 'filePath'])]
+        .filter(Boolean)
+        .join(' ')
+    })
+    .filter(Boolean)
+    .join(', ')
+}
+
 function fullToolPreview(tool: ToolCallLike): string {
   const name = (tool.toolName || '').toLowerCase()
   const args = parseToolArgs(tool.toolArgs)
@@ -130,6 +145,9 @@ function fullToolPreview(tool: ToolCallLike): string {
     }
     if (name.includes('web_search')) {
       return firstRawString(args, ['query']) || tool.toolPreview || ''
+    }
+    if (name.includes('file change') || name.includes('file_change')) {
+      return fileChangePreview(args) || tool.toolPreview || ''
     }
     if (name.includes('search_files')) {
       return [firstRawString(args, ['pattern']), firstRawString(args, ['path'])]

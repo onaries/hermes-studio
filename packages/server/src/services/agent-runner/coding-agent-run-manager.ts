@@ -329,6 +329,40 @@ function formatCodingAgentSteerInstruction(text: string): string {
   ].join('\n')
 }
 
+function compactUnknownValue(value: unknown): string {
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return ''
+}
+
+function codexFileChangeEntries(item: any): Array<{ path: string; action: string }> {
+  const rawChanges = Array.isArray(item?.changes)
+    ? item.changes
+    : Array.isArray(item?.files)
+      ? item.files
+      : Array.isArray(item?.diffs)
+        ? item.diffs
+        : []
+  const changes = rawChanges
+    .map((change: any) => ({
+      path: compactUnknownValue(change?.path || change?.file || change?.file_path || change?.filePath),
+      action: compactUnknownValue(change?.kind || change?.action || change?.change || change?.status),
+    }))
+    .filter((change: { path: string; action: string }) => change.path || change.action)
+  if (changes.length) return changes
+  const path = compactUnknownValue(item?.path || item?.file || item?.file_path || item?.filePath)
+  const action = compactUnknownValue(item?.kind || item?.action || item?.change || item?.status)
+  return path || action ? [{ path, action }] : []
+}
+
+function codexFileChangeSummary(item: any): string {
+  const changes = codexFileChangeEntries(item)
+  return changes
+    .map(change => [change.action, change.path].filter(Boolean).join(' '))
+    .filter(Boolean)
+    .join(', ')
+}
+
 function decodeChildChunk(chunk: Buffer): string {
   const utf8 = chunk.toString('utf8')
   if (process.platform !== 'win32' || !utf8.includes('\uFFFD')) return utf8
@@ -1697,7 +1731,7 @@ export class CodingAgentRunManager {
         ? { server: item.server, tool: item.tool || item.name, arguments: item.arguments || item.input }
         : itemType === 'web_search'
           ? { query: item.query || item.text || '' }
-          : { path: item.path || item.file || '', action: item.action || item.change || '' }
+          : { changes: codexFileChangeEntries(item), summary: codexFileChangeSummary(item) }
     return { id, name, arguments: JSON.stringify(args), done: false }
   }
 

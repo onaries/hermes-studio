@@ -643,6 +643,70 @@ describe('coding agent run state', () => {
     manager.shutdown()
   })
 
+  it('maps Codex file_change changes into visible tool arguments', () => {
+    initAllHermesTables()
+    const manager = new CodingAgentRunManager()
+    const state: any = { messages: [], isWorking: false, events: [], queue: [] }
+    const emitted: Array<{ event: string; payload: any }> = []
+    ;(manager as any).emitToChat = (_sessionId: string, event: string, payload: any) => {
+      emitted.push({ event, payload })
+    }
+    ;(manager as any).markChatRunCompleted = () => {}
+    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const agentSessionId = `agent-session-codex-file-change-${suffix}`
+    const chatSessionId = `chat-session-codex-file-change-${suffix}`
+    manager.start({
+      agentSessionId,
+      agentId: 'codex',
+      profile: 'default',
+      provider: 'test-provider',
+      model: 'gpt-5-codex',
+      sessionId: chatSessionId,
+      command: 'codex',
+      args: ['--model', 'gpt-5-codex'],
+      shellCommand: 'codex --model gpt-5-codex',
+      workspaceDir: process.cwd(),
+      state,
+    })
+    const run = (manager as any).runs.get(agentSessionId)
+    run.printResponseId = 'resp_codex_file_change'
+    run.printMessageId = 'msg_resp_codex_file_change'
+    run.printTextStarted = false
+    run.printText = ''
+    run.printCompleted = false
+    run.responseStartEmitted = false
+    run.terminalEventHandled = false
+    run.codexToolBlocks = new Map()
+    ;(manager as any).handleClaudePrintResponseEvent(run, {
+      type: 'response.created',
+      data: { response: { id: 'resp_codex_file_change', status: 'in_progress', model: 'gpt-5-codex', output: [] } },
+    })
+
+    ;(manager as any).handleCodexExecLine(run, JSON.stringify({
+      type: 'item.completed',
+      item: {
+        id: 'item_file_change_1',
+        type: 'file_change',
+        changes: [
+          { path: 'packages/client/src/App.vue', kind: 'update' },
+          { path: 'docs/README.md', kind: 'add' },
+        ],
+        status: 'completed',
+      },
+    }))
+
+    const toolAdded = emitted.find(event => event.event === 'tool.started')
+    const args = JSON.parse(toolAdded?.payload?.arguments || '{}')
+    expect(args).toEqual({
+      changes: [
+        { path: 'packages/client/src/App.vue', action: 'update' },
+        { path: 'docs/README.md', action: 'add' },
+      ],
+      summary: 'update packages/client/src/App.vue, add docs/README.md',
+    })
+    manager.shutdown()
+  })
+
   it('does not duplicate replayed Codex assistant message text', () => {
     initAllHermesTables()
     const manager = new CodingAgentRunManager()

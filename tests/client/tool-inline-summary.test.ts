@@ -98,6 +98,18 @@ describe('buildToolInlineSummary', () => {
     expect(summary).toBe('hermes-webui-maintenance')
   })
 
+  it('summarizes Codex file changes from changes arrays', () => {
+    const summary = buildToolInlineSummary(
+      'File Change',
+      { changes: [{ path: 'src/App.vue', action: 'update' }, { path: 'README.md', action: 'add' }] },
+      { status: 'completed' },
+      undefined,
+      t,
+    )
+
+    expect(summary).toBe('update src/App.vue, add README.md')
+  })
+
   it('falls back to existing preview without exposing raw JSON braces', () => {
     const summary = buildToolInlineSummary(
       'custom_tool',

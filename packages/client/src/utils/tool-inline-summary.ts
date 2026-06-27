@@ -90,6 +90,22 @@ function firstResultTitle(result: Record<string, unknown>): string {
   return ''
 }
 
+function fileChangeSummary(args: Record<string, unknown>): string | null {
+  const summary = rawValue(firstString(args, ['summary']))
+  if (summary) return summary
+  const changes = Array.isArray(args.changes) ? args.changes : []
+  const text = changes
+    .map((change) => {
+      if (!isRecord(change)) return ''
+      return [firstString(change, ['action', 'kind', 'change', 'status']), firstString(change, ['path', 'file', 'file_path', 'filePath'])]
+        .filter(Boolean)
+        .join(' ')
+    })
+    .filter(Boolean)
+    .join(', ')
+  return rawValue(text)
+}
+
 function resultStatus(t: Translator, result: unknown): string | null {
   if (!isRecord(result)) return null
   if (typeof result.success === 'boolean') return result.success ? label(t, 'success') : label(t, 'failure')
@@ -139,6 +155,7 @@ function toolSpecificArgsSummary(t: Translator, toolName: string, args: unknown)
   if (name.includes('read_file')) return [rawValue(firstString(args, ['path']))].filter(Boolean) as string[]
   if (name.includes('search_files')) return [keyValue(t, 'pattern', firstString(args, ['pattern'])), keyValue(t, 'path', firstString(args, ['path']))].filter(Boolean) as string[]
   if (name.includes('terminal')) return [rawValue(firstString(args, ['command']))].filter(Boolean) as string[]
+  if (name.includes('file change') || name.includes('file_change')) return [fileChangeSummary(args)].filter(Boolean) as string[]
   if (name.includes('execute_code')) return [keyValue(t, 'code', firstString(args, ['code']))].filter(Boolean) as string[]
   if (name.includes('patch')) return [rawValue(firstString(args, ['path']))].filter(Boolean) as string[]
   if (name.includes('write_file')) return [rawValue(firstString(args, ['path']))].filter(Boolean) as string[]
@@ -162,7 +179,7 @@ function compactParts(parts: string[]): string {
 
 function usesArgsOnlyInlineSummary(toolName: string | undefined): boolean {
   const name = (toolName || '').toLowerCase()
-  return ['web_search', 'skill_view', 'read_file', 'write_file', 'patch', 'terminal'].some(tool => name.includes(tool))
+  return ['web_search', 'skill_view', 'read_file', 'write_file', 'patch', 'terminal', 'file_change'].some(tool => name.includes(tool)) || name.includes('file change')
 }
 
 export function buildToolInlineSummary(
