@@ -69,6 +69,7 @@ export interface RunEvent {
   inputTokens?: number
   outputTokens?: number
   contextTokens?: number
+  contextLimit?: number
   duration_seconds?: number
   durationSeconds?: number
   tps?: number
@@ -111,6 +112,7 @@ export interface ResumeSessionPayload {
   inputTokens?: number
   outputTokens?: number
   contextTokens?: number
+  contextLimit?: number
   queueLength?: number
   queueMessages?: RunEvent['queued_messages']
 }

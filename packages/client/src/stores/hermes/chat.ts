@@ -109,6 +109,7 @@ export interface Session {
   inputTokens?: number
   outputTokens?: number
   contextTokens?: number
+  contextLimit?: number
   liveTps?: number | null
   endedAt?: number | null
   parentSessionId?: string | null
@@ -839,6 +840,7 @@ export const useChatStore = defineStore('chat', () => {
     if (data.inputTokens != null) target.inputTokens = data.inputTokens
     if (data.outputTokens != null) target.outputTokens = data.outputTokens
     if (data.contextTokens != null) target.contextTokens = data.contextTokens
+    if ((data as any).contextLimit != null) target.contextLimit = (data as any).contextLimit
 
     if (Array.isArray(data.messages) && data.messages.length > 0) {
       target.messages = mapHermesMessages(data.messages as any[]).filter(m => m.commandAction !== 'btw')
@@ -3254,6 +3256,7 @@ export const useChatStore = defineStore('chat', () => {
                 target.inputTokens = (evt as any).inputTokens
                 target.outputTokens = (evt as any).outputTokens
                 if ((evt as any).contextTokens != null) target.contextTokens = (evt as any).contextTokens
+                if ((evt as any).contextLimit != null) target.contextLimit = (evt as any).contextLimit
               }
               break
             }
@@ -3832,6 +3835,7 @@ export const useChatStore = defineStore('chat', () => {
             target.inputTokens = (evt as any).inputTokens
             target.outputTokens = (evt as any).outputTokens
             if ((evt as any).contextTokens != null) target.contextTokens = (evt as any).contextTokens
+            if ((evt as any).contextLimit != null) target.contextLimit = (evt as any).contextLimit
           }
           break
         }

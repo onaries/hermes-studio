@@ -558,6 +558,7 @@ export class ChatRunSocket {
       inputTokens: state.inputTokens,
       outputTokens: state.outputTokens,
       contextTokens: state.contextTokens,
+      contextLimit: state.contextLimit,
       queueLength: state.queue?.length || 0,
       queueMessages: this.serializeQueuedMessages(state.queue || []),
     })

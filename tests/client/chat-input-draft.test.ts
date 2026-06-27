@@ -170,6 +170,26 @@ describe('ChatInput draft persistence', () => {
     expect(wrapper.find('.context-bar').exists()).toBe(true)
   })
 
+  it('uses coding-agent reported context limit when available', async () => {
+    const wrapper = mountForSession('session-codex-limit', {
+      source: 'coding_agent',
+      agent: 'codex',
+      codingAgentId: 'codex',
+      inputTokens: 75828,
+      outputTokens: 356,
+      contextTokens: 76184,
+      contextLimit: 237500,
+    })
+    await nextTick()
+    await flushPromises()
+
+    const text = wrapper.find('.context-info').text()
+    expect(text).toContain('76.2k')
+    expect(text).toContain('237.5k')
+    expect(text).toContain('161.3k')
+    expect(wrapper.find('.context-bar').exists()).toBe(true)
+  })
+
   it('shows live TPS beside remaining context when available', async () => {
     const wrapper = mountForSession('session-live-tps', {
       inputTokens: 1200,

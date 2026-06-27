@@ -619,7 +619,13 @@ const totalTokens = computed(() => {
 })
 const showContextUsage = computed(() => totalTokens.value > 0)
 
-const remainingTokens = computed(() => Math.max(0, contextLength.value - totalTokens.value))
+const effectiveContextLength = computed(() => {
+  const reported = chatStore.activeSession?.contextLimit
+  return typeof reported === 'number' && Number.isFinite(reported) && reported > 0
+    ? reported
+    : contextLength.value
+})
+const remainingTokens = computed(() => Math.max(0, effectiveContextLength.value - totalTokens.value))
 const liveTps = computed(() => {
   const value = chatStore.activeSession?.liveTps
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null
@@ -629,7 +635,7 @@ const visibleLiveTps = computed(() => showLiveTps.value ? liveTps.value : null)
 const showContextMetrics = computed(() => showContextUsage.value || visibleLiveTps.value != null)
 
 const usagePercent = computed(() =>
-  Math.min((totalTokens.value / contextLength.value) * 100, 100),
+  Math.min((totalTokens.value / effectiveContextLength.value) * 100, 100),
 )
 
 function formatTokens(n: number): string {
@@ -1018,7 +1024,7 @@ function isImage(type: string): boolean {
             <NTooltip trigger="hover">
               <template #trigger>
                 <span class="context-limit-editable" @click="handleEditContextLimit">
-                  {{ formatTokens(contextLength) }}
+                  {{ formatTokens(effectiveContextLength) }}
                 </span>
               </template>
               <span>{{ t('chat.contextClickToEdit') }}</span>

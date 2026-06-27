@@ -71,6 +71,7 @@ export interface SessionState {
   inputTokens?: number
   outputTokens?: number
   contextTokens?: number
+  contextLimit?: number
   bridgeContext?: BridgeContextState
   isAborting?: boolean
   queue: QueuedRun[]

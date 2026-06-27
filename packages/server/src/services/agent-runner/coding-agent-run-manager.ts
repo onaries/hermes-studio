@@ -122,6 +122,7 @@ type NormalizedCodingAgentUsage = {
   inputTokens: number
   outputTokens: number
   contextTokens?: number
+  contextLimit?: number
 }
 
 function finiteUsageNumber(...values: unknown[]): number | undefined {
@@ -142,25 +143,54 @@ function nestedUsageValue(usage: any, ...keys: string[]): unknown[] {
   return values
 }
 
+function codexUsageInfo(usage: any): any {
+  return usage?.info && typeof usage.info === 'object' ? usage.info : usage
+}
+
+function codexContextUsage(usage: any): any {
+  if (!usage || typeof usage !== 'object') return usage
+  const info = codexUsageInfo(usage)
+  const last = info?.last_token_usage || info?.lastTokenUsage
+  // Codex exposes both a cumulative billing counter (`total_token_usage`) and
+  // the prompt/context size of the most recent request (`last_token_usage`).
+  // The context meter must use the latter; otherwise long sessions show
+  // impossible values such as 731k / 256k.
+  return last && typeof last === 'object' ? last : usage
+}
+
+function codexModelContextWindow(usage: any): number | undefined {
+  if (!usage || typeof usage !== 'object') return undefined
+  const info = codexUsageInfo(usage)
+  return finiteUsageNumber(
+    info?.model_context_window,
+    info?.modelContextWindow,
+    usage?.model_context_window,
+    usage?.modelContextWindow,
+  )
+}
+
 function normalizeCodingAgentUsage(usage: any): NormalizedCodingAgentUsage | null {
   if (!usage || typeof usage !== 'object') return null
+  const contextUsage = codexContextUsage(usage)
   const inputTokens = finiteUsageNumber(
-    ...nestedUsageValue(usage, 'input_tokens', 'inputTokens', 'prompt_tokens', 'promptTokens'),
+    ...nestedUsageValue(contextUsage, 'input_tokens', 'inputTokens', 'prompt_tokens', 'promptTokens'),
   )
   const outputTokens = finiteUsageNumber(
-    ...nestedUsageValue(usage, 'output_tokens', 'outputTokens', 'completion_tokens', 'completionTokens'),
+    ...nestedUsageValue(contextUsage, 'output_tokens', 'outputTokens', 'completion_tokens', 'completionTokens'),
   )
   const totalTokens = finiteUsageNumber(
-    ...nestedUsageValue(usage, 'total_tokens', 'totalTokens', 'context_tokens', 'contextTokens'),
+    ...nestedUsageValue(contextUsage, 'total_tokens', 'totalTokens', 'context_tokens', 'contextTokens'),
   )
   if (inputTokens == null && outputTokens == null && totalTokens == null) return null
   const normalizedInput = inputTokens ?? Math.max(0, (totalTokens ?? 0) - (outputTokens ?? 0))
   const normalizedOutput = outputTokens ?? Math.max(0, (totalTokens ?? 0) - normalizedInput)
   const normalizedTotal = totalTokens ?? normalizedInput + normalizedOutput
+  const contextLimit = codexModelContextWindow(usage)
   return {
     inputTokens: normalizedInput,
     outputTokens: normalizedOutput,
     contextTokens: normalizedTotal,
+    ...(contextLimit ? { contextLimit } : {}),
   }
 }
 
@@ -662,12 +692,14 @@ export class CodingAgentRunManager {
         run.state.inputTokens = normalizedUsage.inputTokens
         run.state.outputTokens = normalizedUsage.outputTokens
         if (normalizedUsage.contextTokens != null) run.state.contextTokens = normalizedUsage.contextTokens
+        if (normalizedUsage.contextLimit != null) run.state.contextLimit = normalizedUsage.contextLimit
         this.emitToChat(run.launch.sessionId, 'usage.updated', {
           event: 'usage.updated',
           session_id: run.launch.sessionId,
           inputTokens: normalizedUsage.inputTokens,
           outputTokens: normalizedUsage.outputTokens,
           contextTokens: normalizedUsage.contextTokens,
+          contextLimit: normalizedUsage.contextLimit,
         })
       }
       const terminalError = storageSafeResponseEvent.type === 'response.failed'
@@ -685,10 +717,12 @@ export class CodingAgentRunManager {
             inputTokens: normalizedUsage.inputTokens,
             outputTokens: normalizedUsage.outputTokens,
             contextTokens: normalizedUsage.contextTokens,
+            contextLimit: normalizedUsage.contextLimit,
           },
           inputTokens: normalizedUsage.inputTokens,
           outputTokens: normalizedUsage.outputTokens,
           contextTokens: normalizedUsage.contextTokens,
+          contextLimit: normalizedUsage.contextLimit,
         } : {}),
       }
       if (childIsRunning(run.currentChild)) {

@@ -511,6 +511,90 @@ describe('coding agent run state', () => {
     manager.shutdown()
   })
 
+  it('uses Codex last token usage instead of cumulative token usage for context metering', () => {
+    initAllHermesTables()
+    const manager = new CodingAgentRunManager()
+    const state: any = { messages: [], isWorking: false, events: [], queue: [] }
+    const emitted: Array<{ event: string; payload: any }> = []
+    ;(manager as any).emitToChat = (_sessionId: string, event: string, payload: any) => {
+      emitted.push({ event, payload })
+    }
+    ;(manager as any).markChatRunCompleted = () => {}
+    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const agentSessionId = `agent-session-codex-usage-${suffix}`
+    const chatSessionId = `chat-session-codex-usage-${suffix}`
+    manager.start({
+      agentSessionId,
+      agentId: 'codex',
+      profile: 'default',
+      provider: 'test-provider',
+      model: 'gpt-5-codex',
+      sessionId: chatSessionId,
+      command: 'codex',
+      args: ['--model', 'gpt-5-codex'],
+      shellCommand: 'codex --model gpt-5-codex',
+      workspaceDir: process.cwd(),
+      state,
+    })
+    const run = (manager as any).runs.get(agentSessionId)
+    run.printResponseId = 'resp_codex_usage'
+    run.printMessageId = 'msg_resp_codex_usage'
+    run.printTextStarted = false
+    run.printText = ''
+    run.printCompleted = false
+    run.responseStartEmitted = false
+    run.terminalEventHandled = false
+    run.codexToolBlocks = new Map()
+    ;(manager as any).handleClaudePrintResponseEvent(run, {
+      type: 'response.created',
+      data: { response: { id: 'resp_codex_usage', status: 'in_progress', model: 'gpt-5-codex', output: [] } },
+    })
+
+    ;(manager as any).handleCodexExecLine(run, JSON.stringify({
+      method: 'item/agentMessage/delta',
+      params: { delta: 'done' },
+    }))
+    ;(manager as any).handleCodexExecLine(run, JSON.stringify({
+      type: 'turn.completed',
+      usage: {
+        total_token_usage: {
+          input_tokens: 726478,
+          cached_input_tokens: 620672,
+          output_tokens: 4569,
+          reasoning_output_tokens: 414,
+          total_tokens: 731047,
+        },
+        last_token_usage: {
+          input_tokens: 75828,
+          cached_input_tokens: 73600,
+          output_tokens: 356,
+          reasoning_output_tokens: 0,
+          total_tokens: 76184,
+        },
+        model_context_window: 237500,
+      },
+    }))
+    ;(manager as any).completeCodexExecTurn(run, run.codexPendingUsage)
+
+    expect(state.inputTokens).toBe(75828)
+    expect(state.outputTokens).toBe(356)
+    expect(state.contextTokens).toBe(76184)
+    expect(state.contextLimit).toBe(237500)
+    expect(emitted.find(event => event.event === 'usage.updated')?.payload).toMatchObject({
+      inputTokens: 75828,
+      outputTokens: 356,
+      contextTokens: 76184,
+      contextLimit: 237500,
+    })
+    expect(emitted.find(event => event.event === 'run.completed')?.payload).toMatchObject({
+      inputTokens: 75828,
+      outputTokens: 356,
+      contextTokens: 76184,
+      contextLimit: 237500,
+    })
+    manager.shutdown()
+  })
+
   it('does not duplicate replayed Codex assistant message text', () => {
     initAllHermesTables()
     const manager = new CodingAgentRunManager()
