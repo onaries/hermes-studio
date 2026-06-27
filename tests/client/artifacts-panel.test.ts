@@ -67,6 +67,40 @@ describe('ArtifactsPanel', () => {
     expect(wrapper.classes()).not.toContain('artifacts-panel--mobile-detail')
   })
 
+  it('renders code artifacts through MarkdownRenderer with an inferred syntax language', () => {
+    const store = useArtifactsStore()
+    store.openContentArtifact({
+      name: 'example.ts',
+      content: 'const answer: number = 42',
+      kind: 'text',
+      path: '/tmp/example.ts',
+    })
+
+    const wrapper = mount(ArtifactsPanel)
+    const markdown = wrapper.find('.artifact-code .markdown-renderer-stub')
+
+    expect(markdown.exists()).toBe(true)
+    expect(markdown.text()).toContain('```typescript')
+    expect(markdown.text()).toContain('const answer: number = 42')
+    expect(wrapper.find('.artifact-text').exists()).toBe(false)
+  })
+
+  it('uses a longer fence when code content contains backticks', () => {
+    const store = useArtifactsStore()
+    store.openContentArtifact({
+      name: 'example.js',
+      content: 'const fence = ```value```',
+      kind: 'text',
+      path: '/tmp/example.js',
+    })
+
+    const wrapper = mount(ArtifactsPanel)
+    const markdown = wrapper.find('.artifact-code .markdown-renderer-stub').text()
+
+    expect(markdown).toContain('````javascript')
+    expect(markdown).toContain('const fence = ```value```')
+  })
+
   it('renders fetched unclassified file content as a text preview', () => {
     const store = useArtifactsStore()
     store.openContentArtifact({ name: 'artifact.out', content: 'plain output', kind: 'file', path: '/tmp/artifact.out' })

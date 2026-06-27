@@ -15,6 +15,47 @@ const artifactContentRef = ref<HTMLElement | null>(null)
 
 const selectedArtifact = computed(() => artifactsStore.selectedArtifact)
 
+const CODE_LANGUAGE_BY_EXTENSION: Record<string, string> = {
+  bash: 'bash',
+  c: 'c',
+  cc: 'cpp',
+  cpp: 'cpp',
+  cs: 'csharp',
+  css: 'css',
+  cxx: 'cpp',
+  diff: 'diff',
+  dockerfile: 'dockerfile',
+  fish: 'fish',
+  go: 'go',
+  h: 'c',
+  hpp: 'cpp',
+  html: 'html',
+  java: 'java',
+  js: 'javascript',
+  json: 'json',
+  jsx: 'jsx',
+  kt: 'kotlin',
+  less: 'less',
+  patch: 'diff',
+  php: 'php',
+  py: 'python',
+  rb: 'ruby',
+  rs: 'rust',
+  sass: 'sass',
+  scss: 'scss',
+  sh: 'bash',
+  sql: 'sql',
+  swift: 'swift',
+  toml: 'toml',
+  ts: 'typescript',
+  tsx: 'tsx',
+  vue: 'vue',
+  xml: 'xml',
+  yaml: 'yaml',
+  yml: 'yaml',
+  zsh: 'bash',
+}
+
 const canDownload = computed(() => !!selectedArtifact.value?.path)
 const selectedIsMarkdown = computed(() => selectedArtifact.value?.kind === 'markdown')
 const selectedIsText = computed(() => selectedArtifact.value?.kind === 'text')
@@ -22,9 +63,37 @@ const selectedCanRenderText = computed(() =>
   (selectedIsText.value || selectedArtifact.value?.kind === 'file')
   && selectedArtifact.value?.content !== undefined,
 )
+const selectedCodeLanguage = computed(() => codeLanguageForArtifact(selectedArtifact.value))
+const selectedCanRenderCode = computed(() => selectedCanRenderText.value && !!selectedCodeLanguage.value)
+const selectedCodeMarkdown = computed(() => {
+  const content = selectedArtifact.value?.content
+  const language = selectedCodeLanguage.value
+  if (content === undefined || !language) return ''
+  return fencedCodeMarkdown(content, language)
+})
 const selectedIsImage = computed(() => selectedArtifact.value?.kind === 'image')
 const selectedIsMedia = computed(() => selectedArtifact.value?.kind === 'media')
 const selectedIsVideo = computed(() => /\.(mp4|webm|mov)$/i.test(selectedArtifact.value?.name || selectedArtifact.value?.path || ''))
+
+function extensionOf(nameOrPath: string): string {
+  return nameOrPath.split('?')[0].split('#')[0].split('.').pop()?.toLowerCase() || ''
+}
+
+function codeLanguageForArtifact(item: ArtifactItem | null): string | null {
+  if (!item) return null
+  const name = item.name || item.path || ''
+  const basename = name.split('/').pop()?.toLowerCase() || ''
+  if (basename === 'dockerfile' || basename.endsWith('.dockerfile')) return 'dockerfile'
+  const ext = extensionOf(item.name || item.path || '')
+  return CODE_LANGUAGE_BY_EXTENSION[ext] || null
+}
+
+function fencedCodeMarkdown(content: string, language: string): string {
+  const longestBacktickRun = Math.max(0, ...Array.from(content.matchAll(/`+/g), match => match[0].length))
+  const fence = '`'.repeat(Math.max(3, longestBacktickRun + 1))
+  const body = content.endsWith('\n') ? content : `${content}\n`
+  return `${fence}${language}\n${body}${fence}`
+}
 
 function handleSelectArtifact(id: string): void {
   artifactsStore.selectArtifact(id)
@@ -232,6 +301,9 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
           </div>
           <div v-else-if="selectedIsMarkdown && selectedArtifact.content !== undefined" class="artifact-markdown">
             <MarkdownRenderer :content="selectedArtifact.content" />
+          </div>
+          <div v-else-if="selectedCanRenderCode" class="artifact-code">
+            <MarkdownRenderer :content="selectedCodeMarkdown" :artifact-links-enabled="false" />
           </div>
           <pre v-else-if="selectedCanRenderText" class="artifact-text">{{ selectedArtifact.content }}</pre>
           <img v-else-if="selectedIsImage" class="artifact-image" :src="artifactsStore.artifactUrl(selectedArtifact)" :alt="selectedArtifact.name" />
@@ -552,6 +624,7 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
 }
 
 .artifact-markdown,
+.artifact-code,
 .artifact-text,
 .artifact-error,
 .artifact-unsupported,
@@ -560,7 +633,8 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
   padding: 20px;
 }
 
-.artifact-markdown {
+.artifact-markdown,
+.artifact-code {
   max-width: 940px;
 }
 
