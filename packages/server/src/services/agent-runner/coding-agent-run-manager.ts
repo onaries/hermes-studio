@@ -101,6 +101,7 @@ interface ManagedCodingAgentRun {
   codexToolBlocks?: Map<string, { id: string; name: string; arguments: string; done: boolean }>
   codexChatText?: string
   codexPendingUsage?: any
+  pendingSteer?: string
   stoppedByUser?: boolean
   pendingChatCompletionEvent?: 'run.completed' | 'run.failed'
   pendingChatCompletionPayload?: Record<string, unknown>
@@ -318,6 +319,14 @@ function normalizeCliPromptArgument(prompt: string): string {
 
 function hasArg(args: string[], name: string): boolean {
   return args.includes(name)
+}
+
+function formatCodingAgentSteerInstruction(text: string): string {
+  return [
+    '[OUT-OF-BAND USER MESSAGE — a direct message from the user, delivered mid-turn; not tool output]',
+    text.trim(),
+    '[/OUT-OF-BAND USER MESSAGE]',
+  ].join('\n')
 }
 
 function decodeChildChunk(chunk: Buffer): string {
@@ -626,6 +635,28 @@ export class CodingAgentRunManager {
     if (!run.pty) throw new Error('Coding agent terminal is not available')
     run.pty.write(`${text}\r`)
     return { runId: run.id }
+  }
+
+  steer(sessionId: string, input: string): { runId: string; queued: boolean } {
+    const run = this.getBySession(sessionId)
+    if (!run || run.exited) throw new Error('Coding agent session not found')
+    const text = String(input || '').trim()
+    if (!text) throw new Error('Input is required')
+    const steerText = formatCodingAgentSteerInstruction(text)
+    this.ensureDbSession(run)
+    this.touch(run)
+    if (run.launch.agentId === 'claude-code' || run.launch.agentId === 'codex') {
+      if (childIsRunning(run.currentChild)) {
+        run.pendingSteer = [run.pendingSteer, steerText].filter(Boolean).join('\n\n')
+        this.emitTerminalStatus(run, 'Steer instruction queued for the running coding-agent turn.')
+        return { runId: run.id, queued: true }
+      }
+      this.startCodingAgentSteerTurn(run, steerText)
+      return { runId: run.id, queued: false }
+    }
+    if (!run.pty) throw new Error('Coding agent terminal is not available')
+    run.pty.write(`${steerText}\r`)
+    return { runId: run.id, queued: false }
   }
 
   stop(sessionId: string, options: { reportClosed?: boolean } = {}): boolean {
@@ -1747,6 +1778,23 @@ export class CodingAgentRunManager {
     })
   }
 
+  private startCodingAgentSteerTurn(run: ManagedCodingAgentRun, steerText: string) {
+    run.state.isWorking = true
+    run.state.profile = run.launch.profile
+    run.state.source = run.launch.sessionSource === 'workflow' ? 'workflow' : 'coding_agent'
+    run.state.runId = run.id
+    if (run.launch.agentId === 'claude-code') {
+      this.startClaudePrintTurn(run, steerText)
+      return
+    }
+    if (run.launch.agentId === 'codex') {
+      this.startCodexExecTurn(run, steerText)
+      return
+    }
+    if (!run.pty) throw new Error('Coding agent terminal is not available')
+    run.pty.write(`${steerText}\r`)
+  }
+
   private completeCodexExecTurn(run: ManagedCodingAgentRun, usage?: any) {
     this.completeClaudePrintTurn(run, usage)
   }
@@ -1754,11 +1802,33 @@ export class CodingAgentRunManager {
   private emitAndMarkPrintChatRunCompleted(run: ManagedCodingAgentRun, event: 'run.completed' | 'run.failed', payload?: Record<string, unknown>) {
     run.pendingChatCompletionEvent = undefined
     run.pendingChatCompletionPayload = undefined
+    const pendingSteer = event === 'run.completed' ? run.pendingSteer : undefined
+    run.pendingSteer = undefined
     const queueRemaining = run.state.queue.length
     this.emitToChat(run.launch.sessionId, event, {
       ...(payload || { event }),
       ...(queueRemaining > 0 ? { queue_remaining: queueRemaining } : {}),
     })
+    if (pendingSteer) {
+      run.state.isWorking = true
+      run.state.runId = run.id
+      run.state.profile = run.launch.profile
+      run.state.source = run.launch.sessionSource === 'workflow' ? 'workflow' : 'coding_agent'
+      run.runMarker = undefined
+      setImmediate(() => {
+        try {
+          this.startCodingAgentSteerTurn(run, pendingSteer)
+        } catch (err) {
+          logger.warn({ err, runId: run.id, sessionId: run.launch.sessionId }, '[coding-agent-run] failed to start pending steer turn')
+          this.emitToChat(run.launch.sessionId, 'run.failed', {
+            event: 'run.failed',
+            error: err instanceof Error ? err.message : String(err),
+          })
+          this.markChatRunCompleted(run.launch.sessionId, 'run.failed')
+        }
+      })
+      return
+    }
     run.state.isWorking = false
     run.state.runId = undefined
     run.state.abortController = undefined

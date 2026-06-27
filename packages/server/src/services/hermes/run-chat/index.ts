@@ -17,6 +17,7 @@ import { getAgentBridgeManager } from '../agent-bridge/manager'
 import { redactAgentBridgeError } from '../agent-bridge/redact'
 import { handleBridgeRun, resumeBridgeRun } from './handle-bridge-run'
 import { handleCodingAgentRun } from './handle-coding-agent-run'
+import { steerCodingAgentRun } from '../../coding-agents'
 import { handleAbort } from './abort'
 import { getOrCreateSession } from './compression'
 import { loadSessionStateFromDb, resolveRunSource } from './load-state'
@@ -232,6 +233,47 @@ export class ChatRunSocket {
         const state = getOrCreateSession(this.sessionMap, data.session_id)
         const source = resolveRunSource(data.source, data.session_id)
         const command = parseSessionCommand(data.input)
+        if (command && isCodingAgentExecution(source, data) && command.name === 'steer') {
+          socket.join(`session:${data.session_id}`)
+          if (!command.args) {
+            this.emitToSession(socket, data.session_id, 'session.command', {
+              event: 'session.command',
+              session_id: data.session_id,
+              command: command.rawName,
+              ok: false,
+              action: 'steer',
+              terminal: !state.isWorking,
+              message: 'Usage: /steer <instruction>',
+            })
+            return
+          }
+          try {
+            const result = steerCodingAgentRun(data.session_id, command.args)
+            this.emitToSession(socket, data.session_id, 'session.command', {
+              event: 'session.command',
+              session_id: data.session_id,
+              command: command.rawName,
+              ok: true,
+              action: 'steer',
+              terminal: false,
+              queued: result.queued,
+              message: result.queued
+                ? 'Steer instruction queued for the running coding-agent turn.'
+                : 'Steer instruction sent.',
+            })
+          } catch (err) {
+            this.emitToSession(socket, data.session_id, 'session.command', {
+              event: 'session.command',
+              session_id: data.session_id,
+              command: command.rawName,
+              ok: false,
+              action: 'steer',
+              terminal: !state.isWorking,
+              message: err instanceof Error ? err.message : String(err),
+            })
+          }
+          return
+        }
         if (command && (isBridgeRunSource(source) || command.name === 'branch')) {
           try {
             await handleSessionCommand(data.session_id, command, {

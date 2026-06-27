@@ -595,6 +595,54 @@ describe('coding agent run state', () => {
     manager.shutdown()
   })
 
+  it('prioritizes Codex steer instructions after the active exec turn completes', async () => {
+    initAllHermesTables()
+    const manager = new CodingAgentRunManager()
+    const state: any = { messages: [], isWorking: false, events: [], queue: [] }
+    const emitted: Array<{ event: string; payload: any }> = []
+    ;(manager as any).emitToChat = (_sessionId: string, event: string, payload: any) => {
+      emitted.push({ event, payload })
+    }
+    const markCompleted = vi.fn()
+    ;(manager as any).markChatRunCompleted = markCompleted
+    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const agentSessionId = `agent-session-codex-steer-${suffix}`
+    const chatSessionId = `chat-session-codex-steer-${suffix}`
+    manager.start({
+      agentSessionId,
+      agentId: 'codex',
+      profile: 'default',
+      provider: 'test-provider',
+      model: 'gpt-5-codex',
+      sessionId: chatSessionId,
+      command: 'codex',
+      args: ['--model', 'gpt-5-codex'],
+      shellCommand: 'codex --model gpt-5-codex',
+      workspaceDir: process.cwd(),
+      state,
+    })
+    const run = (manager as any).runs.get(agentSessionId)
+    run.currentChild = { exitCode: null, signalCode: null, killed: false }
+    const result = manager.steer(chatSessionId, 'focus on tests')
+    expect(result.queued).toBe(true)
+    expect(run.pendingSteer).toContain('focus on tests')
+    run.currentChild = undefined
+    const startCodexExecTurn = vi.fn()
+    ;(manager as any).startCodexExecTurn = startCodexExecTurn
+
+    ;(manager as any).emitAndMarkPrintChatRunCompleted(run, 'run.completed', { event: 'run.completed' })
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(markCompleted).not.toHaveBeenCalled()
+    expect(state.isWorking).toBe(true)
+    expect(startCodexExecTurn).toHaveBeenCalledWith(
+      run,
+      expect.stringContaining('focus on tests'),
+    )
+    expect(emitted.find(event => event.event === 'run.completed')).toBeTruthy()
+    manager.shutdown()
+  })
+
   it('does not duplicate replayed Codex assistant message text', () => {
     initAllHermesTables()
     const manager = new CodingAgentRunManager()

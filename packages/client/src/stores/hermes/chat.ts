@@ -2455,7 +2455,8 @@ export const useChatStore = defineStore('chat', () => {
       : false
     const isCodingAgentSession = isCodingAgentLikeSession(activeSession.value)
     const bridgeCommandContent = trimmedContent
-    const isBridgeSlashCommand = !isCodingAgentSession && isKnownBridgeSessionCommand(bridgeCommandContent)
+    const isCodingAgentSteerCommand = isCodingAgentSession && /^\/steer(?:\s|$)/i.test(bridgeCommandContent)
+    const isBridgeSlashCommand = (!isCodingAgentSession || isCodingAgentSteerCommand) && isKnownBridgeSessionCommand(bridgeCommandContent)
     const isBridgeCompressCommand = isBridgeSlashCommand && /^\/compress(?:\s|$)/i.test(bridgeCommandContent)
     const isBridgePlanCommand = isBridgeSlashCommand && /^\/plan(?:\s|$)/i.test(bridgeCommandContent)
     const isBridgeSkillCommand = isBridgeSlashCommand && /^\/skill(?:\s|$)/i.test(bridgeCommandContent)

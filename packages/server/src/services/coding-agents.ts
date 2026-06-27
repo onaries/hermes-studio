@@ -1817,6 +1817,10 @@ export function sendCodingAgentRunInput(sessionId: string, input: string, system
   return codingAgentRunManager.send(sessionId, input, { systemPrompt })
 }
 
+export function steerCodingAgentRun(sessionId: string, input: string): { runId: string; queued: boolean } {
+  return codingAgentRunManager.steer(sessionId, input)
+}
+
 export function stopCodingAgentRun(sessionId: string): { stopped: boolean } {
   return { stopped: codingAgentRunManager.stop(sessionId) }
 }
