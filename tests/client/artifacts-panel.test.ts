@@ -96,6 +96,22 @@ describe('ArtifactsPanel', () => {
     expect(wrapper.find('.artifact-list').exists()).toBe(true)
   })
 
+  it('keeps long artifact names available as a tooltip while the toolbar can truncate them', () => {
+    const store = useArtifactsStore()
+    const longName = '0030_teamapprovalsetting_worklog_modification_artifact.md'
+    store.openContentArtifact({ name: longName, content: '# Notes', kind: 'markdown', path: `/tmp/${longName}` })
+
+    const wrapper = mount(ArtifactsPanel)
+    const title = wrapper.find('.artifact-title')
+    const download = wrapper.find('.artifact-download')
+
+    expect(title.text()).toBe(longName)
+    expect(title.attributes('title')).toBe(longName)
+    expect(download.attributes('title')).toBe('artifacts.download')
+    expect(download.attributes('aria-label')).toBe('artifacts.download')
+    expect(download.find('.artifact-download-label').exists()).toBe(true)
+  })
+
   it('scrolls the artifact list and preview back to the top', async () => {
     const store = useArtifactsStore()
     store.openContentArtifact({ name: 'notes.md', content: '# Notes', kind: 'markdown', path: '/tmp/notes.md' })

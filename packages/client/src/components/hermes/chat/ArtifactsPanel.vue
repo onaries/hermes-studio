@@ -183,7 +183,7 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
           <span>{{ t('artifacts.backToList') }}</span>
         </button>
         <div class="artifact-title-group">
-          <h3 class="artifact-title">{{ selectedArtifact.name }}</h3>
+          <h3 class="artifact-title" :title="selectedArtifact.name">{{ selectedArtifact.name }}</h3>
           <p v-if="selectedArtifact.path" class="artifact-path" :title="selectedArtifact.path">{{ selectedArtifact.path }}</p>
         </div>
         <div class="artifact-actions">
@@ -205,6 +205,8 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
             v-if="canDownload"
             type="button"
             class="artifact-download"
+            :title="t('artifacts.download')"
+            :aria-label="t('artifacts.download')"
             @click="handleDownload(selectedArtifact)"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -212,7 +214,7 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            {{ t('artifacts.download') }}
+            <span class="artifact-download-label">{{ t('artifacts.download') }}</span>
           </button>
         </div>
       </div>
@@ -454,7 +456,8 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
     }
 
     .artifact-top span,
-    .artifact-list-show-toggle span {
+    .artifact-list-show-toggle span,
+    .artifact-download-label {
       display: none;
     }
   }
@@ -481,7 +484,8 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
 
 .artifact-title-group {
   min-width: 0;
-  flex: 1;
+  overflow: hidden;
+  flex: 1 1 0;
 }
 
 .artifact-actions {
@@ -493,6 +497,10 @@ async function handleDownload(item: ArtifactItem | null): Promise<void> {
 
 .artifact-title {
   margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 16px;
   font-weight: 650;
 }
