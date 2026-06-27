@@ -118,6 +118,52 @@ function makeId(): string {
   return `car_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 }
 
+type NormalizedCodingAgentUsage = {
+  inputTokens: number
+  outputTokens: number
+  contextTokens?: number
+}
+
+function finiteUsageNumber(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    const numeric = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN
+    if (Number.isFinite(numeric) && numeric >= 0) return Math.floor(numeric)
+  }
+  return undefined
+}
+
+function nestedUsageValue(usage: any, ...keys: string[]): unknown[] {
+  const values: unknown[] = []
+  for (const key of keys) values.push(usage?.[key])
+  for (const container of [usage?.tokens, usage?.token_usage, usage?.tokenUsage]) {
+    if (!container || typeof container !== 'object') continue
+    for (const key of keys) values.push(container[key])
+  }
+  return values
+}
+
+function normalizeCodingAgentUsage(usage: any): NormalizedCodingAgentUsage | null {
+  if (!usage || typeof usage !== 'object') return null
+  const inputTokens = finiteUsageNumber(
+    ...nestedUsageValue(usage, 'input_tokens', 'inputTokens', 'prompt_tokens', 'promptTokens'),
+  )
+  const outputTokens = finiteUsageNumber(
+    ...nestedUsageValue(usage, 'output_tokens', 'outputTokens', 'completion_tokens', 'completionTokens'),
+  )
+  const totalTokens = finiteUsageNumber(
+    ...nestedUsageValue(usage, 'total_tokens', 'totalTokens', 'context_tokens', 'contextTokens'),
+  )
+  if (inputTokens == null && outputTokens == null && totalTokens == null) return null
+  const normalizedInput = inputTokens ?? Math.max(0, (totalTokens ?? 0) - (outputTokens ?? 0))
+  const normalizedOutput = outputTokens ?? Math.max(0, (totalTokens ?? 0) - normalizedInput)
+  const normalizedTotal = totalTokens ?? normalizedInput + normalizedOutput
+  return {
+    inputTokens: normalizedInput,
+    outputTokens: normalizedOutput,
+    contextTokens: normalizedTotal,
+  }
+}
+
 export function codingAgentGatewayErrorMessage(text: string): string | null {
   const value = String(text || '').trim()
   if (!value) return null
@@ -611,6 +657,19 @@ export class CodingAgentRunManager {
       updateSessionStats(run.launch.sessionId)
       const final = (storageSafeResponseEvent.data as any).response || storageSafeResponseEvent.data
       const finalText = extractResponseText(final)
+      const normalizedUsage = normalizeCodingAgentUsage(final?.usage)
+      if (normalizedUsage) {
+        run.state.inputTokens = normalizedUsage.inputTokens
+        run.state.outputTokens = normalizedUsage.outputTokens
+        if (normalizedUsage.contextTokens != null) run.state.contextTokens = normalizedUsage.contextTokens
+        this.emitToChat(run.launch.sessionId, 'usage.updated', {
+          event: 'usage.updated',
+          session_id: run.launch.sessionId,
+          inputTokens: normalizedUsage.inputTokens,
+          outputTokens: normalizedUsage.outputTokens,
+          contextTokens: normalizedUsage.contextTokens,
+        })
+      }
       const terminalError = storageSafeResponseEvent.type === 'response.failed'
         ? responseErrorMessage(final?.error || (responseEvent.data as any).error) || 'Coding agent run failed'
         : codingAgentGatewayErrorMessage(finalText)
@@ -621,6 +680,16 @@ export class CodingAgentRunManager {
         response_id: final?.id,
         output: finalText,
         error: terminalError || undefined,
+        ...(normalizedUsage ? {
+          usage: {
+            inputTokens: normalizedUsage.inputTokens,
+            outputTokens: normalizedUsage.outputTokens,
+            contextTokens: normalizedUsage.contextTokens,
+          },
+          inputTokens: normalizedUsage.inputTokens,
+          outputTokens: normalizedUsage.outputTokens,
+          contextTokens: normalizedUsage.contextTokens,
+        } : {}),
       }
       if (childIsRunning(run.currentChild)) {
         run.pendingChatCompletionEvent = chatCompletionEvent

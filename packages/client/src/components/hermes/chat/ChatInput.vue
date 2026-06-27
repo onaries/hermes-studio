@@ -568,7 +568,6 @@ function currentContextLengthKey() {
 }
 
 async function loadContextLength() {
-  if (isCodingAgentSession.value) return
   const key = currentContextLengthKey()
   if (key === contextLengthLoadedKey) return
   if (key === contextLengthRequestKey && contextLengthRequest) return contextLengthRequest
@@ -612,7 +611,6 @@ watch(
 )
 
 const totalTokens = computed(() => {
-  if (isCodingAgentSession.value) return 0
   const context = chatStore.activeSession?.contextTokens
   if (typeof context === 'number' && Number.isFinite(context) && context > 0) return context
   const input = chatStore.activeSession?.inputTokens ?? 0
@@ -628,7 +626,7 @@ const liveTps = computed(() => {
 })
 const showLiveTps = computed(() => settingsStore.display.show_live_tps !== false)
 const visibleLiveTps = computed(() => showLiveTps.value ? liveTps.value : null)
-const showContextMetrics = computed(() => !isCodingAgentSession.value && (showContextUsage.value || visibleLiveTps.value != null))
+const showContextMetrics = computed(() => showContextUsage.value || visibleLiveTps.value != null)
 
 const usagePercent = computed(() =>
   Math.min((totalTokens.value / contextLength.value) * 100, 100),

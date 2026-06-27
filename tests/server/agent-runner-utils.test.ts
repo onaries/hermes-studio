@@ -488,9 +488,26 @@ describe('coding agent run state', () => {
       finish_reason: 'stop',
     }))
     expect(state.isWorking).toBe(false)
+    expect(state.inputTokens).toBe(12)
+    expect(state.outputTokens).toBe(7)
+    expect(state.contextTokens).toBe(19)
     expect(emitted.map(event => event.event)).toContain('message.delta')
-    expect(emitted.map(event => event.event)).not.toContain('usage.updated')
-    expect(emitted.find(event => event.event === 'run.completed')?.payload).not.toHaveProperty('usage')
+    expect(emitted.map(event => event.event)).toContain('usage.updated')
+    expect(emitted.find(event => event.event === 'usage.updated')?.payload).toMatchObject({
+      inputTokens: 12,
+      outputTokens: 7,
+      contextTokens: 19,
+    })
+    expect(emitted.find(event => event.event === 'run.completed')?.payload).toMatchObject({
+      usage: {
+        inputTokens: 12,
+        outputTokens: 7,
+        contextTokens: 19,
+      },
+      inputTokens: 12,
+      outputTokens: 7,
+      contextTokens: 19,
+    })
     manager.shutdown()
   })
 

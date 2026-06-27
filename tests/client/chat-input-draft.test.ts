@@ -154,7 +154,7 @@ describe('ChatInput draft persistence', () => {
     expect((textarea.element as HTMLTextAreaElement).style.height).toBe('64px')
   })
 
-  it('hides context usage for coding-agent sessions', async () => {
+  it('shows context usage for coding-agent sessions when usage is available', async () => {
     const wrapper = mountForSession('session-codex', {
       source: 'coding_agent',
       agent: 'codex',
@@ -164,9 +164,10 @@ describe('ChatInput draft persistence', () => {
       contextTokens: 2000,
     })
     await nextTick()
+    await flushPromises()
 
-    expect(wrapper.find('.context-info').exists()).toBe(false)
-    expect(wrapper.find('.context-bar').exists()).toBe(false)
+    expect(wrapper.find('.context-info').text()).toContain('2.0k')
+    expect(wrapper.find('.context-bar').exists()).toBe(true)
   })
 
   it('shows live TPS beside remaining context when available', async () => {
