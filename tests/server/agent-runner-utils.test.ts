@@ -595,6 +595,97 @@ describe('coding agent run state', () => {
     manager.shutdown()
   })
 
+  it('uses Codex event_msg token_count usage before cumulative turn completion usage', () => {
+    initAllHermesTables()
+    const manager = new CodingAgentRunManager()
+    const state: any = { messages: [], isWorking: false, events: [], queue: [] }
+    const emitted: Array<{ event: string; payload: any }> = []
+    ;(manager as any).emitToChat = (_sessionId: string, event: string, payload: any) => {
+      emitted.push({ event, payload })
+    }
+    ;(manager as any).markChatRunCompleted = () => {}
+    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const agentSessionId = `agent-session-codex-token-count-${suffix}`
+    const chatSessionId = `chat-session-codex-token-count-${suffix}`
+    manager.start({
+      agentSessionId,
+      agentId: 'codex',
+      profile: 'default',
+      provider: 'test-provider',
+      model: 'gpt-5-codex',
+      sessionId: chatSessionId,
+      command: 'codex',
+      args: ['--model', 'gpt-5-codex'],
+      shellCommand: 'codex --model gpt-5-codex',
+      workspaceDir: process.cwd(),
+      state,
+    })
+    const run = (manager as any).runs.get(agentSessionId)
+    run.printResponseId = 'resp_codex_token_count'
+    run.printMessageId = 'msg_resp_codex_token_count'
+    run.printTextStarted = false
+    run.printText = ''
+    run.printCompleted = false
+    run.responseStartEmitted = false
+    run.terminalEventHandled = false
+    run.codexToolBlocks = new Map()
+    ;(manager as any).handleClaudePrintResponseEvent(run, {
+      type: 'response.created',
+      data: { response: { id: 'resp_codex_token_count', status: 'in_progress', model: 'gpt-5-codex', output: [] } },
+    })
+
+    ;(manager as any).handleCodexExecLine(run, JSON.stringify({
+      type: 'event_msg',
+      payload: {
+        type: 'token_count',
+        info: {
+          total_token_usage: {
+            input_tokens: 8787567,
+            cached_input_tokens: 8303104,
+            output_tokens: 31809,
+            reasoning_output_tokens: 7110,
+            total_tokens: 8819376,
+          },
+          last_token_usage: {
+            input_tokens: 187640,
+            cached_input_tokens: 139648,
+            output_tokens: 345,
+            reasoning_output_tokens: 16,
+            total_tokens: 187985,
+          },
+          model_context_window: 237500,
+        },
+      },
+    }))
+    ;(manager as any).handleCodexExecLine(run, JSON.stringify({
+      type: 'turn.completed',
+      usage: {
+        input_tokens: 8787567,
+        output_tokens: 31809,
+        total_tokens: 8819376,
+      },
+    }))
+    ;(manager as any).completeCodexExecTurn(run, run.codexPendingUsage)
+
+    expect(state.inputTokens).toBe(187640)
+    expect(state.outputTokens).toBe(345)
+    expect(state.contextTokens).toBe(187985)
+    expect(state.contextLimit).toBe(237500)
+    expect(emitted.filter(event => event.event === 'usage.updated').at(-1)?.payload).toMatchObject({
+      inputTokens: 187640,
+      outputTokens: 345,
+      contextTokens: 187985,
+      contextLimit: 237500,
+    })
+    expect(emitted.find(event => event.event === 'run.completed')?.payload).toMatchObject({
+      inputTokens: 187640,
+      outputTokens: 345,
+      contextTokens: 187985,
+      contextLimit: 237500,
+    })
+    manager.shutdown()
+  })
+
   it('prioritizes Codex steer instructions after the active exec turn completes', async () => {
     initAllHermesTables()
     const manager = new CodingAgentRunManager()

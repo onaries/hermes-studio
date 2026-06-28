@@ -170,6 +170,20 @@ function codexModelContextWindow(usage: any): number | undefined {
   )
 }
 
+function codexUsageHasLastTokenUsage(usage: any): boolean {
+  if (!usage || typeof usage !== 'object') return false
+  const info = codexUsageInfo(usage)
+  const last = info?.last_token_usage || info?.lastTokenUsage
+  return !!last && typeof last === 'object'
+}
+
+function preferCodexUsage(current: any, next: any): any {
+  if (!next || typeof next !== 'object') return current
+  if (!current || typeof current !== 'object') return next
+  if (codexUsageHasLastTokenUsage(current) && !codexUsageHasLastTokenUsage(next)) return current
+  return next
+}
+
 function normalizeCodingAgentUsage(usage: any): NormalizedCodingAgentUsage | null {
   if (!usage || typeof usage !== 'object') return null
   const contextUsage = codexContextUsage(usage)
@@ -1510,8 +1524,16 @@ export class CodingAgentRunManager {
       this.handleCodexResponseItem(run, event.payload || event.item || event)
       return
     }
+    if (type === 'event_msg') {
+      this.handleCodexEventMessage(run, event.payload || event.msg || event)
+      return
+    }
+    if (type === 'token_count') {
+      this.handleCodexTokenCount(run, event)
+      return
+    }
     if (type === 'turn.completed') {
-      run.codexPendingUsage = event.usage
+      run.codexPendingUsage = preferCodexUsage(run.codexPendingUsage, event.usage)
       return
     }
     if (type === 'turn.failed' || type === 'error') {
@@ -1523,6 +1545,10 @@ export class CodingAgentRunManager {
     this.recordCodexNativeSessionId(run, this.codexNativeSessionIdFrom(params))
     if (method === 'thread/started') {
       this.recordCodexNativeSessionId(run, String(params.thread_id || params.threadId || '').trim())
+      return
+    }
+    if (method === 'event_msg' || method === 'event/msg') {
+      this.handleCodexEventMessage(run, params.payload || params.msg || params)
       return
     }
     if (method === 'item/agentMessage/delta' || method === 'item/assistantMessage/delta') {
@@ -1547,12 +1573,37 @@ export class CodingAgentRunManager {
       return
     }
     if (method === 'turn/completed') {
-      run.codexPendingUsage = params.usage
+      run.codexPendingUsage = preferCodexUsage(run.codexPendingUsage, params.usage)
       return
     }
     if (method === 'turn/failed' || method === 'error') {
       this.failCodexExecTurn(run, params.error?.message || params.message || 'Codex run failed')
     }
+  }
+
+  private handleCodexEventMessage(run: ManagedCodingAgentRun, event: any) {
+    const type = String(event?.type || '').trim()
+    if (type === 'token_count') {
+      this.handleCodexTokenCount(run, event)
+    }
+  }
+
+  private handleCodexTokenCount(run: ManagedCodingAgentRun, usage: any) {
+    run.codexPendingUsage = preferCodexUsage(run.codexPendingUsage, usage)
+    const normalizedUsage = normalizeCodingAgentUsage(run.codexPendingUsage)
+    if (!normalizedUsage) return
+    run.state.inputTokens = normalizedUsage.inputTokens
+    run.state.outputTokens = normalizedUsage.outputTokens
+    if (normalizedUsage.contextTokens != null) run.state.contextTokens = normalizedUsage.contextTokens
+    if (normalizedUsage.contextLimit != null) run.state.contextLimit = normalizedUsage.contextLimit
+    this.emitToChat(run.launch.sessionId, 'usage.updated', {
+      event: 'usage.updated',
+      session_id: run.launch.sessionId,
+      inputTokens: normalizedUsage.inputTokens,
+      outputTokens: normalizedUsage.outputTokens,
+      contextTokens: normalizedUsage.contextTokens,
+      contextLimit: normalizedUsage.contextLimit,
+    })
   }
 
   private failCodexExecTurn(run: ManagedCodingAgentRun, message: string) {
