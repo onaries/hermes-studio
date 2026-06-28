@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   getShutdownForceExitMs,
+  shouldForceRestartWithCodingAgents,
   shouldStopAgentBridgeOnShutdown,
   shouldStopManagedGatewaysOnShutdown,
 } from '../../packages/server/src/services/shutdown'
@@ -11,6 +12,7 @@ describe('shutdown bridge policy', () => {
   const originalNodeEnv = process.env.NODE_ENV
   const originalDesktop = process.env.HERMES_DESKTOP
   const originalForceExitMs = process.env.HERMES_WEB_UI_SHUTDOWN_FORCE_EXIT_MS
+  const originalForceCodingAgentRestart = process.env.HERMES_WEB_UI_FORCE_RESTART_WITH_CODING_AGENTS
 
   afterEach(() => {
     if (originalValue === undefined) delete process.env.HERMES_AGENT_BRIDGE_STOP_ON_SHUTDOWN
@@ -23,6 +25,8 @@ describe('shutdown bridge policy', () => {
     else process.env.HERMES_DESKTOP = originalDesktop
     if (originalForceExitMs === undefined) delete process.env.HERMES_WEB_UI_SHUTDOWN_FORCE_EXIT_MS
     else process.env.HERMES_WEB_UI_SHUTDOWN_FORCE_EXIT_MS = originalForceExitMs
+    if (originalForceCodingAgentRestart === undefined) delete process.env.HERMES_WEB_UI_FORCE_RESTART_WITH_CODING_AGENTS
+    else process.env.HERMES_WEB_UI_FORCE_RESTART_WITH_CODING_AGENTS = originalForceCodingAgentRestart
   })
 
   it('stops the bridge for restart and service shutdown signals by default', () => {
@@ -60,6 +64,17 @@ describe('shutdown bridge policy', () => {
     process.env.NODE_ENV = 'production'
     process.env.HERMES_WEB_UI_STOP_GATEWAYS_ON_SHUTDOWN = '0'
     expect(shouldStopManagedGatewaysOnShutdown()).toBe(false)
+  })
+
+  it('allows forcing restart while coding agents are active only through an explicit opt-in', () => {
+    delete process.env.HERMES_WEB_UI_FORCE_RESTART_WITH_CODING_AGENTS
+    expect(shouldForceRestartWithCodingAgents()).toBe(false)
+
+    process.env.HERMES_WEB_UI_FORCE_RESTART_WITH_CODING_AGENTS = '1'
+    expect(shouldForceRestartWithCodingAgents()).toBe(true)
+
+    process.env.HERMES_WEB_UI_FORCE_RESTART_WITH_CODING_AGENTS = 'false'
+    expect(shouldForceRestartWithCodingAgents()).toBe(false)
   })
 
   it('keeps desktop shutdown force-exit timing long enough for runtime cleanup by default', () => {

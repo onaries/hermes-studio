@@ -39,12 +39,23 @@ export function shouldStopManagedGatewaysOnShutdown(env: NodeJS.ProcessEnv = pro
   return String(env.NODE_ENV || '').trim().toLowerCase() === 'production'
 }
 
+export function shouldForceRestartWithCodingAgents(env: NodeJS.ProcessEnv = process.env): boolean {
+  return ['1', 'true', 'yes', 'on'].includes(String(env.HERMES_WEB_UI_FORCE_RESTART_WITH_CODING_AGENTS || '').trim().toLowerCase())
+}
+
 export type ShutdownHandler = (signal: string) => Promise<void>
 
 export function createShutdownHandler(server: any, groupChatServer?: any, chatRunServer?: any, agentBridgeManager?: any): ShutdownHandler {
   let isShuttingDown = false
 
   return async (signal: string) => {
+    if (signal === 'SIGUSR2' && codingAgentRunManager.hasActiveRuns() && !shouldForceRestartWithCodingAgents()) {
+      const activeRuns = codingAgentRunManager.activeRunSummary()
+      logger.warn({ activeRuns }, '[shutdown] restart skipped because coding-agent runs are active')
+      console.warn('[shutdown] Restart skipped because coding-agent runs are active. Set HERMES_WEB_UI_FORCE_RESTART_WITH_CODING_AGENTS=1 to force.')
+      return
+    }
+
     if (isShuttingDown) return
     isShuttingDown = true
 
@@ -127,7 +138,7 @@ export function createShutdownHandler(server: any, groupChatServer?: any, chatRu
 export function bindShutdown(server: any, groupChatServer?: any, chatRunServer?: any, agentBridgeManager?: any): ShutdownHandler {
   const shutdown = createShutdownHandler(server, groupChatServer, chatRunServer, agentBridgeManager)
 
-  process.once('SIGUSR2', shutdown)
+  process.on('SIGUSR2', shutdown)
   process.on('SIGINT', shutdown)
   process.on('SIGTERM', shutdown)
 

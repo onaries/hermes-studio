@@ -837,6 +837,21 @@ export class CodingAgentRunManager {
     }
   }
 
+  hasActiveRuns(): boolean {
+    return [...this.runs.values()].some(run => run.state.isWorking || childIsRunning(run.currentChild))
+  }
+
+  activeRunSummary(): Array<{ sessionId: string; runId: string; agentId: string; mode: 'scoped' | 'global' }> {
+    return [...this.runs.values()]
+      .filter(run => run.state.isWorking || childIsRunning(run.currentChild))
+      .map(run => ({
+        sessionId: run.launch.sessionId,
+        runId: run.id,
+        agentId: run.launch.agentId,
+        mode: run.launch.mode,
+      }))
+  }
+
   shutdown() {
     for (const run of [...this.runs.values()]) this.cleanupRun(run, { kill: true })
   }
