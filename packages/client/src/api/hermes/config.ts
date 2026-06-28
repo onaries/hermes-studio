@@ -77,6 +77,13 @@ export interface GatewayAutoStartConfig {
   management?: 'auto' | 'per_profile' | 'unified'
 }
 
+export interface ProxyConfig {
+  HTTPS_PROXY?: string
+  HTTP_PROXY?: string
+  ALL_PROXY?: string
+  NO_PROXY?: string
+}
+
 export interface AppConfig {
   display?: DisplayConfig
   agent?: AgentConfig
@@ -87,6 +94,7 @@ export interface AppConfig {
   privacy?: PrivacyConfig
   approvals?: ApprovalConfig
   gatewayAutoStart?: GatewayAutoStartConfig
+  proxy?: ProxyConfig
   telegram?: Record<string, any>
   discord?: Record<string, any>
   slack?: Record<string, any>

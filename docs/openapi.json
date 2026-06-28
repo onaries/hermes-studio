@@ -8689,28 +8689,7 @@
           "404": {
             "description": "Not found"
           }
-        },
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "name": "source",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "global_agent"
-              ]
-            }
-          }
-        ]
+        }
       }
     },
     "/api/hermes/sessions/hermes/{id}": {
