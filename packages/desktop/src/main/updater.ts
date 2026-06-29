@@ -9,7 +9,8 @@ import { isWindowsUpdaterLockError, pendingUpdateDirectories } from './updater-h
 
 let initialized = false
 let checking = false
-let updateDownloaded = false
+let downloadedUpdate: UpdateDownloadedEvent | null = null
+let tryingFallbackFeed = false
 let recoveringPendingUpdate = false
 
 const GITHUB_LATEST_FEED_URL = 'https://github.com/onaries/hermes-studio/releases/latest/download'
@@ -75,7 +76,7 @@ async function recoverFailedPendingUpdate(err: unknown): Promise<void> {
   recoveringPendingUpdate = true
   try {
     await clearPendingUpdateDirectories()
-    updateDownloaded = false
+    downloadedUpdate = null
   } finally {
     recoveringPendingUpdate = false
   }
@@ -139,6 +140,21 @@ async function quitAndInstallDownloadedUpdate(): Promise<void> {
   autoUpdater.quitAndInstall()
 }
 
+async function promptInstallDownloadedUpdate(info: UpdateInfo): Promise<void> {
+  const { response } = await dialog.showMessageBox({
+    type: 'info',
+    title: t('update.readyTitle'),
+    message: t('update.readyMessage', { version: info.version }),
+    detail: t('update.readyDetail'),
+    buttons: [t('update.restartNow'), t('update.later')],
+    defaultId: 0,
+    cancelId: 1,
+  })
+  if (response === 0) {
+    await quitAndInstallDownloadedUpdate()
+  }
+}
+
 export function initAutoUpdater(nextOptions: AutoUpdaterOptions = {}) {
   options = { ...options, ...nextOptions }
   if (initialized) return
@@ -174,19 +190,8 @@ export function initAutoUpdater(nextOptions: AutoUpdaterOptions = {}) {
     console.log(`[updater] download ${Math.round(info.percent)}%`)
   })
   autoUpdater.on('update-downloaded', async (info: UpdateDownloadedEvent) => {
-    updateDownloaded = true
-    const { response } = await dialog.showMessageBox({
-      type: 'info',
-      title: t('update.readyTitle'),
-      message: t('update.readyMessage', { version: info.version }),
-      detail: t('update.readyDetail'),
-      buttons: [t('update.restartNow'), t('update.later')],
-      defaultId: 0,
-      cancelId: 1,
-    })
-    if (response === 0) {
-      await quitAndInstallDownloadedUpdate()
-    }
+    downloadedUpdate = info
+    await promptInstallDownloadedUpdate(info)
   })
 
   if (process.env.HERMES_DESKTOP_ENABLE_AUTO_UPDATE !== 'false') {
@@ -214,8 +219,8 @@ export async function checkForDesktopUpdates(manual: boolean): Promise<void> {
     return
   }
 
-  if (updateDownloaded) {
-    await quitAndInstallDownloadedUpdate()
+  if (downloadedUpdate) {
+    if (manual) await promptInstallDownloadedUpdate(downloadedUpdate)
     return
   }
 

@@ -215,6 +215,7 @@ export class ChatRunSocket {
       apiMode?: string
       api_mode?: string
       profile?: string
+      allow_command_passthrough?: boolean
       // Local patch (reasoning-effort): per-session reasoning effort override.
       reasoning_effort?: string
     }) => {
@@ -276,7 +277,7 @@ export class ChatRunSocket {
         }
         if (command && (isBridgeRunSource(source) || command.name === 'branch')) {
           try {
-            await handleSessionCommand(data.session_id, command, {
+            const handled = await handleSessionCommand(data.session_id, command, {
               nsp: this.nsp,
               socket,
               sessionMap: this.sessionMap,
@@ -289,6 +290,8 @@ export class ChatRunSocket {
               queueId: data.queue_id,
               runQueuedItem: this.runQueuedItem.bind(this),
             })
+            if (handled !== false) return
+            data.allow_command_passthrough = true
           } catch (err) {
             this.emitToSession(socket, data.session_id, 'session.command', {
               event: 'session.command',
@@ -322,6 +325,7 @@ export class ChatRunSocket {
             api_key: data.api_key,
             apiMode: data.apiMode,
             api_mode: data.api_mode,
+            commandPassthrough: data.allow_command_passthrough,
             originSocketId: socket.id,
           })
           this.nsp.to(`session:${data.session_id}`).emit('run.queued', {
@@ -498,13 +502,15 @@ export class ChatRunSocket {
       api_key?: string
       apiMode?: string
       api_mode?: string
+      one_shot_model?: boolean
+      allow_command_passthrough?: boolean
       onEvent?: (event: string, payload: any) => void
     },
     profile: string,
     skipUserMessage = false,
   ) {
     const source = resolveRunSource(data.source, data.session_id)
-    if (data.session_id && isBridgeRunSource(source) && isSessionCommand(data.input)) return
+    if (data.session_id && isBridgeRunSource(source) && isSessionCommand(data.input) && data.allow_command_passthrough !== true) return
 
     if (!isCodingAgentExecution(source, data)) {
       const bridgeReady = await ensureBridgeReadyForChatRun()
@@ -731,6 +737,8 @@ export class ChatRunSocket {
       api_key: next.api_key,
       apiMode: next.apiMode,
       api_mode: next.api_mode,
+      one_shot_model: next.oneShotModel,
+      allow_command_passthrough: next.commandPassthrough,
     }, next.profile || fallbackProfile, skipUserMessage)
   }
 

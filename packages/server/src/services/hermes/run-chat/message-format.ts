@@ -46,7 +46,7 @@ export function handleMessage(messages: SessionMessage[], sid: string): any[] {
   let _messages = []
   try {
     _messages = messages
-      .filter(m => (m.role === 'user' || m.role === 'assistant' || m.role === 'tool' || m.role === 'command') && m.content !== undefined)
+      .filter(m => (m.role === 'user' || m.role === 'assistant' || m.role === 'tool' || m.role === 'command' || m.role === 'moa') && m.content !== undefined)
       .map((m, idx, arr) => {
         const reasoningText = m.reasoning || m.reasoning_content || m.reasoning_details || ''
         const msg: any = {
@@ -58,6 +58,8 @@ export function handleMessage(messages: SessionMessage[], sid: string): any[] {
           reasoning_content: m.reasoning_content || reasoningText || null,
           timestamp: m.timestamp,
         }
+        if (m.display_role) msg.display_role = m.display_role
+        if (m.display_content != null) msg.display_content = m.display_content
         if (Object.prototype.hasOwnProperty.call(m, 'finish_reason')) {
           msg.finish_reason = m.finish_reason ?? null
         }
@@ -153,6 +155,7 @@ export function handleMessage(messages: SessionMessage[], sid: string): any[] {
           if (!callId || callId.length === 0) return null
           msg.tool_call_id = callId
         }
+        if (m.role === 'moa' && m.tool_call_id) msg.tool_call_id = m.tool_call_id
 
         if (m.tool_name) msg.tool_name = m.tool_name
         if (m.reasoning || m.reasoning_content || m.reasoning_details) {
