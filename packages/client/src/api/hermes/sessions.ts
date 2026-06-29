@@ -325,6 +325,17 @@ export interface UsageStatsResponse {
     reasoning_tokens: number
     sessions: number
   }>
+  agent_usage?: Array<{
+    source: string
+    agent: string
+    model: string
+    input_tokens: number
+    output_tokens: number
+    cache_read_tokens: number
+    cache_write_tokens: number
+    reasoning_tokens: number
+    sessions: number
+  }>
   daily_usage: Array<{
     date: string
     input_tokens: number

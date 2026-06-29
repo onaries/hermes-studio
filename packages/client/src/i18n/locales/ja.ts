@@ -2002,6 +2002,7 @@ export default {
     estimatedCost: '推定コスト',
     cacheHitRate: 'キャッシュヒット率',
     modelBreakdown: 'モデル別内訳',
+    codingAgentBreakdown: 'コーディングエージェントトークン',
     dailyTrend: '日別使用量',
     date: '日付',
     tokens: 'トークン',

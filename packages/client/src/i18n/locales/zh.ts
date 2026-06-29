@@ -2348,6 +2348,7 @@ export default {
     estimatedCost: '预估费用',
     cacheHitRate: '缓存命中率',
     modelBreakdown: '模型分布',
+    codingAgentBreakdown: '编码代理 Token',
     dailyTrend: '每日用量',
     date: '日期',
     tokens: 'Token',

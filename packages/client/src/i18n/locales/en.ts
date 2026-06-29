@@ -2346,6 +2346,7 @@ export default {
     estimatedCost: 'Est. Cost',
     cacheHitRate: 'Cache Hit Rate',
     modelBreakdown: 'Model Breakdown',
+    codingAgentBreakdown: 'Coding agent tokens',
     dailyTrend: 'Daily Usage',
     date: 'Date',
     tokens: 'Tokens',

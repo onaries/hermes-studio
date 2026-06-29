@@ -122,6 +122,8 @@ function makeId(): string {
 type NormalizedCodingAgentUsage = {
   inputTokens: number
   outputTokens: number
+  cacheReadTokens?: number
+  reasoningTokens?: number
   contextTokens?: number
   contextLimit?: number
 }
@@ -159,6 +161,13 @@ function codexContextUsage(usage: any): any {
   return last && typeof last === 'object' ? last : usage
 }
 
+function codexAccountingUsage(usage: any): any {
+  if (!usage || typeof usage !== 'object') return usage
+  const info = codexUsageInfo(usage)
+  const total = info?.total_token_usage || info?.totalTokenUsage
+  return total && typeof total === 'object' ? total : codexContextUsage(usage)
+}
+
 function codexModelContextWindow(usage: any): number | undefined {
   if (!usage || typeof usage !== 'object') return undefined
   const info = codexUsageInfo(usage)
@@ -184,9 +193,9 @@ function preferCodexUsage(current: any, next: any): any {
   return next
 }
 
-function normalizeCodingAgentUsage(usage: any): NormalizedCodingAgentUsage | null {
+function normalizeCodingAgentUsageFrom(usage: any, usageSelector: (usage: any) => any): NormalizedCodingAgentUsage | null {
   if (!usage || typeof usage !== 'object') return null
-  const contextUsage = codexContextUsage(usage)
+  const contextUsage = usageSelector(usage)
   const inputTokens = finiteUsageNumber(
     ...nestedUsageValue(contextUsage, 'input_tokens', 'inputTokens', 'prompt_tokens', 'promptTokens'),
   )
@@ -196,6 +205,12 @@ function normalizeCodingAgentUsage(usage: any): NormalizedCodingAgentUsage | nul
   const totalTokens = finiteUsageNumber(
     ...nestedUsageValue(contextUsage, 'total_tokens', 'totalTokens', 'context_tokens', 'contextTokens'),
   )
+  const cacheReadTokens = finiteUsageNumber(
+    ...nestedUsageValue(contextUsage, 'cached_input_tokens', 'cachedInputTokens', 'cache_read_tokens', 'cacheReadTokens'),
+  )
+  const reasoningTokens = finiteUsageNumber(
+    ...nestedUsageValue(contextUsage, 'reasoning_output_tokens', 'reasoningOutputTokens', 'reasoning_tokens', 'reasoningTokens'),
+  )
   if (inputTokens == null && outputTokens == null && totalTokens == null) return null
   const normalizedInput = inputTokens ?? Math.max(0, (totalTokens ?? 0) - (outputTokens ?? 0))
   const normalizedOutput = outputTokens ?? Math.max(0, (totalTokens ?? 0) - normalizedInput)
@@ -204,9 +219,19 @@ function normalizeCodingAgentUsage(usage: any): NormalizedCodingAgentUsage | nul
   return {
     inputTokens: normalizedInput,
     outputTokens: normalizedOutput,
+    ...(cacheReadTokens != null ? { cacheReadTokens } : {}),
+    ...(reasoningTokens != null ? { reasoningTokens } : {}),
     contextTokens: normalizedTotal,
     ...(contextLimit ? { contextLimit } : {}),
   }
+}
+
+function normalizeCodingAgentUsage(usage: any): NormalizedCodingAgentUsage | null {
+  return normalizeCodingAgentUsageFrom(usage, codexContextUsage)
+}
+
+function normalizeCodingAgentAccountingUsage(usage: any): NormalizedCodingAgentUsage | null {
+  return normalizeCodingAgentUsageFrom(usage, codexAccountingUsage)
 }
 
 export function codingAgentGatewayErrorMessage(text: string): string | null {
@@ -536,6 +561,23 @@ export class CodingAgentRunManager {
     return childIsRunning(run?.currentChild)
   }
 
+  private persistCodingAgentTokenUsage(run: ManagedCodingAgentRun, usage: any): void {
+    const normalizedUsage = normalizeCodingAgentAccountingUsage(usage)
+    if (!normalizedUsage) return
+    try {
+      updateSession(run.launch.sessionId, {
+        input_tokens: normalizedUsage.inputTokens,
+        output_tokens: normalizedUsage.outputTokens,
+        cache_read_tokens: normalizedUsage.cacheReadTokens ?? 0,
+        reasoning_tokens: normalizedUsage.reasoningTokens ?? 0,
+        ...(run.launch.model ? { model: run.launch.model } : {}),
+        ...(run.launch.provider ? { provider: run.launch.provider } : {}),
+      })
+    } catch (err) {
+      logger.warn({ err, runId: run.id, sessionId: run.launch.sessionId }, '[coding-agent-run] failed to persist coding-agent token usage')
+    }
+  }
+
   runIdForSession(sessionId: string): string | undefined {
     const run = this.getBySession(sessionId)
     return run && !run.exited ? run.id : undefined
@@ -776,6 +818,7 @@ export class CodingAgentRunManager {
         run.state.outputTokens = normalizedUsage.outputTokens
         if (normalizedUsage.contextTokens != null) run.state.contextTokens = normalizedUsage.contextTokens
         if (normalizedUsage.contextLimit != null) run.state.contextLimit = normalizedUsage.contextLimit
+        this.persistCodingAgentTokenUsage(run, usageForCompletion)
         this.emitToChat(run.launch.sessionId, 'usage.updated', {
           event: 'usage.updated',
           session_id: run.launch.sessionId,
@@ -1615,6 +1658,7 @@ export class CodingAgentRunManager {
     run.state.outputTokens = normalizedUsage.outputTokens
     if (normalizedUsage.contextTokens != null) run.state.contextTokens = normalizedUsage.contextTokens
     if (normalizedUsage.contextLimit != null) run.state.contextLimit = normalizedUsage.contextLimit
+    this.persistCodingAgentTokenUsage(run, run.codexPendingUsage)
     this.emitToChat(run.launch.sessionId, 'usage.updated', {
       event: 'usage.updated',
       session_id: run.launch.sessionId,

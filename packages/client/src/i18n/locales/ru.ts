@@ -2083,6 +2083,7 @@ export default {
     estimatedCost: 'Примерная стоимость',
     cacheHitRate: 'Попадания в кэш',
     modelBreakdown: 'Распределение по моделям',
+    codingAgentBreakdown: 'Токены кодового агента',
     dailyTrend: 'Ежедневная динамика',
     date: 'Дата',
     tokens: 'Токены',

@@ -32,6 +32,24 @@ interface ModelUsage {
   cachePercent: number
 }
 
+interface AgentUsage {
+  label: string
+  source: string
+  agent: string
+  model: string
+  inputTokens: number
+  outputTokens: number
+  cacheTokens: number
+  totalTokens: number
+  visualTokens: number
+  reasoningTokens: number
+  sessions: number
+  color: string
+  inputPercent: number
+  outputPercent: number
+  cachePercent: number
+}
+
 const MODEL_COLORS = [
   '#4fd1c5',
   '#63b3ed',
@@ -138,6 +156,42 @@ export const useUsageStore = defineStore('usage', () => {
     }).map(m => ({ model: m.model, color: m.color }))
   })
 
+  const agentUsage = computed<AgentUsage[]>(() => {
+    if (!stats.value?.agent_usage?.length) return []
+    return stats.value.agent_usage.map(row => {
+      const agent = row.agent || row.source || 'unknown'
+      const source = row.source || ''
+      const label = agent === 'codex'
+        ? 'Codex'
+        : agent === 'claude'
+          ? 'Claude Code'
+          : agent === 'claude-code'
+            ? 'Claude Code'
+            : agent
+      const totalTokens = row.input_tokens + row.output_tokens
+      const visualTokens = totalTokens + row.cache_read_tokens
+      return {
+        label,
+        source,
+        agent,
+        model: normalizeModel(row.model),
+        inputTokens: row.input_tokens,
+        outputTokens: row.output_tokens,
+        cacheTokens: row.cache_read_tokens,
+        totalTokens,
+        visualTokens,
+        reasoningTokens: row.reasoning_tokens,
+        sessions: row.sessions,
+        color: getModelColor(`${source}:${agent}`),
+        inputPercent: percent(row.input_tokens, visualTokens),
+        outputPercent: percent(row.output_tokens, visualTokens),
+        cachePercent: percent(row.cache_read_tokens, visualTokens),
+      }
+    }).sort((a, b) => b.visualTokens - a.visualTokens)
+  })
+
+  const hasAgentUsage = computed(() => agentUsage.value.length > 0)
+
   const dailyUsage = computed<DailyUsage[]>(() => (stats.value?.daily_usage ?? []).map(d => {
     const visualTokens = d.input_tokens + d.output_tokens + d.cache_read_tokens
     return {
@@ -170,6 +224,8 @@ export const useUsageStore = defineStore('usage', () => {
     estimatedCost,
     modelUsage,
     modelLegend,
+    agentUsage,
+    hasAgentUsage,
     dailyUsage,
     avgSessionsPerDay,
     getModelColor,

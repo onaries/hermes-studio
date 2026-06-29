@@ -2336,6 +2336,7 @@ export default {
     estimatedCost: '預估費用',
     cacheHitRate: '快取命中率',
     modelBreakdown: '模型分布',
+    codingAgentBreakdown: '編碼代理 Token',
     dailyTrend: '每日用量',
     date: '日期',
     tokens: 'Token',

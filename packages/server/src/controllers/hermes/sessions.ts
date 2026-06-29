@@ -27,6 +27,7 @@ import { readConfigYamlForProfile } from '../../services/config-helpers'
 import { codingAgentRunManager } from '../../services/agent-runner/coding-agent-run-manager'
 import { AgentBridgeClient, getAgentBridgeManager } from '../../services/hermes/agent-bridge'
 import { ensureHermesRunWorkspace } from '../../services/hermes/run-chat/workspace'
+import { getCodexCodingAgentUsageStats, type CodexAgentUsageRow } from '../../services/codex-usage'
 
 function getPendingDeletedSessionIds(): Set<string> {
   return getGroupChatServer()?.getStorage().getPendingDeletedSessionIds() || new Set<string>()
@@ -917,15 +918,46 @@ export async function usageStats(ctx: any) {
     sessions: 0,
     by_model: [] as UsageStatsModelRow[],
     by_day: [] as UsageStatsDailyRow[],
+    by_agent: [] as CodexAgentUsageRow[],
     cost: 0,
     total_api_calls: 0,
   }
 
   try {
-    hermes = profile ? await getUsageStatsFromDb(days, undefined, profile) : await getUsageStatsFromDb(days)
+    const loaded = profile ? await getUsageStatsFromDb(days, undefined, profile) : await getUsageStatsFromDb(days)
+    hermes = { ...loaded, by_agent: [] as CodexAgentUsageRow[] }
   } catch (err) {
     logger.warn(err, 'usageStats: failed to load Hermes usage analytics from state.db')
   }
+
+  try {
+    const codex = getCodexCodingAgentUsageStats(days, profile)
+    hermes.input_tokens += codex.input_tokens
+    hermes.output_tokens += codex.output_tokens
+    hermes.cache_read_tokens += codex.cache_read_tokens
+    hermes.cache_write_tokens += codex.cache_write_tokens
+    hermes.reasoning_tokens += codex.reasoning_tokens
+    hermes.sessions += codex.sessions
+    hermes.by_model.push(...codex.by_model)
+    hermes.by_day.push(...codex.by_day)
+    hermes.by_agent = [...(hermes.by_agent || []), ...codex.by_agent]
+  } catch (err) {
+    logger.warn(err, 'usageStats: failed to load Codex coding-agent token usage')
+  }
+
+  const modelMap = new Map<string, UsageStatsModelRow>()
+  for (const row of hermes.by_model) {
+    const key = row.model || 'unknown'
+    const existing = modelMap.get(key) || { model: key, input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0, reasoning_tokens: 0, sessions: 0 }
+    existing.input_tokens += row.input_tokens
+    existing.output_tokens += row.output_tokens
+    existing.cache_read_tokens += row.cache_read_tokens
+    existing.cache_write_tokens += row.cache_write_tokens
+    existing.reasoning_tokens += row.reasoning_tokens
+    existing.sessions += row.sessions
+    modelMap.set(key, existing)
+  }
+  hermes.by_model = [...modelMap.values()]
 
   const dayMap = new Map<string, UsageStatsDailyRow>()
   const now = new Date()
@@ -955,6 +987,7 @@ export async function usageStats(ctx: any) {
     total_api_calls: hermes.total_api_calls,
     period_days: days,
     model_usage: hermes.by_model.sort((a, b) => (b.input_tokens + b.output_tokens) - (a.input_tokens + a.output_tokens)),
+    agent_usage: hermes.by_agent || [],
     daily_usage: [...dayMap.values()],
   }
 }
