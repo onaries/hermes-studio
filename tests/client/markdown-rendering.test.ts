@@ -310,7 +310,7 @@ describe('MarkdownRenderer', () => {
     expect(img.attributes('alt')).toBe('桌面截图')
   })
 
-  it('downloads local text files when the file card download icon is clicked', async () => {
+  it('opens local text file action icons in the artifacts drawer', async () => {
     const wrapper = mount(MarkdownRenderer, {
       props: {
         content: '[notes.txt](/tmp/notes.txt)',
@@ -323,8 +323,8 @@ describe('MarkdownRenderer', () => {
     await wrapper.find('.att-download-btn').trigger('click')
     await Promise.resolve()
 
-    expect(downloadApiMock.downloadFile).toHaveBeenCalledTimes(1)
-    expect(downloadApiMock.downloadFile).toHaveBeenCalledWith('/tmp/notes.txt', 'notes.txt')
+    expect(artifactsStoreMock.openFileArtifact).toHaveBeenCalledWith({ path: '/tmp/notes.txt', name: 'notes.txt' })
+    expect(downloadApiMock.downloadFile).not.toHaveBeenCalled()
     expect(downloadApiMock.fetchFileText).not.toHaveBeenCalled()
     expect(wrapper.find('.n-drawer-stub').exists()).toBe(false)
   })
