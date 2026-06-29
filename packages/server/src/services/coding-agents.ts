@@ -533,7 +533,7 @@ async function resolveStoredProviderLaunchInput(
   const workspace = input.workspace || existingSession?.workspace || undefined
   let baseUrl = String(input.baseUrl || '').trim()
   let apiKey = String(input.apiKey || '').trim()
-  let apiMode = input.apiMode
+  let apiMode = input.apiMode || (existingSession?.api_mode as ApiMode | undefined)
   let canonicalProvider = provider
   const ignoredStaleProviderRuntime = belongsToDifferentBuiltinProvider(provider, baseUrl)
   if (ignoredStaleProviderRuntime) {
@@ -1833,6 +1833,7 @@ export async function startCodingAgentRun(
     agent_native_session_id: agentNativeSessionId,
     model: launch.model,
     provider: persistedProvider,
+    api_mode: launch.mode === 'global' ? '' : String(resolvedInput.apiMode || ''),
     workspace: launch.workspaceDir,
   })
   return {

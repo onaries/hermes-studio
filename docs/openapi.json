@@ -9160,6 +9160,9 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "apiMode": {
+                    "type": "string"
+                  },
                   "model": {
                     "type": "string"
                   },

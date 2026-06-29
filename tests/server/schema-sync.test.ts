@@ -147,6 +147,7 @@ describe('Database Schema Synchronization', () => {
       expect(sessionsCols.has('source')).toBe(true)
       expect(sessionsCols.has('agent_session_id')).toBe(true)
       expect(sessionsCols.has('agent_native_session_id')).toBe(true)
+      expect(sessionsCols.has('api_mode')).toBe(true)
 
       // Verify workflow tables were created
       expect(tableExists(db, WORKFLOWS_TABLE)).toBe(true)

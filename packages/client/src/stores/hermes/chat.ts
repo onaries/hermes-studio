@@ -574,6 +574,7 @@ function mapHermesSession(s: SessionSummary): Session {
     updatedAt: Math.round(activitySeconds * 1000),
     model: s.model,
     provider: s.provider || (s as any).billing_provider || '',
+    apiMode: s.api_mode as ProviderApiMode | undefined,
     messageCount: s.message_count,
     messageTotal: s.message_count,
     loadedMessageCount: 0,

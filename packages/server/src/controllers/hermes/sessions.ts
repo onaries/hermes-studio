@@ -62,6 +62,13 @@ function runtimeProvider(provider: string): string {
   return provider === 'claude-oauth' ? 'anthropic' : provider
 }
 
+function normalizeSessionApiMode(value: unknown): string | undefined {
+  const mode = String(value || '').trim()
+  return mode === 'chat_completions' || mode === 'codex_responses' || mode === 'anthropic_messages'
+    ? mode
+    : undefined
+}
+
 async function notifyBridgeSessionModelChanged(
   sessionId: string,
   model: string,
@@ -856,7 +863,7 @@ export async function setWorkspace(ctx: any) {
 }
 
 export async function setModel(ctx: any) {
-  const { model, provider } = ctx.request.body as { model?: string; provider?: string }
+  const { model, provider, apiMode } = ctx.request.body as { model?: string; provider?: string; apiMode?: string }
   if (!model || typeof model !== 'string') {
     ctx.status = 400
     ctx.body = { error: 'model is required' }
@@ -874,6 +881,7 @@ export async function setModel(ctx: any) {
   const profile = existing?.profile || requestedProfile(ctx) || 'default'
   const cleanModel = model.trim()
   const cleanProvider = (provider || '').trim()
+  const cleanApiMode = normalizeSessionApiMode(apiMode)
   const codingAgentSession = isCodingAgentSession(existing)
   const workspace = !codingAgentSession
     ? await ensureHermesRunWorkspace(profile, existing?.workspace)
@@ -882,6 +890,7 @@ export async function setModel(ctx: any) {
     createSession({ id, profile, title: '', model: cleanModel, provider: cleanProvider, workspace })
   }
   const updates: Record<string, string> = { model: cleanModel, provider: cleanProvider }
+  if (cleanApiMode) updates.api_mode = cleanApiMode
   if (!codingAgentSession && existing && !existing.workspace && workspace) updates.workspace = workspace
   if (
     codingAgentSession &&
