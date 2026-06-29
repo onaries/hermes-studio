@@ -28,7 +28,7 @@ import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { copyToClipboard } from "@/utils/clipboard";
 import { sortSessionsWithInProgressFirst } from "@/utils/session-sort";
-import { groupSessionsByAgent } from "@/shared/session-display";
+import { groupSessionsByAgent, type SessionAgentKind } from "@/shared/session-display";
 import {
   drawerButtonAnchorY,
   loadDrawerButtonPosition,
@@ -72,6 +72,42 @@ const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
 const chatInputRef = ref<(InstanceType<typeof ChatInput> & { addFiles?: (files: File[] | FileList) => void }) | null>(null);
 const isFileDragOverChat = ref(false);
 let chatFileDragDepth = 0;
+const SESSION_AGENT_GROUP_COLLAPSE_STORAGE_KEY = "hermes_chat_session_agent_group_collapsed";
+
+function loadCollapsedSessionAgentGroups(): Set<SessionAgentKind> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(SESSION_AGENT_GROUP_COLLAPSE_STORAGE_KEY) || "[]");
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((value): value is SessionAgentKind =>
+      value === "codex" || value === "claude-code" || value === "hermes",
+    ));
+  } catch {
+    return new Set();
+  }
+}
+
+const collapsedSessionAgentGroups = ref<Set<SessionAgentKind>>(loadCollapsedSessionAgentGroups());
+
+function saveCollapsedSessionAgentGroups(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(
+    SESSION_AGENT_GROUP_COLLAPSE_STORAGE_KEY,
+    JSON.stringify([...collapsedSessionAgentGroups.value]),
+  );
+}
+
+function isSessionAgentGroupCollapsed(kind: SessionAgentKind): boolean {
+  return collapsedSessionAgentGroups.value.has(kind);
+}
+
+function toggleSessionAgentGroup(kind: SessionAgentKind): void {
+  const next = new Set(collapsedSessionAgentGroups.value);
+  if (next.has(kind)) next.delete(kind);
+  else next.add(kind);
+  collapsedSessionAgentGroups.value = next;
+  saveCollapsedSessionAgentGroups();
+}
 
 watch(() => artifactsStore.openSequence, (openSequence) => {
   if (openSequence <= 0) return;
@@ -1506,31 +1542,53 @@ async function handleSessionModelCustomSubmit() {
         </template>
 
         <template v-for="group in unpinnedSessionGroups" :key="group.kind">
-          <div class="session-group-header session-group-header--static">
+          <button
+            class="session-group-header session-group-header--collapsible"
+            type="button"
+            :aria-expanded="!isSessionAgentGroupCollapsed(group.kind)"
+            @click="toggleSessionAgentGroup(group.kind)"
+          >
+            <svg
+              class="group-chevron"
+              :class="{ collapsed: isSessionAgentGroupCollapsed(group.kind) }"
+              width="10"
+              height="10"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
             <span class="session-group-label">{{ t(group.labelKey) }}</span>
             <span class="session-group-count">{{ group.sessions.length }}</span>
-          </div>
-          <SessionListItem
-            v-for="s in group.sessions"
-            :key="s.id"
-            :session="s"
-            :active="s.id === chatStore.activeSessionId"
-            :pinned="false"
-            :can-delete="
-              s.id !== chatStore.activeSessionId ||
-              chatStore.sessions.length > 1
-            "
-            :streaming="chatStore.isSessionLive(s.id)"
-            :pending-interaction="sessionPendingInteraction(s.id)"
-            :selectable="isBatchMode"
-            :selected="isSessionSelected(s)"
-            :show-profile="true"
-            :to="sessionHref(s.id)"
-            @select="handleSessionClick(s.id)"
-            @contextmenu="handleContextMenu($event, s.id)"
-            @delete="handleDeleteSession(s.id)"
-            @toggle-select="toggleSessionSelection(s)"
-          />
+          </button>
+          <template v-if="!isSessionAgentGroupCollapsed(group.kind)">
+            <SessionListItem
+              v-for="s in group.sessions"
+              :key="s.id"
+              :session="s"
+              :active="s.id === chatStore.activeSessionId"
+              :pinned="false"
+              :can-delete="
+                s.id !== chatStore.activeSessionId ||
+                chatStore.sessions.length > 1
+              "
+              :streaming="chatStore.isSessionLive(s.id)"
+              :pending-interaction="sessionPendingInteraction(s.id)"
+              :selectable="isBatchMode"
+              :selected="isSessionSelected(s)"
+              :show-profile="true"
+              :to="sessionHref(s.id)"
+              @select="handleSessionClick(s.id)"
+              @contextmenu="handleContextMenu($event, s.id)"
+              @delete="handleDeleteSession(s.id)"
+              @toggle-select="toggleSessionSelection(s)"
+            />
+          </template>
         </template>
       </div>
       <div v-if="showSessions" class="page-sidebar-bottom">
@@ -2580,14 +2638,25 @@ async function handleSessionModelCustomSubmit() {
 .session-group-header {
   display: flex;
   align-items: center;
+  width: 100%;
   gap: 4px;
   padding: 6px 10px 4px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: inherit;
   cursor: pointer;
   user-select: none;
 }
 
 .session-group-header--static {
   cursor: default;
+}
+
+.session-group-header--collapsible:hover .session-group-label,
+.session-group-header--collapsible:focus-visible .session-group-label {
+  color: $text-primary;
 }
 
 .group-chevron {

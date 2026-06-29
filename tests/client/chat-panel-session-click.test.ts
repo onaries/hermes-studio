@@ -34,10 +34,21 @@ describe('ChatPanel session clicks', () => {
   it('groups unpinned sessions by agent while keeping the pinned group separate', () => {
     const source = readFileSync('packages/client/src/components/hermes/chat/ChatPanel.vue', 'utf8')
 
-    expect(source).toContain('import { groupSessionsByAgent } from "@/shared/session-display"')
+    expect(source).toContain('import { groupSessionsByAgent, type SessionAgentKind } from "@/shared/session-display"')
     expect(source).toContain('const unpinnedSessionGroups = computed(() => groupSessionsByAgent(unpinnedSessions.value))')
     expect(source).toContain('v-for="group in unpinnedSessionGroups"')
     expect(source).toContain('t(group.labelKey)')
     expect(source).toContain('t("chat.pinned")')
+  })
+
+  it('lets agent session groups collapse and expand with persisted state', () => {
+    const source = readFileSync('packages/client/src/components/hermes/chat/ChatPanel.vue', 'utf8')
+
+    expect(source).toContain('SESSION_AGENT_GROUP_COLLAPSE_STORAGE_KEY')
+    expect(source).toContain('function toggleSessionAgentGroup(kind: SessionAgentKind)')
+    expect(source).toContain(':aria-expanded="!isSessionAgentGroupCollapsed(group.kind)"')
+    expect(source).toContain('@click="toggleSessionAgentGroup(group.kind)"')
+    expect(source).toContain('v-if="!isSessionAgentGroupCollapsed(group.kind)"')
+    expect(source).toContain('window.localStorage.setItem')
   })
 })
