@@ -20,9 +20,61 @@ const SOURCE_LABELS: Record<string, string> = {
   cron: 'Cron',
 }
 
+export type SessionAgentKind = 'codex' | 'claude-code' | 'hermes'
+
+export interface SessionAgentLike {
+  source?: string | null
+  agent?: string | null
+  codingAgentId?: string | null
+}
+
+export interface SessionAgentGroup<T extends SessionAgentLike> {
+  kind: SessionAgentKind
+  labelKey: string
+  sessions: T[]
+}
+
+export const SESSION_AGENT_GROUP_ORDER: readonly SessionAgentKind[] = ['codex', 'claude-code', 'hermes']
+
+const SESSION_AGENT_GROUP_LABEL_KEYS: Record<SessionAgentKind, string> = {
+  codex: 'chat.agentGroups.codex',
+  'claude-code': 'chat.agentGroups.claudeCode',
+  hermes: 'chat.agentGroups.hermes',
+}
+
+const SESSION_AGENT_LOGOS: Record<SessionAgentKind, { label: string; src: string }> = {
+  codex: { label: 'Codex', src: '/coding-agents/codex-openai.png' },
+  'claude-code': { label: 'Claude Code', src: '/coding-agents/claude-code.svg' },
+  hermes: { label: 'Hermes', src: '/coding-agents/hermes.png' },
+}
+
 export function getSourceLabel(source?: string): string {
   if (!source) return ''
   return SOURCE_LABELS[source] || source
+}
+
+export function getSessionAgentKind(session: SessionAgentLike): SessionAgentKind {
+  if (session.source === 'coding_agent') {
+    if (session.codingAgentId === 'codex' || session.agent === 'codex') return 'codex'
+    return 'claude-code'
+  }
+  return 'hermes'
+}
+
+export function getSessionAgentLogo(session: SessionAgentLike): { label: string; src: string } {
+  return SESSION_AGENT_LOGOS[getSessionAgentKind(session)]
+}
+
+export function groupSessionsByAgent<T extends SessionAgentLike>(sessions: T[]): SessionAgentGroup<T>[] {
+  const buckets = new Map<SessionAgentKind, T[]>(SESSION_AGENT_GROUP_ORDER.map(kind => [kind, []]))
+  for (const session of sessions) {
+    buckets.get(getSessionAgentKind(session))?.push(session)
+  }
+  return SESSION_AGENT_GROUP_ORDER.flatMap(kind => {
+    const groupSessions = buckets.get(kind) || []
+    if (groupSessions.length === 0) return []
+    return [{ kind, labelKey: SESSION_AGENT_GROUP_LABEL_KEYS[kind], sessions: groupSessions }]
+  })
 }
 
 export function formatTimestampMs(timestamp: number): string {

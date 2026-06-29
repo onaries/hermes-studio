@@ -28,6 +28,7 @@ import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { copyToClipboard } from "@/utils/clipboard";
 import { sortSessionsWithInProgressFirst } from "@/utils/session-sort";
+import { groupSessionsByAgent } from "@/shared/session-display";
 import {
   drawerButtonAnchorY,
   loadDrawerButtonPosition,
@@ -386,6 +387,8 @@ const unpinnedSessions = computed(() =>
     ),
   ),
 );
+
+const unpinnedSessionGroups = computed(() => groupSessionsByAgent(unpinnedSessions.value));
 
 watch(
   () => [
@@ -1502,27 +1505,33 @@ async function handleSessionModelCustomSubmit() {
           />
         </template>
 
-        <SessionListItem
-          v-for="s in unpinnedSessions"
-          :key="s.id"
-          :session="s"
-          :active="s.id === chatStore.activeSessionId"
-          :pinned="false"
-          :can-delete="
-            s.id !== chatStore.activeSessionId ||
-            chatStore.sessions.length > 1
-          "
-          :streaming="chatStore.isSessionLive(s.id)"
-          :pending-interaction="sessionPendingInteraction(s.id)"
-          :selectable="isBatchMode"
-          :selected="isSessionSelected(s)"
-          :show-profile="true"
-          :to="sessionHref(s.id)"
-          @select="handleSessionClick(s.id)"
-          @contextmenu="handleContextMenu($event, s.id)"
-          @delete="handleDeleteSession(s.id)"
-          @toggle-select="toggleSessionSelection(s)"
-        />
+        <template v-for="group in unpinnedSessionGroups" :key="group.kind">
+          <div class="session-group-header session-group-header--static">
+            <span class="session-group-label">{{ t(group.labelKey) }}</span>
+            <span class="session-group-count">{{ group.sessions.length }}</span>
+          </div>
+          <SessionListItem
+            v-for="s in group.sessions"
+            :key="s.id"
+            :session="s"
+            :active="s.id === chatStore.activeSessionId"
+            :pinned="false"
+            :can-delete="
+              s.id !== chatStore.activeSessionId ||
+              chatStore.sessions.length > 1
+            "
+            :streaming="chatStore.isSessionLive(s.id)"
+            :pending-interaction="sessionPendingInteraction(s.id)"
+            :selectable="isBatchMode"
+            :selected="isSessionSelected(s)"
+            :show-profile="true"
+            :to="sessionHref(s.id)"
+            @select="handleSessionClick(s.id)"
+            @contextmenu="handleContextMenu($event, s.id)"
+            @delete="handleDeleteSession(s.id)"
+            @toggle-select="toggleSessionSelection(s)"
+          />
+        </template>
       </div>
       <div v-if="showSessions" class="page-sidebar-bottom">
         <button class="page-sidebar-menu-btn" type="button" @click="openSettingsPage">

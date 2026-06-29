@@ -6,7 +6,7 @@ import type { Session } from '@/stores/hermes/chat'
 import { useAppStore } from '@/stores/hermes/app'
 import { useProfilesStore } from '@/stores/hermes/profiles'
 import ProfileAvatar from '@/components/hermes/profiles/ProfileAvatar.vue'
-import { formatTimestampMs } from '@/shared/session-display'
+import { formatTimestampMs, getSessionAgentLogo } from '@/shared/session-display'
 
 const props = withDefaults(defineProps<{
   session: Session
@@ -54,15 +54,7 @@ const pendingInteractionLabel = computed(() => {
   return ''
 })
 const isGlobalAgentSession = computed(() => props.session.source === 'global_agent')
-const sessionAgentLogo = computed(() => {
-  if (props.session.source === 'coding_agent') {
-    if (props.session.codingAgentId === 'codex' || props.session.agent === 'codex') {
-      return { label: 'Codex', src: '/coding-agents/codex-openai.png' }
-    }
-    return { label: 'Claude Code', src: '/coding-agents/claude-code.svg' }
-  }
-  return { label: 'Hermes', src: '/coding-agents/hermes.png' }
-})
+const sessionAgentLogo = computed(() => getSessionAgentLogo(props.session))
 
 let longPressTimer: ReturnType<typeof setTimeout> | null = null
 const longPressTriggered = ref(false)

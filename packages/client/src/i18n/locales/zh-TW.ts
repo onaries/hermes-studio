@@ -549,6 +549,11 @@ export default {
     searchFailed: '搜尋工作階段失敗',
     newChat: '新增對話',
     agent: 'Agent',
+    agentGroups: {
+      codex: 'Codex',
+      claudeCode: 'Claude Code',
+      hermes: 'Hermes',
+    },
     approvalKicker: '終端授權',
     approvalTitle: '執行前請確認命令',
     approvalAgree: '同意',

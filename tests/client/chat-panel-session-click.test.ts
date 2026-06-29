@@ -30,4 +30,14 @@ describe('ChatPanel session clicks', () => {
     expect(source).toContain('profile === activeProfileName')
     expect(source).toContain('selectedGroup?.models.includes(selectedModel)')
   })
+
+  it('groups unpinned sessions by agent while keeping the pinned group separate', () => {
+    const source = readFileSync('packages/client/src/components/hermes/chat/ChatPanel.vue', 'utf8')
+
+    expect(source).toContain('import { groupSessionsByAgent } from "@/shared/session-display"')
+    expect(source).toContain('const unpinnedSessionGroups = computed(() => groupSessionsByAgent(unpinnedSessions.value))')
+    expect(source).toContain('v-for="group in unpinnedSessionGroups"')
+    expect(source).toContain('t(group.labelKey)')
+    expect(source).toContain('t("chat.pinned")')
+  })
 })

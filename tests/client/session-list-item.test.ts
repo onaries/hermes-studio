@@ -18,9 +18,13 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
-vi.mock('@/shared/session-display', () => ({
-  formatTimestampMs: () => 'now',
-}))
+vi.mock('@/shared/session-display', async () => {
+  const actual = await vi.importActual<typeof import('@/shared/session-display')>('@/shared/session-display')
+  return {
+    ...actual,
+    formatTimestampMs: () => 'now',
+  }
+})
 
 vi.mock('naive-ui', () => ({
   NPopconfirm: defineComponent({

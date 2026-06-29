@@ -463,6 +463,11 @@ export default {
     searchFailed: 'Ошибка поиска сеансов',
     newChat: 'Новый диалог',
     agent: 'Agent',
+    agentGroups: {
+      codex: 'Codex',
+      claudeCode: 'Claude Code',
+      hermes: 'Hermes',
+    },
     approvalKicker: 'Авторизация в терминале',
     approvalTitle: 'Подтвердите команду перед выполнением',
     approvalAgree: 'Согласиться',

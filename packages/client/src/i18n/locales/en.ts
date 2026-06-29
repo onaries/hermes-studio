@@ -550,6 +550,11 @@ export default {
     searchFailed: 'Failed to search sessions',
     newChat: 'New Chat',
     agent: 'Agent',
+    agentGroups: {
+      codex: 'Codex',
+      claudeCode: 'Claude Code',
+      hermes: 'Hermes',
+    },
     approvalKicker: 'Terminal permission',
     approvalTitle: 'Review command before running',
     approvalAgree: 'Agree',

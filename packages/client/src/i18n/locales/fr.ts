@@ -509,6 +509,11 @@ export default {
     noSessions: 'Aucune session',
     newChat: 'Nouvelle discussion',
     agent: 'Agent',
+    agentGroups: {
+      codex: 'Codex',
+      claudeCode: 'Claude Code',
+      hermes: 'Hermes',
+    },
     approvalKicker: 'Permission terminal',
     approvalTitle: 'Vérifier la commande avant exécution',
     approvalAgree: 'Accepter',

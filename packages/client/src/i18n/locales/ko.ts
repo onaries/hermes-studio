@@ -509,6 +509,11 @@ export default {
     noSessions: '세션 없음',
     newChat: '새 채팅',
     agent: 'Agent',
+    agentGroups: {
+      codex: 'Codex',
+      claudeCode: 'Claude Code',
+      hermes: 'Hermes',
+    },
     approvalKicker: '터미널 권한',
     approvalTitle: '실행 전에 명령 확인',
     approvalAgree: '동의',

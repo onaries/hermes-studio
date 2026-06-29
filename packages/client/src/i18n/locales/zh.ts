@@ -550,6 +550,11 @@ export default {
     searchFailed: '搜索会话失败',
     newChat: '新建对话',
     agent: 'Agent',
+    agentGroups: {
+      codex: 'Codex',
+      claudeCode: 'Claude Code',
+      hermes: 'Hermes',
+    },
     approvalKicker: '终端授权',
     approvalTitle: '运行前请确认命令',
     approvalAgree: '同意',
