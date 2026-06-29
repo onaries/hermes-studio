@@ -414,9 +414,18 @@ function handleControl(msg: any) {
   switch (msg.type) {
     case "created": {
       reconnectAttempts = 0;
-      const context = pendingCreateContexts.shift() || {
-        chatSessionId: typeof msg.chatSessionId === 'string' && msg.chatSessionId ? msg.chatSessionId : activeChatSessionId.value,
-        cwd: typeof msg.cwd === 'string' ? msg.cwd : activeWorkspaceRoot.value,
+      const pendingContext = pendingCreateContexts.shift();
+      const serverChatSessionId = typeof msg.chatSessionId === 'string' && msg.chatSessionId ? msg.chatSessionId : '';
+      const workspaceRoot = activeWorkspaceRoot.value;
+      const serverCwd = typeof msg.cwd === 'string' ? msg.cwd : '';
+      if (!pendingContext && !serverChatSessionId && workspaceRoot && serverCwd && serverCwd !== workspaceRoot) {
+        send({ type: "close", sessionId: msg.id });
+        createSessionForChat(activeChatSessionId.value, workspaceRoot);
+        break;
+      }
+      const context = pendingContext || {
+        chatSessionId: serverChatSessionId || activeChatSessionId.value,
+        cwd: typeof msg.cwd === 'string' ? msg.cwd : workspaceRoot,
       };
       const chatSessionCount = sessions.value.filter((session) => session.chatSessionId === context.chatSessionId).length;
       sessions.value.push({

@@ -349,6 +349,27 @@ describe('TerminalPanel mobile shortcuts visibility', () => {
     expect(source).toContain('watch(activeChatSessionId')
   })
 
+  it('replaces the server auto-created default terminal with one rooted at the active workspace', async () => {
+    const wrapper = mountPanel(true)
+    const socket = websocketInstances[0]
+
+    socket.onopen?.()
+    socket.onmessage?.({ data: JSON.stringify({ type: 'created', id: 'auto-term', shell: 'zsh', pid: 123, cwd: '/Users/safemotion/.hermes' }) })
+    await wrapper.vm.$nextTick()
+
+    const sentPayloads = socket.send.mock.calls
+      .map(([payload]) => payload)
+      .filter((payload): payload is string => typeof payload === 'string')
+      .map(payload => JSON.parse(payload))
+    expect(sentPayloads).toContainEqual({ type: 'close', sessionId: 'auto-term' })
+    expect(sentPayloads).toContainEqual({
+      type: 'create',
+      cwd: '/workspace-one',
+      chatSessionId: 'chat-1',
+    })
+    expect(wrapper.find('.session-tab').exists()).toBe(false)
+  })
+
   it('sends the active session workspace when creating a drawer terminal', async () => {
     const wrapper = mountPanel(true)
     const socket = websocketInstances[0]
