@@ -2401,6 +2401,7 @@ export default {
     scrollToTop: '回到頂部',
     hideList: '收合產出檔案列表',
     showList: '顯示產出檔案列表',
+    openInArtifacts: '在產出檔案中開啟',
     download: '下載',
     remove: '移除產出檔案',
     emptyTitle: '尚無產出檔案',

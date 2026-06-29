@@ -2179,6 +2179,7 @@ export default {
     scrollToTop: '맨 위로',
     hideList: '아티팩트 목록 접기',
     showList: '아티팩트 목록 펼치기',
+    openInArtifacts: '아티팩트에서 열기',
     download: '다운로드',
     remove: '아티팩트 제거',
     emptyTitle: '아직 아티팩트가 없습니다',

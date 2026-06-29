@@ -2180,6 +2180,7 @@ export default {
     scrollToTop: '先頭へ',
     hideList: 'アーティファクト一覧を隠す',
     showList: 'アーティファクト一覧を表示',
+    openInArtifacts: 'アーティファクトで開く',
     download: 'ダウンロード',
     remove: '成果物を削除',
     emptyTitle: '成果物はまだありません',

@@ -15,7 +15,6 @@ import {
   decodeMermaidSource,
   isMermaidFence,
   renderMermaidPlaceholder,
-  SUPPORT_PREVIEW_FILE_TYPES,
 } from './mermaidRenderer'
 import { downloadFile, getDownloadUrl } from '@/api/hermes/download'
 import { useArtifactsStore } from '@/stores/hermes/artifacts'
@@ -236,17 +235,16 @@ const renderedHtml = computed(() => {
     }
 
     // Other files: render as file card
-    return `<div class="markdown-file-card" data-path="${path}" data-filename="${fileName}" title="${t('download.downloadFile')}">
+    return `<div class="markdown-file-card" data-path="${path}" data-filename="${fileName}" title="${t('artifacts.openInArtifacts')}">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
         <polyline points="14 2 14 8 20 8" />
       </svg>
       <span class="att-name">${fileName}</span>
-      <button class="att-download-btn" type="button" title="${t('download.downloadFile')}" aria-label="${t('download.downloadFile')}">
+      <button class="att-download-btn" type="button" title="${t('artifacts.openInArtifacts')}" aria-label="${t('artifacts.openInArtifacts')}">
         <svg class="att-download-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="7 10 12 15 17 10" />
-          <line x1="12" y1="15" x2="12" y2="3" />
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
         </svg>
       </button>
     </div>`
@@ -484,7 +482,7 @@ async function handleMarkdownClick(event: MouseEvent): Promise<void> {
     return
   }
 
-  // Handle file card clicks for download
+  // Handle file card clicks for artifacts
   const fileCard = target.closest('.markdown-file-card') as HTMLElement | null
   if (fileCard) {
     event.preventDefault()
@@ -492,21 +490,11 @@ async function handleMarkdownClick(event: MouseEvent): Promise<void> {
     const path = fileCard.getAttribute('data-path')
     const fileName = fileCard.getAttribute('data-filename') || undefined
 
-    const isDownloadBtn = target.closest('.att-download-btn')
-
-    if (isDownloadBtn && path) { // Only download file with download icon clicked.
-      message.info(t('download.downloading'))
-      downloadFile(path, fileName).catch((err: Error) => {
-        message.error(err.message || t('download.downloadFailed'))
-      })
-      return
-    }
-
     if (path) {
-      const ext = fileName?.split('.').pop()?.toLowerCase()
-      if (props.artifactLinksEnabled && SUPPORT_PREVIEW_FILE_TYPES.includes(ext || '')) {
+      if (props.artifactLinksEnabled) {
         previewTextFile(path, fileName || '')
-      } else { // Download file immediately
+      } else {
+        message.info(t('download.downloading'))
         downloadFile(path, fileName).catch((err: Error) => {
           message.error(err.message || t('download.downloadFailed'))
         })

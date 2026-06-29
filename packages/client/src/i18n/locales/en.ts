@@ -2408,6 +2408,7 @@ export default {
     scrollToTop: 'Top',
     hideList: 'Hide artifact list',
     showList: 'Show artifact list',
+    openInArtifacts: 'Open in artifacts',
     download: 'Download',
     remove: 'Remove artifact',
     emptyTitle: 'No artifacts yet',

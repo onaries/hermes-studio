@@ -2410,6 +2410,7 @@ export default {
     scrollToTop: '回到顶部',
     hideList: '收起产出文件列表',
     showList: '显示产出文件列表',
+    openInArtifacts: '在产出文件中打开',
     download: '下载',
     remove: '移除产出文件',
     emptyTitle: '暂无产出文件',

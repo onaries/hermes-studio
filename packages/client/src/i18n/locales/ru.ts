@@ -2146,6 +2146,7 @@ export default {
     scrollToTop: 'Наверх',
     hideList: 'Скрыть список артефактов',
     showList: 'Показать список артефактов',
+    openInArtifacts: 'Открыть в артефактах',
     download: 'Скачать',
     remove: 'Удалить артефакт',
     emptyTitle: 'Пока нет артефактов',
