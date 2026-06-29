@@ -665,6 +665,24 @@ describe('coding agent run state', () => {
         total_tokens: 8819376,
       },
     }))
+    run.currentChild = { exitCode: null, signalCode: null, killed: false }
+    ;(manager as any).handleClaudePrintResponseEvent(run, {
+      type: 'response.completed',
+      data: {
+        response: {
+          id: 'resp_codex_token_count',
+          status: 'completed',
+          model: 'gpt-5-codex',
+          output: [],
+          usage: {
+            input_tokens: 8787567,
+            output_tokens: 31809,
+            total_tokens: 8819376,
+          },
+        },
+      },
+    })
+    run.currentChild = undefined
     ;(manager as any).completeCodexExecTurn(run, run.codexPendingUsage)
 
     expect(state.inputTokens).toBe(187640)

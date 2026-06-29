@@ -741,7 +741,7 @@ export class CodingAgentRunManager {
       childIsRunning(run.currentChild)
     ) {
       const final = (storageSafeResponseEvent.data as any).response || storageSafeResponseEvent.data
-      run.codexPendingUsage = final?.usage ?? run.codexPendingUsage
+      run.codexPendingUsage = preferCodexUsage(run.codexPendingUsage, final?.usage)
       return
     }
     if (isTerminalEvent) {
@@ -766,7 +766,11 @@ export class CodingAgentRunManager {
       updateSessionStats(run.launch.sessionId)
       const final = (storageSafeResponseEvent.data as any).response || storageSafeResponseEvent.data
       const finalText = extractResponseText(final)
-      const normalizedUsage = normalizeCodingAgentUsage(final?.usage)
+      const usageForCompletion = run.launch.agentId === 'codex'
+        ? preferCodexUsage(run.codexPendingUsage, final?.usage)
+        : final?.usage
+      if (run.launch.agentId === 'codex') run.codexPendingUsage = usageForCompletion
+      const normalizedUsage = normalizeCodingAgentUsage(usageForCompletion)
       if (normalizedUsage) {
         run.state.inputTokens = normalizedUsage.inputTokens
         run.state.outputTokens = normalizedUsage.outputTokens
