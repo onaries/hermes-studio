@@ -69,4 +69,21 @@ describe('artifacts store', () => {
     expect(store.selectedArtifact?.content).toBe('# Chat report')
     expect(store.openSequence).toBe(1)
   })
+
+  it('scopes opened chat artifacts to the active session when switching sessions', async () => {
+    vi.mocked(fetchFileText).mockResolvedValue('# Session 1 report')
+    const store = useArtifactsStore()
+
+    store.syncChatFileArtifacts('session-1', [{ path: '/tmp/report.md', name: 'report.md' }])
+    await store.openFileArtifact({ path: '/tmp/report.md', name: 'report.md' })
+
+    expect(store.selectedArtifact?.sourceSessionId).toBe('session-1')
+    expect(store.artifacts.map(item => item.name)).toEqual(['report.md'])
+
+    store.syncChatFileArtifacts('session-2', [{ path: '/tmp/summary.md', name: 'summary.md' }])
+
+    expect(store.artifacts.map(item => item.name)).toEqual(['summary.md'])
+    expect(store.selectedArtifact?.name).toBe('summary.md')
+    expect(store.selectedArtifact?.sourceSessionId).toBe('session-2')
+  })
 })

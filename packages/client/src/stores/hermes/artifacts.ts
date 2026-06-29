@@ -78,6 +78,7 @@ export const useArtifactsStore = defineStore('artifacts', () => {
   const artifacts = ref<ArtifactItem[]>([])
   const selectedArtifactId = ref<string | null>(null)
   const openSequence = ref(0)
+  const currentChatSessionId = ref<string | null>(null)
   const dismissedChatArtifactIds = new Set<string>()
 
   const selectedArtifact = computed(() => artifacts.value.find(item => item.id === selectedArtifactId.value) || null)
@@ -144,8 +145,9 @@ export const useArtifactsStore = defineStore('artifacts', () => {
   }
 
   function syncChatFileArtifacts(sessionId: string | null | undefined, files: ArtifactFileReference[]): void {
+    currentChatSessionId.value = sessionId || null
     if (!sessionId) {
-      artifacts.value = artifacts.value.filter(item => item.source !== 'chat')
+      artifacts.value = artifacts.value.filter(item => item.source !== 'chat' && !item.sourceSessionId)
       if (selectedArtifactId.value && !artifacts.value.some(item => item.id === selectedArtifactId.value)) {
         selectedArtifactId.value = artifacts.value[0]?.id || null
       }
@@ -160,7 +162,9 @@ export const useArtifactsStore = defineStore('artifacts', () => {
       seen.add(item.id)
       return [item]
     })
-    const manualItems = artifacts.value.filter(item => item.source !== 'chat')
+    const manualItems = artifacts.value.filter(item =>
+      item.source !== 'chat' && (!item.sourceSessionId || item.sourceSessionId === sessionId),
+    )
     artifacts.value = [...chatItems, ...manualItems].slice(0, 20)
 
     if (selectedArtifactId.value && artifacts.value.some(item => item.id === selectedArtifactId.value)) return
@@ -187,8 +191,12 @@ export const useArtifactsStore = defineStore('artifacts', () => {
     }
   }
 
-  async function openFileArtifact(options: { path: string; name?: string }): Promise<ArtifactItem> {
-    const item = createFileArtifact({ ...options, source: 'manual' })
+  async function openFileArtifact(options: { path: string; name?: string; sourceSessionId?: string }): Promise<ArtifactItem> {
+    const item = createFileArtifact({
+      ...options,
+      source: 'manual',
+      sourceSessionId: options.sourceSessionId ?? currentChatSessionId.value ?? undefined,
+    })
     upsertArtifact(item)
     return await ensureArtifactContent(item.id) || item
   }
