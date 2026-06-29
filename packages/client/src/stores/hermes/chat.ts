@@ -1184,8 +1184,14 @@ export const useChatStore = defineStore('chat', () => {
           existing.updatedAt = fresh.updatedAt
           existing.lastActiveAt = fresh.lastActiveAt
           existing.endedAt = fresh.endedAt
+          existing.agent = fresh.agent
+          existing.agentSessionId = fresh.agentSessionId
+          existing.agentNativeSessionId = fresh.agentNativeSessionId
+          existing.codingAgentId = fresh.codingAgentId
+          existing.codingAgentMode = fresh.codingAgentMode
           existing.model = fresh.model
           existing.provider = fresh.provider
+          existing.apiMode = fresh.apiMode
           existing.messageCount = fresh.messageCount
           existing.inputTokens = fresh.inputTokens
           existing.outputTokens = fresh.outputTokens

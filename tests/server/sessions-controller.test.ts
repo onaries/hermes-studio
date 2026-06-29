@@ -21,6 +21,7 @@ const localCreateSessionMock = vi.fn()
 const localUpdateSessionMock = vi.fn()
 const localAddMessagesMock = vi.fn()
 const localUpdateSessionStatsMock = vi.fn()
+const localGetSessionDetailPaginatedMock = vi.fn()
 const getGroupChatServerMock = vi.fn()
 const getLocalUsageStatsMock = vi.fn()
 const getActiveProfileNameMock = vi.fn()
@@ -80,6 +81,7 @@ vi.mock('../../packages/server/src/db/hermes/session-store', () => ({
   getSession: getSessionMock,
   updateSession: localUpdateSessionMock,
   updateSessionStats: localUpdateSessionStatsMock,
+  getSessionDetailPaginated: localGetSessionDetailPaginatedMock,
 }))
 
 vi.mock('../../packages/server/src/db/hermes/users-store', () => ({
@@ -163,6 +165,7 @@ describe('session conversations controller', () => {
     localUpdateSessionMock.mockReset()
     localAddMessagesMock.mockReset()
     localUpdateSessionStatsMock.mockReset()
+    localGetSessionDetailPaginatedMock.mockReset()
     getGroupChatServerMock.mockReset()
     getGroupChatServerMock.mockReturnValue(null)
     getLocalUsageStatsMock.mockReset()
@@ -184,7 +187,13 @@ describe('session conversations controller', () => {
     localListSessionsMock.mockReturnValue([{
       id: 'local-conversation',
       source: 'cli',
+      agent: 'codex',
+      agent_mode: 'scoped',
+      agent_session_id: 'agent-session-1',
+      agent_native_session_id: 'native-session-1',
       model: 'gpt-5',
+      provider: 'openai',
+      api_mode: 'codex_responses',
       title: 'Local',
       started_at: 1,
       ended_at: null,
@@ -210,7 +219,62 @@ describe('session conversations controller', () => {
 
     expect(localListSessionsMock).toHaveBeenCalledWith(undefined, undefined, 5)
     expect(listConversationSummariesMock).not.toHaveBeenCalled()
-    expect(ctx.body.sessions[0]).toMatchObject({ id: 'local-conversation', source: 'cli', title: 'Local' })
+    expect(ctx.body.sessions[0]).toMatchObject({
+      id: 'local-conversation',
+      source: 'cli',
+      title: 'Local',
+      agent: 'codex',
+      agent_mode: 'scoped',
+      provider: 'openai',
+      api_mode: 'codex_responses',
+    })
+  })
+
+  it('keeps coding-agent model protocol in paginated conversation session summaries', async () => {
+    localGetSessionDetailPaginatedMock.mockReturnValue({
+      session: {
+        id: 'codex-session',
+        profile: 'default',
+        source: 'coding_agent',
+        agent: 'codex',
+        agent_mode: 'scoped',
+        agent_session_id: 'agent-session-1',
+        agent_native_session_id: 'native-session-1',
+        model: 'gpt-5.5',
+        provider: 'openai',
+        api_mode: 'codex_responses',
+        title: 'Codex scoped',
+        started_at: 1,
+        ended_at: null,
+        last_active: 2,
+        message_count: 1,
+        input_tokens: 3,
+        output_tokens: 4,
+        workspace: '/tmp/workspace',
+      },
+      messages: [],
+      total: 1,
+      offset: 0,
+      limit: 150,
+      hasMore: false,
+    })
+
+    const mod = await import('../../packages/server/src/controllers/hermes/sessions')
+    const ctx: any = { params: { id: 'codex-session' }, query: {}, body: null }
+    await mod.getConversationMessagesPaginated(ctx)
+
+    expect(ctx.body.session).toMatchObject({
+      id: 'codex-session',
+      source: 'coding_agent',
+      agent: 'codex',
+      agent_mode: 'scoped',
+      agent_session_id: 'agent-session-1',
+      agent_native_session_id: 'native-session-1',
+      model: 'gpt-5.5',
+      provider: 'openai',
+      api_mode: 'codex_responses',
+      workspace: '/tmp/workspace',
+    })
   })
 
   it('returns clean session context without tool calls or tool results', async () => {
