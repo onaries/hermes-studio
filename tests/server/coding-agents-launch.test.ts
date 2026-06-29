@@ -138,6 +138,28 @@ describe('coding agent launch preparation', () => {
     })
   })
 
+  it('reads the displayed model for global Codex sessions from the Codex config', async () => {
+    const home = makeHome()
+    const configPath = join(home, 'global-home', '.codex', 'config.toml')
+    mkdirSync(dirname(configPath), { recursive: true })
+    writeFileSync(configPath, [
+      'model_context_window = 250000',
+      'model = "gpt-5.5"',
+      '',
+      '[profiles.api]',
+      'model = "gpt-5-codex"',
+    ].join('\n'))
+
+    const result = await prepareCodingAgentLaunch('codex', {
+      mode: 'global',
+      profile: 'default',
+    })
+
+    expect(result.provider).toBe('global')
+    expect(result.model).toBe('gpt-5.5')
+    expect(result.args).toEqual([])
+  })
+
   it('preserves existing global Claude Code prompt files while updating the Hermes block', async () => {
     const home = makeHome()
     const claudePromptPath = join(home, 'global-home', '.claude', 'hermes-rules.md')

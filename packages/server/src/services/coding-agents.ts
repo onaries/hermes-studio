@@ -219,6 +219,36 @@ function getGlobalConfigHome() {
   return process.env.HERMES_CODING_AGENT_GLOBAL_HOME?.trim() || homedir()
 }
 
+function unquoteTomlString(value: string): string {
+  const trimmed = value.trim()
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    return trimmed.slice(1, -1).trim()
+  }
+  return trimmed
+}
+
+function parseTopLevelTomlString(content: string, key: string): string {
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const pattern = new RegExp(`^\\s*${escapedKey}\\s*=\\s*([^#\\r\\n]+)`, 'm')
+  const sectionIndex = content.search(/^\s*\[/m)
+  const topLevelContent = sectionIndex >= 0 ? content.slice(0, sectionIndex) : content
+  const match = topLevelContent.match(pattern)
+  return match ? unquoteTomlString(match[1]) : ''
+}
+
+async function resolveGlobalCodingAgentModel(id: CodingAgentId): Promise<string> {
+  if (id === 'codex') {
+    const configPath = join(getGlobalConfigHome(), '.codex', 'config.toml')
+    try {
+      const content = await readFile(configPath, 'utf-8')
+      return parseTopLevelTomlString(content, 'model')
+    } catch {
+      return ''
+    }
+  }
+  return ''
+}
+
 function compareNodeVersionDesc(left: string, right: string): number {
   const leftParts = left.replace(/^v/, '').split('.').map(part => Number.parseInt(part, 10) || 0)
   const rightParts = right.replace(/^v/, '').split('.').map(part => Number.parseInt(part, 10) || 0)
@@ -1518,6 +1548,7 @@ export async function prepareCodingAgentLaunch(id: string, input: CodingAgentLau
     await mkdir(workspaceDir, { recursive: true })
     const files = await ensureGlobalCodingAgentPromptFile(tool.id)
     const promptFile = files.find(file => file.key === 'prompt')?.absolutePath || ''
+    const globalModel = await resolveGlobalCodingAgentModel(tool.id)
     const args = tool.id === 'claude-code'
       ? [
           ...(promptFile ? ['--append-system-prompt-file', promptFile] : []),
@@ -1535,7 +1566,7 @@ export async function prepareCodingAgentLaunch(id: string, input: CodingAgentLau
       mode,
       profile: scope.profile,
       provider: scope.provider,
-      model: '',
+      model: globalModel,
       rootDir: workspaceDir,
       workspaceDir,
       command: tool.command,
