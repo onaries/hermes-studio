@@ -398,6 +398,7 @@ export default {
   // 抽屉
   drawer: {
     terminal: '终端',
+    gitDiff: 'Git Diff',
     artifacts: '产出文件',
     resize: '调整抽屉大小',
     open: '打开抽屉',
@@ -417,6 +418,33 @@ export default {
   },
 
   // 对话
+  gitDiff: {
+    title: 'Git Diff',
+    kicker: '审阅',
+    refresh: '刷新',
+    noWorkspace: '未选择工作区',
+    noWorkspaceHint: '选择会话工作区后可查看仓库变更。',
+    notRepo: '工作区不是 Git 仓库',
+    noChanges: '无变更',
+    noChangesHint: '工作区是干净的。',
+    changedFiles: '变更文件',
+    allChanges: '全部变更',
+    fileCount: '{count} 个文件',
+    loadFailed: '无法加载 Git diff',
+    diffUnavailable: '无法显示 Diff',
+    diffUnavailableHint: '该文件可能是二进制、过大，或当前选择没有可显示的变更。',
+    hiddenLines: '已隐藏 {count} 行未变更内容',
+    status: {
+      modified: '已修改',
+      added: '已添加',
+      deleted: '已删除',
+      renamed: '已重命名',
+      copied: '已复制',
+      untracked: '未跟踪',
+      unknown: '已变更',
+    },
+  },
+
   chat: {
     contextRemaining: '剩余',
     liveTps: 'TPS',

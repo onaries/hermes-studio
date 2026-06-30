@@ -57,7 +57,7 @@ const message = useMessage();
 const { t } = useI18n();
 
 const showDrawer = ref(false);
-const drawerActiveTab = ref<"terminal" | "files" | "artifacts">("files");
+const drawerActiveTab = ref<"terminal" | "files" | "artifacts" | "gitDiff">("files");
 const chatPanelRef = ref<HTMLElement | null>(null);
 const drawerButtonPosition = ref<DrawerButtonPosition>(
   loadDrawerButtonPosition(typeof window !== "undefined" ? window.localStorage : null),

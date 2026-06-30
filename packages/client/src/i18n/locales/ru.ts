@@ -325,6 +325,7 @@ export default {
 
   drawer: {
     terminal: 'Терминал',
+    gitDiff: 'Git Diff',
     artifacts: 'Артефакты',
     resize: 'Изменить размер панели',
     open: 'Открыть панель',
@@ -343,6 +344,33 @@ export default {
     },
   },
 
+
+  gitDiff: {
+    title: 'Git Diff',
+    kicker: 'Review',
+    refresh: 'Refresh',
+    noWorkspace: 'No workspace selected',
+    noWorkspaceHint: 'Choose a session workspace to review repository changes.',
+    notRepo: 'Workspace is not a Git repository',
+    noChanges: 'No changes',
+    noChangesHint: 'Working tree is clean.',
+    changedFiles: 'Changed files',
+    allChanges: 'All changes',
+    fileCount: '{count} files',
+    loadFailed: 'Failed to load Git diff',
+    diffUnavailable: 'Diff unavailable',
+    diffUnavailableHint: 'This file may be binary, too large, or unchanged in the current selection.',
+    hiddenLines: '{count} unchanged lines hidden',
+    status: {
+      modified: 'Modified',
+      added: 'Added',
+      deleted: 'Deleted',
+      renamed: 'Renamed',
+      copied: 'Copied',
+      untracked: 'Untracked',
+      unknown: 'Changed',
+    },
+  },
 
   chat: {
     contextRemaining: 'Осталось',

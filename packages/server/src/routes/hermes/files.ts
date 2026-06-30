@@ -1,6 +1,10 @@
 import Router from '@koa/router'
+import { execFile } from 'child_process'
+import { existsSync } from 'fs'
+import { readFile } from 'fs/promises'
 import { homedir } from 'os'
-import { resolve, normalize, isAbsolute } from 'path'
+import { resolve, normalize, isAbsolute, relative, sep } from 'path'
+import { promisify } from 'util'
 import { isPathWithin } from '../../services/hermes/hermes-path'
 import {
   createFileProvider,
@@ -40,6 +44,158 @@ function withAbsolutePath<T extends { path: string }>(ctx: any, entry: T): T & {
 }
 
 export const fileRoutes = new Router()
+
+const execFileAsync = promisify(execFile)
+const MAX_GIT_DIFF_BYTES = 512 * 1024
+const MAX_SYNTHETIC_UNTRACKED_BYTES = 96 * 1024
+const MAX_UNTRACKED_FILES = 25
+
+interface GitStatusEntry {
+  path: string
+  oldPath?: string
+  status: 'modified' | 'added' | 'deleted' | 'renamed' | 'copied' | 'untracked' | 'unknown'
+  staged: boolean
+  unstaged: boolean
+  additions?: number
+  deletions?: number
+}
+
+function ensureRepoRelativePath(value: string): string {
+  const normalized = value.replace(/\\/g, '/')
+  if (!normalized || normalized.startsWith('/') || normalized.includes('\0')) {
+    throw Object.assign(new Error('Invalid git path'), { code: 'invalid_path' })
+  }
+  const parts = normalized.split('/').filter(Boolean)
+  if (parts.some(part => part === '..')) {
+    throw Object.assign(new Error('Invalid git path'), { code: 'invalid_path' })
+  }
+  return parts.join('/')
+}
+
+function normalizeGitPath(value: string): string {
+  return value.replace(/\\/g, '/')
+}
+
+function mapGitStatus(code: string): GitStatusEntry['status'] {
+  if (code === '??') return 'untracked'
+  const marker = code.includes('R') ? 'R' : code.includes('C') ? 'C' : code.includes('A') ? 'A' : code.includes('D') ? 'D' : code.includes('M') ? 'M' : code.includes('T') ? 'M' : ''
+  if (marker === 'R') return 'renamed'
+  if (marker === 'C') return 'copied'
+  if (marker === 'A') return 'added'
+  if (marker === 'D') return 'deleted'
+  if (marker === 'M') return 'modified'
+  return 'unknown'
+}
+
+function parseGitStatusPorcelain(raw: string): GitStatusEntry[] {
+  const parts = raw.split('\0').filter(Boolean)
+  const entries: GitStatusEntry[] = []
+  for (let i = 0; i < parts.length; i += 1) {
+    const record = parts[i]
+    const code = record.slice(0, 2)
+    let path = normalizeGitPath(record.slice(3))
+    let oldPath: string | undefined
+    if ((code.includes('R') || code.includes('C')) && i + 1 < parts.length) {
+      oldPath = path
+      i += 1
+      path = normalizeGitPath(parts[i])
+    }
+    entries.push({
+      path,
+      oldPath,
+      status: mapGitStatus(code),
+      staged: code[0] !== ' ' && code[0] !== '?',
+      unstaged: code[1] !== ' ' || code === '??',
+    })
+  }
+  return entries
+}
+
+function parseGitNumstat(raw: string): Map<string, { additions: number; deletions: number }> {
+  const stats = new Map<string, { additions: number; deletions: number }>()
+  for (const line of raw.split('\n')) {
+    if (!line.trim()) continue
+    const parts = line.split('\t')
+    if (parts.length < 3) continue
+    const additions = Number(parts[0])
+    const deletions = Number(parts[1])
+    const path = normalizeGitPath(parts.at(-1) || '')
+    if (!path) continue
+    stats.set(path, {
+      additions: Number.isFinite(additions) ? additions : 0,
+      deletions: Number.isFinite(deletions) ? deletions : 0,
+    })
+  }
+  return stats
+}
+
+async function runGit(cwd: string, args: string[], maxBuffer = MAX_GIT_DIFF_BYTES): Promise<string> {
+  const { stdout } = await execFileAsync('git', ['-C', cwd, ...args], {
+    encoding: 'utf8',
+    maxBuffer,
+    timeout: 10000,
+  })
+  return stdout as string
+}
+
+async function tryRunGit(cwd: string, args: string[], maxBuffer = MAX_GIT_DIFF_BYTES): Promise<string> {
+  try {
+    return await runGit(cwd, args, maxBuffer)
+  } catch (error: any) {
+    if (error?.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') {
+      throw Object.assign(new Error('Git diff is too large to display'), { code: 'file_too_large' })
+    }
+    throw error
+  }
+}
+
+async function resolveGitRoot(workspace: string): Promise<string | null> {
+  try {
+    return (await runGit(workspace, ['rev-parse', '--show-toplevel'], 64 * 1024)).trim()
+  } catch {
+    return null
+  }
+}
+
+async function synthesizeUntrackedDiff(repoRoot: string, entries: GitStatusEntry[], selectedPath?: string): Promise<string> {
+  const candidates = entries
+    .filter(entry => entry.status === 'untracked')
+    .filter(entry => !selectedPath || entry.path === selectedPath)
+    .slice(0, MAX_UNTRACKED_FILES)
+  const chunks: string[] = []
+  for (const entry of candidates) {
+    const absPath = resolve(repoRoot, entry.path)
+    const rel = relative(repoRoot, absPath)
+    if (!rel || rel.startsWith('..') || rel.split(sep).includes('..') || !existsSync(absPath)) continue
+    let data: Buffer
+    try {
+      data = await readFile(absPath)
+    } catch {
+      continue
+    }
+    if (data.includes(0)) {
+      chunks.push(`diff --git a/${entry.path} b/${entry.path}\nnew file mode 100644\nBinary files /dev/null and b/${entry.path} differ\n`)
+      continue
+    }
+    const content = data.toString('utf8')
+    if (Buffer.byteLength(content, 'utf8') > MAX_SYNTHETIC_UNTRACKED_BYTES) {
+      chunks.push(`diff --git a/${entry.path} b/${entry.path}\nnew file mode 100644\n--- /dev/null\n+++ b/${entry.path}\n@@ -0,0 +1 @@\n+[diff omitted: file too large]\n`)
+      continue
+    }
+    const lines = content.split(/\r?\n/)
+    if (lines.at(-1) === '') lines.pop()
+    chunks.push([
+      `diff --git a/${entry.path} b/${entry.path}`,
+      'new file mode 100644',
+      '--- /dev/null',
+      `+++ b/${entry.path}`,
+      `@@ -0,0 +1,${Math.max(lines.length, 1)} @@`,
+      ...(lines.length ? lines.map(line => `+${line}`) : ['+']),
+      '\\ No newline at end of file',
+    ].join('\n'))
+  }
+  return chunks.join('\n')
+}
 
 function handleError(ctx: any, err: any) {
   const code = err.code || 'unknown'
@@ -97,6 +253,66 @@ fileRoutes.get('/api/hermes/files/stat', async (ctx) => {
     const provider = await createRequestFileProvider(ctx)
     const info = await provider.stat(absPath)
     ctx.body = withAbsolutePath(ctx, info)
+  } catch (err: any) {
+    handleError(ctx, err)
+  }
+})
+
+// GET /api/hermes/files/git-diff?workspace=&path=
+fileRoutes.get('/api/hermes/files/git-diff', requireSuperAdmin, async (ctx) => {
+  const workspace = ctx.query.workspace as string
+  if (!workspace) {
+    ctx.status = 400
+    ctx.body = { error: 'Missing workspace parameter', code: 'missing_path' }
+    return
+  }
+
+  try {
+    const selectedPath = ctx.query.path ? ensureRepoRelativePath(ctx.query.path as string) : undefined
+    const absWorkspace = resolveRequestPath(ctx, workspace)
+    const repoRoot = await resolveGitRoot(absWorkspace)
+    if (!repoRoot) {
+      ctx.body = { isRepo: false, workspace: absWorkspace, files: [], diff: '' }
+      return
+    }
+
+    const [branch, upstream, statusRaw, numstatRaw, trackedDiff] = await Promise.all([
+      runGit(repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD'], 64 * 1024).then(value => value.trim()).catch(() => ''),
+      runGit(repoRoot, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'], 64 * 1024).then(value => value.trim()).catch(() => ''),
+      tryRunGit(repoRoot, ['status', '--porcelain=v1', '-z'], MAX_GIT_DIFF_BYTES),
+      tryRunGit(repoRoot, ['diff', '--numstat', 'HEAD', '--', ...(selectedPath ? [selectedPath] : [])], MAX_GIT_DIFF_BYTES).catch(() => ''),
+      tryRunGit(repoRoot, ['diff', '--no-color', '--no-ext-diff', '--unified=80', 'HEAD', '--', ...(selectedPath ? [selectedPath] : [])], MAX_GIT_DIFF_BYTES).catch((error) => {
+        if (error?.code === 'file_too_large') throw error
+        return ''
+      }),
+    ])
+
+    const files = parseGitStatusPorcelain(statusRaw)
+    const statMap = parseGitNumstat(numstatRaw)
+    for (const file of files) {
+      const stats = statMap.get(file.path)
+      if (stats) {
+        file.additions = stats.additions
+        file.deletions = stats.deletions
+      } else if (file.status === 'untracked') {
+        file.additions = file.additions ?? 0
+        file.deletions = file.deletions ?? 0
+      }
+    }
+    const syntheticUntrackedDiff = await synthesizeUntrackedDiff(repoRoot, files, selectedPath)
+    const diff = [trackedDiff.trimEnd(), syntheticUntrackedDiff.trimEnd()].filter(Boolean).join('\n')
+
+    ctx.body = {
+      isRepo: true,
+      workspace: absWorkspace,
+      root: repoRoot,
+      branch,
+      upstream,
+      selectedPath,
+      files,
+      diff,
+      truncated: false,
+    }
   } catch (err: any) {
     handleError(ctx, err)
   }

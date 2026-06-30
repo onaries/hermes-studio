@@ -21,6 +21,10 @@ vi.mock('@/components/hermes/chat/ArtifactsPanel.vue', () => ({
   default: { template: '<div class="artifacts-panel-stub" />' },
 }))
 
+vi.mock('@/components/hermes/chat/GitDiffPanel.vue', () => ({
+  default: { props: ['visible'], template: '<div class="git-diff-panel-stub" />' },
+}))
+
 import DrawerPanel from '@/components/hermes/chat/DrawerPanel.vue'
 
 const panelStubs = {
@@ -99,6 +103,17 @@ describe('DrawerPanel resize', () => {
     await nextTick()
     expect(drawerPanel().getAttribute('style')).toContain('--drawer-width: 420px')
     expect(localStorage.getItem('hermes_drawer_width')).toBe('420')
+  })
+
+  it('switches to the Git Diff drawer tab', async () => {
+    mountDrawer()
+    const gitDiffTab = Array.from(document.body.querySelectorAll<HTMLButtonElement>('.tab-button'))
+      .find(button => button.textContent?.trim() === 'drawer.gitDiff')
+    expect(gitDiffTab).toBeTruthy()
+
+    gitDiffTab!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await nextTick()
+    expect(document.body.querySelector('.git-diff-panel-stub')).not.toBeNull()
   })
 
   it('renders as an inline pinned panel without an overlay on desktop', async () => {

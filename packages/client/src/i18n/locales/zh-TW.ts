@@ -398,6 +398,7 @@ export default {
   // 抽屜
   drawer: {
     terminal: '終端機',
+    gitDiff: 'Git Diff',
     artifacts: '產出檔案',
     resize: '調整抽屜大小',
     open: '開啟抽屜',
@@ -417,6 +418,33 @@ export default {
   },
 
   // 對話
+  gitDiff: {
+    title: 'Git Diff',
+    kicker: '審閱',
+    refresh: '重新整理',
+    noWorkspace: '尚未選擇工作區',
+    noWorkspaceHint: '選擇工作區後即可查看儲存庫變更。',
+    notRepo: '工作區不是 Git 儲存庫',
+    noChanges: '沒有變更',
+    noChangesHint: '工作樹是乾淨的。',
+    changedFiles: '變更檔案',
+    allChanges: '全部變更',
+    fileCount: '{count} 個檔案',
+    loadFailed: '無法載入 Git diff',
+    diffUnavailable: '無法顯示 Diff',
+    diffUnavailableHint: '此檔案可能是二進位、過大，或目前選取範圍沒有可顯示的變更。',
+    hiddenLines: '已隱藏 {count} 行未變更內容',
+    status: {
+      modified: '已修改',
+      added: '已新增',
+      deleted: '已刪除',
+      renamed: '已重新命名',
+      copied: '已複製',
+      untracked: '未追蹤',
+      unknown: '已變更',
+    },
+  },
+
   chat: {
     contextRemaining: '剩餘',
     liveTps: 'TPS',

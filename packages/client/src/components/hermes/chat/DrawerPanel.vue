@@ -4,10 +4,11 @@ import { useI18n } from 'vue-i18n'
 import TerminalPanel from './TerminalPanel.vue'
 import FilesPanel from './FilesPanel.vue'
 import ArtifactsPanel from './ArtifactsPanel.vue'
+import GitDiffPanel from './GitDiffPanel.vue'
 
 interface Props {
   show: boolean
-  activeTab?: 'terminal' | 'files' | 'artifacts'
+  activeTab?: 'terminal' | 'files' | 'artifacts' | 'gitDiff'
   pinned?: boolean
 }
 
@@ -29,7 +30,7 @@ const DRAWER_DEFAULT_WIDTH = 1180
 const DRAWER_MAX_VIEWPORT_RATIO = 0.88
 const DRAWER_WIDTH_STORAGE_KEY = 'hermes_drawer_width'
 
-const activeTab = ref<'terminal' | 'files' | 'artifacts'>(props.activeTab)
+const activeTab = ref<'terminal' | 'files' | 'artifacts' | 'gitDiff'>(props.activeTab)
 const isResizing = ref(false)
 const isMobileLayout = ref(false)
 const isPinnedLayout = computed(() => props.pinned && !isMobileLayout.value)
@@ -172,6 +173,12 @@ onBeforeUnmount(() => {
           >
             {{ t('drawer.artifacts') }}
           </button>
+          <button
+            :class="['tab-button', { active: activeTab === 'gitDiff' }]"
+            @click="activeTab = 'gitDiff'"
+          >
+            {{ t('drawer.gitDiff') }}
+          </button>
         </div>
         <div class="drawer-actions">
           <button
@@ -207,6 +214,9 @@ onBeforeUnmount(() => {
         </div>
         <div v-show="activeTab === 'artifacts'" class="drawer-pane">
           <ArtifactsPanel />
+        </div>
+        <div v-show="activeTab === 'gitDiff'" class="drawer-pane">
+          <GitDiffPanel :visible="activeTab === 'gitDiff' && isVisible" />
         </div>
       </div>
     </div>

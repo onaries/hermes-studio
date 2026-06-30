@@ -398,6 +398,7 @@ export default {
   // 서랍
   drawer: {
     terminal: '터미널',
+    gitDiff: 'Git Diff',
     artifacts: '아티팩트',
     resize: 'Drawer 크기 조절',
     open: '드로어 열기',
@@ -417,6 +418,33 @@ export default {
   },
 
   // 채팅
+  gitDiff: {
+    title: 'Git Diff',
+    kicker: '검토',
+    refresh: '새로고침',
+    noWorkspace: '선택된 작업 공간이 없습니다',
+    noWorkspaceHint: '세션 작업 공간을 선택하면 저장소 변경사항을 볼 수 있습니다.',
+    notRepo: '작업 공간이 Git 저장소가 아닙니다',
+    noChanges: '변경사항 없음',
+    noChangesHint: '작업 트리가 깨끗합니다.',
+    changedFiles: '변경된 파일',
+    allChanges: '전체 변경사항',
+    fileCount: '파일 {count}개',
+    loadFailed: 'Git diff를 불러오지 못했습니다',
+    diffUnavailable: 'Diff를 표시할 수 없습니다',
+    diffUnavailableHint: '바이너리 파일이거나 너무 크거나 현재 선택에 표시할 변경사항이 없습니다.',
+    hiddenLines: '변경 없는 줄 {count}개 숨김',
+    status: {
+      modified: '수정',
+      added: '추가',
+      deleted: '삭제',
+      renamed: '이름 변경',
+      copied: '복사',
+      untracked: '추적 안 됨',
+      unknown: '변경',
+    },
+  },
+
   chat: {
     contextRemaining: '남음',
     liveTps: 'TPS',

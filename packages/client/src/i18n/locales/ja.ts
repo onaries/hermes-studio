@@ -398,6 +398,7 @@ export default {
   // ドロワー
   drawer: {
     terminal: 'ターミナル',
+    gitDiff: 'Git Diff',
     artifacts: '成果物',
     resize: 'ドロワーのサイズを変更',
     open: 'ドロワーを開く',
@@ -417,6 +418,33 @@ export default {
   },
 
   // チャット
+  gitDiff: {
+    title: 'Git Diff',
+    kicker: 'レビュー',
+    refresh: '更新',
+    noWorkspace: 'ワークスペースが選択されていません',
+    noWorkspaceHint: 'セッションのワークスペースを選ぶとリポジトリの変更を確認できます。',
+    notRepo: 'ワークスペースは Git リポジトリではありません',
+    noChanges: '変更はありません',
+    noChangesHint: '作業ツリーはクリーンです。',
+    changedFiles: '変更ファイル',
+    allChanges: 'すべての変更',
+    fileCount: '{count} ファイル',
+    loadFailed: 'Git diff を読み込めませんでした',
+    diffUnavailable: 'Diff を表示できません',
+    diffUnavailableHint: 'バイナリ、サイズ超過、または現在の選択に表示できる変更がありません。',
+    hiddenLines: '未変更の {count} 行を非表示',
+    status: {
+      modified: '変更',
+      added: '追加',
+      deleted: '削除',
+      renamed: '名前変更',
+      copied: 'コピー',
+      untracked: '未追跡',
+      unknown: '変更',
+    },
+  },
+
   chat: {
     contextRemaining: '残り',
     liveTps: 'TPS',

@@ -3925,6 +3925,50 @@
         }
       }
     },
+    "/api/hermes/files/git-diff": {
+      "get": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "Get git-diff",
+        "description": "GET /api/hermes/files/git-diff",
+        "operationId": "getGit-diff",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        },
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/api/hermes/files/list": {
       "get": {
         "tags": [

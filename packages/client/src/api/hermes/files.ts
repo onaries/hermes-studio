@@ -95,6 +95,34 @@ export async function uploadFiles(targetDir: string, files: File[]): Promise<{ n
   return data.files
 }
 
+export interface GitDiffFile {
+  path: string
+  oldPath?: string
+  status: 'modified' | 'added' | 'deleted' | 'renamed' | 'copied' | 'untracked' | 'unknown'
+  staged: boolean
+  unstaged: boolean
+  additions?: number
+  deletions?: number
+}
+
+export interface GitDiffResponse {
+  isRepo: boolean
+  workspace: string
+  root?: string
+  branch?: string
+  upstream?: string
+  selectedPath?: string
+  files: GitDiffFile[]
+  diff: string
+  truncated?: boolean
+}
+
+export async function fetchGitDiff(workspace: string, path?: string): Promise<GitDiffResponse> {
+  const params = new URLSearchParams({ workspace })
+  if (path) params.set('path', path)
+  return request<GitDiffResponse>(`/api/hermes/files/git-diff?${params.toString()}`)
+}
+
 export async function uploadRuntimeFiles(files: File[]): Promise<{ name: string; path: string }[]> {
   const base = getBaseUrlValue()
   const formData = new FormData()
