@@ -4,6 +4,7 @@ import { NButton, NDropdown, NInput, NModal, NSpace, NSpin, useDialog, useMessag
 import { useI18n } from 'vue-i18n'
 import { request } from '@/api/client'
 import { copyToClipboard } from '@/utils/clipboard'
+import FileGlyph from '@/components/hermes/files/FileGlyph.vue'
 
 interface FolderEntry {
   name: string
@@ -325,7 +326,7 @@ const flatNodes = computed<FlatNode[]>(() => {
         @click="selectBase"
         @contextmenu="showContextMenu($event, null)"
       >
-        <span class="folder-icon">📂</span>
+        <FileGlyph class="folder-icon" name="workspace" is-dir size="sm" />
         <span class="folder-name">{{ basePath || '/' }}</span>
       </div>
 
@@ -340,10 +341,10 @@ const flatNodes = computed<FlatNode[]>(() => {
         @contextmenu="showContextMenu($event, node.folder)"
       >
         <span class="folder-expand" @click.stop="toggleExpand(node.folder)">
-          <template v-if="node.isLoading">⏳</template>
+          <span v-if="node.isLoading" class="folder-loading" aria-hidden="true" />
           <template v-else>{{ node.isExpanded ? '▼' : '▶' }}</template>
         </span>
-        <span class="folder-icon">📁</span>
+        <FileGlyph class="folder-icon" :name="node.folder.name" is-dir size="sm" />
         <span class="folder-name">{{ node.folder.name }}</span>
       </div>
 
@@ -472,6 +473,20 @@ const flatNodes = computed<FlatNode[]>(() => {
   flex-shrink: 0;
   user-select: none;
   opacity: 0.6;
+}
+
+.folder-loading {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: folder-loading-spin 0.8s linear infinite;
+}
+
+@keyframes folder-loading-spin {
+  to { transform: rotate(360deg); }
 }
 
 .folder-icon {

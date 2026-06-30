@@ -21,6 +21,7 @@ import type { StoredSttProvider } from '@/api/hermes/stt-settings'
 import { useSttSettings } from '@/composables/useSttSettings'
 import { useBrowserSpeechRecognition } from '@/composables/useBrowserSpeechRecognition'
 import { BRIDGE_SESSION_COMMAND_DEFINITIONS } from '@/utils/hermes/bridge-session-commands'
+import FileGlyph from '@/components/hermes/files/FileGlyph.vue'
 
 const chatStore = useChatStore()
 const appStore = useAppStore()
@@ -1061,7 +1062,7 @@ function isImage(type: string): boolean {
         </template>
         <template v-else>
           <div class="attachment-file">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <FileGlyph :name="att.name" size="md" />
             <span class="file-name">{{ att.name }}</span>
             <span class="file-size">{{ formatSize(att.size) }}</span>
           </div>
