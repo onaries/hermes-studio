@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useFileIconTheme } from '@/composables/useFileIconTheme'
 
 const props = withDefaults(defineProps<{
   name: string
@@ -9,6 +10,8 @@ const props = withDefaults(defineProps<{
   isDir: false,
   size: 'md',
 })
+
+const { iconTheme } = useFileIconTheme()
 
 const ext = computed(() => {
   if (props.isDir) return ''
@@ -37,7 +40,7 @@ const label = computed(() => {
 </script>
 
 <template>
-  <span :class="['file-glyph', `file-glyph--${kind}`, `file-glyph--${size}`]" aria-hidden="true">
+  <span :class="['file-glyph', `file-glyph--${kind}`, `file-glyph--${size}`, `file-glyph--theme-${iconTheme}`]" aria-hidden="true">
     <svg v-if="isDir" class="folder-shape" viewBox="0 0 24 20" fill="none">
       <path class="folder-back" d="M2.5 5.5A2.5 2.5 0 0 1 5 3h4.5l2 2H19a2.5 2.5 0 0 1 2.5 2.5v1H2.5v-3Z" />
       <path class="folder-front" d="M2 8.5A2.5 2.5 0 0 1 4.5 6h15A2.5 2.5 0 0 1 22 8.5v7A2.5 2.5 0 0 1 19.5 18h-15A2.5 2.5 0 0 1 2 15.5v-7Z" />
@@ -135,5 +138,54 @@ const label = computed(() => {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.14),
     0 1px 2px rgba(0, 0, 0, 0.22);
+}
+
+.file-glyph--theme-mono {
+  background: rgba(100, 116, 139, 0.12);
+  color: #64748b;
+  box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.36);
+
+  .glyph-label {
+    color: currentColor;
+  }
+
+  .file-corner {
+    background: rgba(100, 116, 139, 0.22);
+  }
+
+  .folder-back,
+  .folder-front {
+    fill: #94a3b8;
+  }
+}
+
+.file-glyph--theme-terminal {
+  background: #07130d;
+  color: #86efac;
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 197, 94, 0.55),
+    0 0 8px rgba(34, 197, 94, 0.16);
+
+  .glyph-label {
+    color: currentColor;
+  }
+
+  .file-corner {
+    background: rgba(34, 197, 94, 0.24);
+  }
+
+  .folder-back {
+    fill: #14532d;
+  }
+
+  .folder-front {
+    fill: #22c55e;
+  }
+}
+
+.file-glyph--folder.file-glyph--theme-mono,
+.file-glyph--folder.file-glyph--theme-terminal {
+  background: transparent;
+  box-shadow: none;
 }
 </style>

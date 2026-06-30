@@ -48,6 +48,16 @@ vi.mock('naive-ui', async () => {
       name: 'NButton',
       setup: (_, { slots, attrs }) => () => h('button', attrs, slots.default?.()),
     }),
+    NSelect: defineComponent({
+      name: 'NSelect',
+      props: ['value', 'options'],
+      emits: ['update:value'],
+      setup: (props, { emit, attrs }) => () => h('select', {
+        ...attrs,
+        value: props.value,
+        onChange: (event: Event) => emit('update:value', (event.target as HTMLSelectElement).value),
+      }, (props.options || []).map((option: any) => h('option', { value: option.value }, option.label))),
+    }),
   }
 })
 
@@ -89,6 +99,7 @@ describe('FilesPanel workspace tree visibility', () => {
     mockFilesStore.fetchEntries.mockReset()
     mockFilesStore.closeEditor.mockReset()
     mockFilesStore.closePreview.mockReset()
+    localStorage.clear()
   })
 
   it('shows the workspace file tree by default', async () => {
@@ -124,6 +135,14 @@ describe('FilesPanel workspace tree visibility', () => {
     expect(wrapper.find('.file-tree-stub').exists()).toBe(false)
     expect(wrapper.find('.sidebar-toggle').exists()).toBe(false)
     expect(wrapper.find('.files-main-panel').exists()).toBe(true)
+  })
+
+  it('persists the selected file icon theme', async () => {
+    const wrapper = mount(FilesPanel)
+    await wrapper.find('.icon-theme-select').setValue('terminal')
+    await nextTick()
+
+    expect(localStorage.getItem('hermes_file_icon_theme')).toBe('terminal')
   })
 
   it('resets the drawer file path when the active chat session changes', () => {

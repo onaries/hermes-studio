@@ -4,7 +4,7 @@ import { useFilesStore } from '@/stores/hermes/files'
 import { useChatStore } from '@/stores/hermes/chat'
 import { useSettingsStore } from '@/stores/hermes/settings'
 import { useI18n } from 'vue-i18n'
-import { NButton } from 'naive-ui'
+import { NButton, NSelect } from 'naive-ui'
 import FileTree from '@/components/hermes/files/FileTree.vue'
 import FileBreadcrumb from '@/components/hermes/files/FileBreadcrumb.vue'
 import FileToolbar from '@/components/hermes/files/FileToolbar.vue'
@@ -14,12 +14,14 @@ import FileEditor from '@/components/hermes/files/FileEditor.vue'
 import FilePreview from '@/components/hermes/files/FilePreview.vue'
 import FileUploadModal from '@/components/hermes/files/FileUploadModal.vue'
 import FileRenameModal from '@/components/hermes/files/FileRenameModal.vue'
+import { useFileIconTheme } from '@/composables/useFileIconTheme'
 import type { FileEntry } from '@/api/hermes/files'
 
 const filesStore = useFilesStore()
 const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
 const { t } = useI18n()
+const { iconTheme, fileIconThemeOptions } = useFileIconTheme()
 
 const contextMenuRef = ref<InstanceType<typeof FileContextMenu> | null>(null)
 const showUpload = ref(false)
@@ -135,6 +137,14 @@ function handleRename(entry: FileEntry) {
           </template>
           {{ t('files.fileTree') }}
         </NButton>
+        <NSelect
+          v-model:value="iconTheme"
+          class="icon-theme-select"
+          size="small"
+          :options="fileIconThemeOptions"
+          :consistent-menu-width="false"
+          aria-label="File icon theme"
+        />
         <FileToolbar
           @show-new-file="handleShowNewFile"
           @show-new-folder="handleShowNewFolder"
@@ -260,6 +270,11 @@ function handleRename(entry: FileEntry) {
     padding: 0 8px;
     height: 32px;
   }
+}
+
+.icon-theme-select {
+  width: 112px;
+  flex-shrink: 0;
 }
 
 .files-content {
