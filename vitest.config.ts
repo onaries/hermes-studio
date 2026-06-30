@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 
-const maxWorkers = process.env.VITEST_MAX_WORKERS ?? (process.env.CI ? '50%' : '4')
+const maxWorkers = process.env.VITEST_MAX_WORKERS ?? '1'
 
 export default defineConfig({
   plugins: [vue()],
