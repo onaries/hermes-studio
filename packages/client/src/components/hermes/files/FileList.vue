@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useFilesStore, isPreviewableFile, isTextFile } from '@/stores/hermes/files'
 import { downloadFile } from '@/api/hermes/download'
 import type { FileEntry } from '@/api/hermes/files'
+import FileGlyph from './FileGlyph.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -29,20 +30,6 @@ function formatDate(iso: string): string {
   if (!iso) return '—'
   const d = new Date(iso)
   return d.toLocaleString()
-}
-
-function getFileIcon(entry: FileEntry): string {
-  if (entry.isDir) return '📁'
-  const ext = entry.name.split('.').pop()?.toLowerCase() || ''
-  const iconMap: Record<string, string> = {
-    yaml: '⚙️', yml: '⚙️', json: '📋', toml: '⚙️',
-    md: '📝', txt: '📄', log: '📄',
-    py: '🐍', js: '📜', ts: '📜', vue: '💚',
-    png: '🖼️', jpg: '🖼️', jpeg: '🖼️', gif: '🖼️', svg: '🖼️', webp: '🖼️',
-    zip: '📦', gz: '📦', tar: '📦',
-    sh: '⚡', bash: '⚡',
-  }
-  return iconMap[ext] || '📄'
 }
 
 async function handlePreview(entry: FileEntry) {
@@ -105,7 +92,7 @@ async function handleDownload(entry: FileEntry) {
           @contextmenu="handleContextMenu($event, entry)"
         >
           <div class="file-name">
-            <span class="file-icon">{{ getFileIcon(entry) }}</span>
+            <FileGlyph :name="entry.name" :is-dir="entry.isDir" />
             <span class="file-label" :title="entry.name">{{ entry.name }}</span>
           </div>
           <div class="file-size">{{ entry.isDir ? '—' : formatSize(entry.size) }}</div>
@@ -182,10 +169,6 @@ async function handleDownload(entry: FileEntry) {
   align-items: center;
   gap: 8px;
   min-width: 0;
-}
-
-.file-icon {
-  flex-shrink: 0;
 }
 
 .file-label {

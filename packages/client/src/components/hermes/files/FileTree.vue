@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useFilesStore } from '@/stores/hermes/files'
 import * as filesApi from '@/api/hermes/files'
 import type { TreeOption } from 'naive-ui'
+import FileGlyph from './FileGlyph.vue'
 
 const { t } = useI18n()
 const filesStore = useFilesStore()
@@ -52,6 +53,10 @@ function renderLabel({ option }: { option: TreeOption }) {
   return h('span', { class: 'tree-node-label', title: label }, label)
 }
 
+function renderPrefix() {
+  return h(FileGlyph, { name: 'folder', isDir: true, size: 'sm' })
+}
+
 watch(
   () => props.rootPath,
   async (root) => {
@@ -65,10 +70,7 @@ watch(
 <template>
   <div class="file-tree">
     <div class="tree-header" @click="handleRootClick">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-        <polyline points="9 22 9 12 15 12 15 22" />
-      </svg>
+      <FileGlyph name="workspace" is-dir size="sm" />
       <span>{{ t('files.breadcrumbRoot') }}</span>
     </div>
     <NTree
@@ -76,6 +78,7 @@ watch(
       :selected-keys="selectedKeys"
       :on-load="handleLoad"
       :render-label="renderLabel"
+      :render-prefix="renderPrefix"
       expand-on-click
       block-line
       @update:selected-keys="handleSelect"
