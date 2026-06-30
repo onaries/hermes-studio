@@ -1642,7 +1642,7 @@ export default {
       fileIconThemeMono: '單色',
       fileIconThemeTerminal: '終端機',
       showTerminalSessionList: 'Terminal 工作階段列表',
-      showTerminalSessionListHint: '顯示 Terminal 抽屜內左側的工作階段列表',
+      showTerminalSessionListHint: '在桌面端顯示左側工作階段清單。行動端會繼續使用「工作階段」抽屜按鈕。',
       inlineDiffs: '內嵌差異',
       inlineDiffsHint: '程式碼變更以內嵌方式顯示',
       bellOnComplete: '完成提示音',

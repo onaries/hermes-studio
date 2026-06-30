@@ -1369,7 +1369,7 @@ export default {
       fileIconThemeMono: 'モノ',
       fileIconThemeTerminal: 'ターミナル',
       showTerminalSessionList: 'Terminal セッション一覧',
-      showTerminalSessionListHint: 'Terminal ドロワー内の左側セッション一覧を表示します',
+      showTerminalSessionListHint: 'デスクトップでは左側のセッション一覧を表示します。モバイルではセッションドロワーボタンを使います。',
       inlineDiffs: 'インライン差分',
       inlineDiffsHint: 'コード変更をインラインで表示',
       bellOnComplete: '完了通知音',

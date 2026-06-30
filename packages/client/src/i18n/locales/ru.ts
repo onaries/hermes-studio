@@ -1510,7 +1510,7 @@ export default {
       fileIconThemeMono: 'Моно',
       fileIconThemeTerminal: 'Терминал',
       showTerminalSessionList: 'Список сессий Terminal',
-      showTerminalSessionListHint: 'Показывать левый список сессий в панели Terminal',
+      showTerminalSessionListHint: 'Показывает левый список сессий на десктопе. На мобильных используется кнопка выдвижной панели сессий.',
       inlineDiffs: 'Встроенные различия',
       inlineDiffsHint: 'Отображать изменения в коде внутри строки',
       bellOnComplete: 'Звук завершения',

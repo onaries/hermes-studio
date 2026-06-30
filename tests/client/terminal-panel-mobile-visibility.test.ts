@@ -162,6 +162,19 @@ class FakeWebSocket {
   }
 }
 
+function stubMatchMedia(matches: boolean) {
+  vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+    matches,
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })))
+}
+
 const globalStubs = {
   NButton: { template: '<button v-bind="$attrs"><slot name="icon" /><slot /></button>' },
   NPopconfirm: { template: '<span><slot name="trigger" /><slot /></span>' },
@@ -205,6 +218,7 @@ describe('TerminalPanel mobile shortcuts visibility', () => {
       observe = vi.fn()
       disconnect = vi.fn()
     })
+    stubMatchMedia(false)
     Object.defineProperty(window, 'innerHeight', {
       configurable: true,
       writable: true,
@@ -305,7 +319,16 @@ describe('TerminalPanel mobile shortcuts visibility', () => {
     await wrapper.find('.session-list-collapse-toggle').trigger('click')
     const sidebar = wrapper.find('.terminal-sidebar')
     expect(sidebar.exists()).toBe(true)
-    expect(sidebar.classes()).toContain('mobile-visible')
+    expect(sidebar.classes()).not.toContain('mobile-visible')
+  })
+
+  it('hides the desktop session collapse button on mobile while keeping the sessions drawer button', () => {
+    stubMatchMedia(true)
+    const wrapper = mountPanel(true)
+
+    expect(wrapper.find('.session-list-collapse-toggle').exists()).toBe(false)
+    expect(wrapper.find('.sidebar-toggle').exists()).toBe(true)
+    expect(wrapper.find('.terminal-sidebar').exists()).toBe(true)
   })
 
   it('keeps mobile terminal header actions horizontally scrollable instead of squeezing font controls', () => {

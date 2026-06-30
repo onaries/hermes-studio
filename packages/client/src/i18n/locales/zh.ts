@@ -1655,7 +1655,7 @@ export default {
       fileIconThemeMono: '单色',
       fileIconThemeTerminal: '终端',
       showTerminalSessionList: 'Terminal 会话列表',
-      showTerminalSessionListHint: '显示 Terminal 抽屉内左侧的会话列表',
+      showTerminalSessionListHint: '在桌面端显示左侧会话列表。移动端继续使用“会话”抽屉按钮。',
       inlineDiffs: '内联差异',
       inlineDiffsHint: '代码变更以内联方式显示',
       bellOnComplete: '完成提示音',

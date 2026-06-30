@@ -1369,7 +1369,7 @@ export default {
       fileIconThemeMono: '모노',
       fileIconThemeTerminal: '터미널',
       showTerminalSessionList: 'Terminal 세션 목록',
-      showTerminalSessionListHint: 'Terminal 드로어 안의 왼쪽 세션 목록을 표시합니다',
+      showTerminalSessionListHint: '데스크톱 터미널 드로어의 왼쪽 세션 목록을 표시합니다. 모바일은 별도 세션 버튼을 계속 사용합니다.',
       inlineDiffs: '인라인 변경사항',
       inlineDiffsHint: '코드 변경사항을 인라인으로 표시',
       bellOnComplete: '완료 알림음',

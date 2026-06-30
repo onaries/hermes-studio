@@ -113,8 +113,16 @@ const connectionError = ref<string | null>(null);
 const isConnecting = ref(false);
 const showSidebar = ref(false);
 const terminalSessionListCollapsed = ref(false);
+const isMobileViewport = ref(
+  typeof window !== "undefined"
+  && typeof window.matchMedia === "function"
+  && window.matchMedia("(max-width: 768px)").matches,
+);
 const showTerminalSessionList = computed(() => settingsStore.display.show_terminal_session_list !== false);
-const showTerminalSidebarPanel = computed(() => showTerminalSessionList.value && !terminalSessionListCollapsed.value);
+const showTerminalSidebarPanel = computed(() =>
+  showTerminalSessionList.value && (isMobileViewport.value || !terminalSessionListCollapsed.value),
+);
+const showDesktopSessionCollapseToggle = computed(() => showTerminalSessionList.value && !isMobileViewport.value);
 const mobileShortcutBottomOffset = ref(0);
 const mobileShortcutHidden = ref(false);
 const ctrlLatchActive = ref(false);
@@ -130,7 +138,7 @@ watch(showTerminalSessionList, (visible) => {
 function toggleTerminalSessionList(): void {
   const nextCollapsed = !terminalSessionListCollapsed.value;
   terminalSessionListCollapsed.value = nextCollapsed;
-  showSidebar.value = !nextCollapsed;
+  showSidebar.value = isMobileViewport.value && !nextCollapsed;
 }
 
 let ws: WebSocket | null = null;
@@ -723,6 +731,15 @@ function updateMobileShortcutBottomOffset() {
   );
 }
 
+let mobileViewportQuery: MediaQueryList | null = null;
+
+function handleMobileViewportChange(event?: MediaQueryListEvent) {
+  isMobileViewport.value = event?.matches ?? mobileViewportQuery?.matches ?? false;
+  if (!isMobileViewport.value) {
+    showSidebar.value = false;
+  }
+}
+
 // ─── Lifecycle ──────────────────────────────────────────────────
 
 let hasConnected = false;
@@ -753,12 +770,19 @@ watch([terminalFontSize, terminalFontFamily], () => {
 
 onMounted(() => {
   updateMobileShortcutBottomOffset();
+  if (typeof window.matchMedia === "function") {
+    mobileViewportQuery = window.matchMedia("(max-width: 768px)");
+    handleMobileViewportChange();
+    mobileViewportQuery.addEventListener?.("change", handleMobileViewportChange);
+  }
   window.visualViewport?.addEventListener("resize", updateMobileShortcutBottomOffset);
   window.visualViewport?.addEventListener("scroll", updateMobileShortcutBottomOffset);
   window.addEventListener("resize", updateMobileShortcutBottomOffset);
 });
 
 onUnmounted(() => {
+  mobileViewportQuery?.removeEventListener?.("change", handleMobileViewportChange);
+  mobileViewportQuery = null;
   window.visualViewport?.removeEventListener("resize", updateMobileShortcutBottomOffset);
   window.visualViewport?.removeEventListener("scroll", updateMobileShortcutBottomOffset);
   window.removeEventListener("resize", updateMobileShortcutBottomOffset);
@@ -863,7 +887,7 @@ onUnmounted(() => {
         }}</span>
         <div class="header-actions">
           <NButton
-            v-if="showTerminalSessionList"
+            v-if="showDesktopSessionCollapseToggle"
             size="small"
             quaternary
             circle

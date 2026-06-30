@@ -1663,7 +1663,7 @@ export default {
       fileIconThemeMono: 'Mono',
       fileIconThemeTerminal: 'Terminal',
       showTerminalSessionList: 'Terminal session list',
-      showTerminalSessionListHint: 'Show the left session list inside the Terminal drawer',
+      showTerminalSessionListHint: 'Show the left session list as a desktop side panel. Mobile keeps using the Sessions drawer button.',
       inlineDiffs: 'Inline Diffs',
       inlineDiffsHint: 'Show code changes inline',
       bellOnComplete: 'Completion Sound',
