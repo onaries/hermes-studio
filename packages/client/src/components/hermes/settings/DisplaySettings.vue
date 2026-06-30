@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { NButton, NCheckbox, NSwitch, NSelect, NInputNumber, useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/hermes/settings'
+import { useFileIconTheme, type FileIconTheme } from '@/composables/useFileIconTheme'
 import { useTheme, type BrightnessMode } from '@/composables/useTheme'
 import { requestCompletionNotificationPermission, showCompletionNotification, type CompletionNotificationPermissionResult } from '@/utils/completion-notification'
 import {
@@ -18,6 +19,13 @@ const settingsStore = useSettingsStore()
 const message = useMessage()
 const { t } = useI18n()
 const { brightness, setBrightness } = useTheme()
+const { iconTheme } = useFileIconTheme()
+
+const fileIconThemeOptions = computed(() => [
+  { label: t('settings.display.fileIconThemeColor'), value: 'color' },
+  { label: t('settings.display.fileIconThemeMono'), value: 'mono' },
+  { label: t('settings.display.fileIconThemeTerminal'), value: 'terminal' },
+])
 
 const themeOptions = [
   { label: t('settings.display.themeLight'), value: 'light' },
@@ -38,6 +46,12 @@ function handleThemeChange(val: string) {
   const m = val as BrightnessMode
   setBrightness(m)
   save({ skin: m })
+}
+
+function handleFileIconThemeChange(value: string) {
+  const theme = value as FileIconTheme
+  iconTheme.value = theme
+  void save({ file_icon_theme: theme })
 }
 
 function handleTerminalFontFamilyChange(value: string | null) {
@@ -147,6 +161,16 @@ async function testCompletionNotification() {
     </SettingRow>
     <SettingRow :label="t('settings.display.showWorkspaceFileTree')" :hint="t('settings.display.showWorkspaceFileTreeHint')">
       <NSwitch :value="settingsStore.display.show_workspace_file_tree !== false" @update:value="v => save({ show_workspace_file_tree: v })" />
+    </SettingRow>
+    <SettingRow :label="t('settings.display.fileIconTheme')" :hint="t('settings.display.fileIconThemeHint')">
+      <NSelect
+        :value="iconTheme"
+        :options="fileIconThemeOptions"
+        size="small"
+        class="input-sm"
+        :consistent-menu-width="false"
+        @update:value="handleFileIconThemeChange"
+      />
     </SettingRow>
     <SettingRow :label="t('settings.display.showTerminalSessionList')" :hint="t('settings.display.showTerminalSessionListHint')">
       <NSwitch :value="settingsStore.display.show_terminal_session_list !== false" @update:value="v => save({ show_terminal_session_list: v })" />

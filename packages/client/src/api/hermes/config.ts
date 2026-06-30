@@ -21,6 +21,7 @@ export interface DisplayConfig {
   auto_open_patch_drawer?: boolean
   show_workspace_file_tree?: boolean
   show_terminal_session_list?: boolean
+  file_icon_theme?: string
   skin?: string
   mobile_enter_to_send?: boolean
   terminal_font_size?: number

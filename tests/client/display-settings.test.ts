@@ -125,6 +125,7 @@ describe('DisplaySettings', () => {
     mockSettingsStore.display.show_terminal_session_list = undefined
     mockSettingsStore.display.terminal_font_size = 14
     mockSettingsStore.display.terminal_font_family = 'Menlo, Monaco, "Courier New", monospace'
+    localStorage.clear()
   })
 
   function mountDisplaySettings() {
@@ -296,6 +297,21 @@ describe('DisplaySettings', () => {
     await toggle?.trigger('click')
 
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_workspace_file_tree: false })
+  })
+
+  it('exposes file icon theme in display settings and saves locally plus config', async () => {
+    mockSettingsStore.saveSection.mockResolvedValue(undefined)
+    const wrapper = mountDisplaySettings()
+
+    const rows = wrapper.findAll('.setting-row')
+    const iconThemeRow = rows.find(row => row.text().includes('settings.display.fileIconTheme'))
+    expect(iconThemeRow?.text()).toContain('settings.display.fileIconThemeHint')
+    expect(iconThemeRow?.findAll('option').map(option => option.attributes('value'))).toEqual(['color', 'mono', 'terminal'])
+
+    await iconThemeRow?.find('select').setValue('terminal')
+
+    expect(localStorage.getItem('hermes_file_icon_theme')).toBe('terminal')
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { file_icon_theme: 'terminal' })
   })
 
   it('exposes a terminal session list toggle that defaults on and saves changes', async () => {
