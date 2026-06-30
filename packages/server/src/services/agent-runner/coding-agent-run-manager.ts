@@ -1464,8 +1464,8 @@ export class CodingAgentRunManager {
       '--dangerously-bypass-approvals-and-sandbox',
     ]
     const args = run.launch.agentNativeSessionId && run.nativeResumeReady
-      ? ['exec', 'resume', ...commonArgs, run.launch.agentNativeSessionId, input]
-      : ['exec', ...commonArgs, '--cd', run.launch.workspaceDir, input]
+      ? ['exec', 'resume', ...commonArgs, '--', run.launch.agentNativeSessionId, input]
+      : ['exec', ...commonArgs, '--cd', run.launch.workspaceDir, '--', input]
 
     const child = spawnCodingAgentChild(run.launch.command, args, {
       cwd: existsSync(run.launch.workspaceDir) ? run.launch.workspaceDir : homedir(),

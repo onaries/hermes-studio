@@ -142,6 +142,7 @@ describe('coding agent Windows process launch', () => {
     expect(testState.spawnCalls[0].args[3]).not.toContain('\n')
     expect(testState.spawnCalls[0].args[3]).not.toContain('\r')
     expect(testState.spawnCalls[0].args[3]).toContain('^"--model^"')
+    expect(testState.spawnCalls[0].args[3]).toContain('^"--^"')
     expect(testState.spawnCalls[0].args[3]).toContain('^"test^"')
     expect(testState.spawnCalls[0].args[3]).not.toContain('system^ prompt\r\n\r\ntest')
     expect(testState.spawnCalls[0].options).toMatchObject({
@@ -151,6 +152,44 @@ describe('coding agent Windows process launch', () => {
     })
 
     const run = (manager as any).runs.get('agent-session-codex-1')
+    if (run?.idleTimer) clearTimeout(run.idleTimer)
+    ;(manager as any).runs.clear()
+    ;(manager as any).sessionIndex.clear()
+  })
+
+  it('uses -- before a hyphen-starting Codex resume prompt', () => {
+    const manager = new CodingAgentRunManager()
+    ;(manager as any).ensureDbSession = () => {}
+    ;(manager as any).addUserMessage = () => {}
+    ;(manager as any).emitToChat = () => {}
+    ;(manager as any).markChatRunCompleted = () => {}
+
+    manager.start({
+      agentSessionId: 'agent-session-codex-resume-1',
+      agentId: 'codex',
+      mode: 'scoped',
+      profile: 'default',
+      provider: 'test-provider',
+      model: 'gpt-test',
+      sessionId: 'chat-session-codex-resume-1',
+      agentNativeSessionId: 'native-session-1',
+      nativeResume: true,
+      command: 'C:\\Users\\Administrator\\AppData\\Roaming\\npm\\codex.cmd',
+      args: ['--model', 'gpt-test'],
+      shellCommand: 'codex',
+      workspaceDir: process.cwd(),
+      state: { messages: [], isWorking: false, events: [], queue: [] },
+    })
+
+    manager.send('chat-session-codex-resume-1', '- do this')
+
+    const commandLine = testState.spawnCalls[0].args[3]
+    expect(commandLine).toContain('^"resume^"')
+    expect(commandLine).toContain('^"--^"')
+    expect(commandLine.indexOf('^"--^"')).toBeLessThan(commandLine.indexOf('^"native-session-1^"'))
+    expect(commandLine.indexOf('^"native-session-1^"')).toBeLessThan(commandLine.indexOf('^"-^ do^ this^"'))
+
+    const run = (manager as any).runs.get('agent-session-codex-resume-1')
     if (run?.idleTimer) clearTimeout(run.idleTimer)
     ;(manager as any).runs.clear()
     ;(manager as any).sessionIndex.clear()
