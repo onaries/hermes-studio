@@ -2,6 +2,8 @@ import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 
+const maxWorkers = process.env.VITEST_MAX_WORKERS ?? (process.env.CI ? '50%' : '4')
+
 export default defineConfig({
   plugins: [vue()],
   resolve: {
@@ -14,6 +16,8 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     setupFiles: ['tests/setup.ts'],
+    minWorkers: 1,
+    maxWorkers,
     coverage: {
       exclude: ['dist/**', 'coverage/**', 'packages/desktop/release/**'],
     },
