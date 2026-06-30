@@ -70,6 +70,38 @@ describe('artifacts store', () => {
     expect(store.openSequence).toBe(1)
   })
 
+  it('drops missing chat artifacts instead of showing raw ENOENT errors', async () => {
+    const err = new Error('File not found or no longer exists') as Error & { code?: string; status?: number }
+    err.code = 'not_found'
+    err.status = 404
+    vi.mocked(fetchFileText).mockRejectedValue(err)
+    const store = useArtifactsStore()
+    store.syncChatFileArtifacts('session-1', [
+      { path: '/missing/generated.md', name: 'generated.md' },
+      { path: '/tmp/summary.md', name: 'summary.md' },
+    ])
+    const id = store.selectedArtifactId!
+
+    await store.ensureArtifactContent(id)
+
+    expect(store.artifacts.map(item => item.name)).toEqual(['summary.md'])
+    expect(store.selectedArtifact?.name).toBe('summary.md')
+  })
+
+  it('keeps manual missing artifacts with a friendly server error', async () => {
+    const err = new Error('File not found or no longer exists') as Error & { code?: string; status?: number }
+    err.code = 'not_found'
+    err.status = 404
+    vi.mocked(fetchFileText).mockRejectedValue(err)
+    const store = useArtifactsStore()
+
+    await store.openFileArtifact({ path: '/missing/manual.md', name: 'manual.md' })
+
+    expect(store.artifacts).toHaveLength(1)
+    expect(store.selectedArtifact?.status).toBe('error')
+    expect(store.selectedArtifact?.error).toBe('File not found or no longer exists')
+  })
+
   it('scopes opened chat artifacts to the active session when switching sessions', async () => {
     vi.mocked(fetchFileText).mockResolvedValue('# Session 1 report')
     const store = useArtifactsStore()

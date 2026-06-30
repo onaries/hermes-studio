@@ -114,7 +114,11 @@ downloadRoutes.get('/api/hermes/download', async (ctx) => {
       backend_error: 502,
       backend_timeout: 504,
     }
-    ctx.status = statusMap[code] || 500
-    ctx.body = { error: err.message, code }
+    const status = statusMap[code] || 500
+    ctx.status = status
+    const message = status === 404
+      ? 'File not found or no longer exists'
+      : err.message
+    ctx.body = { error: message, code: status === 404 ? 'not_found' : code }
   }
 })

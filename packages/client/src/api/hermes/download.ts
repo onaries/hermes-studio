@@ -42,6 +42,13 @@ export function getDownloadUrl(filePath: string, fileName?: string): string {
   return `${base}/api/hermes/download?${params.toString()}`
 }
 
+function throwDownloadError(res: Response, body: { error?: string; code?: string }): never {
+  const error = new Error(body.error || `HTTP ${res.status}`) as Error & { code?: string; status?: number }
+  error.code = body.code
+  error.status = res.status
+  throw error
+}
+
 /**
  * Download a file. Uses fetch to detect errors, then creates a blob URL
  * for the browser download. Throws with error message on failure.
@@ -51,7 +58,7 @@ export async function downloadFile(filePath: string, fileName?: string): Promise
   const res = await fetch(url)
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
-    throw new Error(body.error || `Download failed: ${res.status}`)
+    throwDownloadError(res, body)
   }
   const blob = await res.blob()
   const blobUrl = URL.createObjectURL(blob)
@@ -73,7 +80,7 @@ export async function fetchFileText(filePath: string, fileName?: string): Promis
   const res = await fetch(url)
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
-    throw new Error(body.error || `Preview failed: ${res.status}`)
+    throwDownloadError(res, body)
   }
   return res.text()
 }

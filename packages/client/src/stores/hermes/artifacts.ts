@@ -74,6 +74,14 @@ function fileStatusForKind(kind: ArtifactKind): ArtifactStatus {
   return kind === 'image' || kind === 'media' ? 'ready' : 'loading'
 }
 
+function isMissingFileError(err: unknown): boolean {
+  const record = err as { code?: unknown; status?: unknown; message?: unknown }
+  return record?.code === 'not_found'
+    || record?.code === 'ENOENT'
+    || record?.status === 404
+    || (typeof record?.message === 'string' && /\bENOENT\b|no such file or directory|not found/i.test(record.message))
+}
+
 export const useArtifactsStore = defineStore('artifacts', () => {
   const artifacts = ref<ArtifactItem[]>([])
   const selectedArtifactId = ref<string | null>(null)
@@ -184,6 +192,10 @@ export const useArtifactsStore = defineStore('artifacts', () => {
       const content = await fetchFileText(item.path, item.name)
       return updateArtifact(item.id, { content, status: 'ready' }) || item
     } catch (err: any) {
+      if (item.source === 'chat' && isMissingFileError(err)) {
+        closeArtifact(item.id)
+        return null
+      }
       return updateArtifact(item.id, {
         status: 'error',
         error: err?.message || String(err),
