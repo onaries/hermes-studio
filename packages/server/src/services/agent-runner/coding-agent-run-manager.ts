@@ -101,6 +101,7 @@ interface ManagedCodingAgentRun {
   codexToolBlocks?: Map<string, { id: string; name: string; arguments: string; done: boolean }>
   codexChatText?: string
   codexPendingUsage?: any
+  codexContextLimit?: number
   pendingSteer?: string
   stoppedByUser?: boolean
   pendingChatCompletionEvent?: 'run.completed' | 'run.failed'
@@ -232,6 +233,15 @@ function normalizeCodingAgentUsage(usage: any): NormalizedCodingAgentUsage | nul
 
 function normalizeCodingAgentAccountingUsage(usage: any): NormalizedCodingAgentUsage | null {
   return normalizeCodingAgentUsageFrom(usage, codexAccountingUsage)
+}
+
+function applyRunContextLimit(
+  normalizedUsage: NormalizedCodingAgentUsage | null,
+  run: ManagedCodingAgentRun,
+): NormalizedCodingAgentUsage | null {
+  if (!normalizedUsage) return null
+  if (normalizedUsage.contextLimit || !run.codexContextLimit) return normalizedUsage
+  return { ...normalizedUsage, contextLimit: run.codexContextLimit }
 }
 
 export function codingAgentGatewayErrorMessage(text: string): string | null {
@@ -563,7 +573,7 @@ export class CodingAgentRunManager {
 
   private persistCodingAgentTokenUsage(run: ManagedCodingAgentRun, usage: any): void {
     const normalizedUsage = normalizeCodingAgentAccountingUsage(usage)
-    const normalizedContextUsage = normalizeCodingAgentUsage(usage)
+    const normalizedContextUsage = applyRunContextLimit(normalizeCodingAgentUsage(usage), run)
     if (!normalizedUsage && !normalizedContextUsage) return
     try {
       updateSession(run.launch.sessionId, {
@@ -815,7 +825,7 @@ export class CodingAgentRunManager {
         ? preferCodexUsage(run.codexPendingUsage, final?.usage)
         : final?.usage
       if (run.launch.agentId === 'codex') run.codexPendingUsage = usageForCompletion
-      const normalizedUsage = normalizeCodingAgentUsage(usageForCompletion)
+      const normalizedUsage = applyRunContextLimit(normalizeCodingAgentUsage(usageForCompletion), run)
       if (normalizedUsage) {
         run.state.inputTokens = normalizedUsage.inputTokens
         run.state.outputTokens = normalizedUsage.outputTokens
@@ -1577,6 +1587,10 @@ export class CodingAgentRunManager {
       this.recordCodexNativeSessionId(run, String(event.thread_id || event.threadId || '').trim())
       return
     }
+    if (type === 'task_started') {
+      run.codexContextLimit = finiteUsageNumber(event.model_context_window, event.modelContextWindow) ?? run.codexContextLimit
+      return
+    }
     if (type === 'item.started') {
       this.handleCodexItemStarted(run, event.item || event)
       return
@@ -1610,6 +1624,10 @@ export class CodingAgentRunManager {
     this.recordCodexNativeSessionId(run, this.codexNativeSessionIdFrom(params))
     if (method === 'thread/started') {
       this.recordCodexNativeSessionId(run, String(params.thread_id || params.threadId || '').trim())
+      return
+    }
+    if (method === 'task_started' || method === 'task/started') {
+      run.codexContextLimit = finiteUsageNumber(params.model_context_window, params.modelContextWindow) ?? run.codexContextLimit
       return
     }
     if (method === 'event_msg' || method === 'event/msg') {
@@ -1648,6 +1666,10 @@ export class CodingAgentRunManager {
 
   private handleCodexEventMessage(run: ManagedCodingAgentRun, event: any) {
     const type = String(event?.type || '').trim()
+    if (type === 'task_started') {
+      run.codexContextLimit = finiteUsageNumber(event.model_context_window, event.modelContextWindow) ?? run.codexContextLimit
+      return
+    }
     if (type === 'token_count') {
       this.handleCodexTokenCount(run, event)
     }
@@ -1655,7 +1677,7 @@ export class CodingAgentRunManager {
 
   private handleCodexTokenCount(run: ManagedCodingAgentRun, usage: any) {
     run.codexPendingUsage = preferCodexUsage(run.codexPendingUsage, usage)
-    const normalizedUsage = normalizeCodingAgentUsage(run.codexPendingUsage)
+    const normalizedUsage = applyRunContextLimit(normalizeCodingAgentUsage(run.codexPendingUsage), run)
     if (!normalizedUsage) return
     run.state.inputTokens = normalizedUsage.inputTokens
     run.state.outputTokens = normalizedUsage.outputTokens

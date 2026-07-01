@@ -710,6 +710,75 @@ describe('coding agent run state', () => {
     manager.shutdown()
   })
 
+  it('uses Codex task_started context window when token_count omits the limit', async () => {
+    initAllHermesTables()
+    const manager = new CodingAgentRunManager()
+    const state: any = { messages: [], isWorking: false, events: [], queue: [] }
+    const emitted: Array<{ event: string; payload: any }> = []
+    ;(manager as any).emitToChat = (_sessionId: string, event: string, payload: any) => {
+      emitted.push({ event, payload })
+    }
+    ;(manager as any).markChatRunCompleted = () => {}
+    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const agentSessionId = `agent-session-codex-limit-${suffix}`
+    const chatSessionId = `chat-session-codex-limit-${suffix}`
+    manager.start({
+      agentSessionId,
+      agentId: 'codex',
+      profile: 'default',
+      provider: 'test-provider',
+      model: 'gpt-5.5',
+      sessionId: chatSessionId,
+      command: 'codex',
+      args: ['--model', 'gpt-5.5'],
+      shellCommand: 'codex --model gpt-5.5',
+      workspaceDir: process.cwd(),
+      state,
+    })
+    const run = (manager as any).runs.get(agentSessionId)
+
+    ;(manager as any).handleCodexExecLine(run, JSON.stringify({
+      type: 'event_msg',
+      payload: {
+        type: 'task_started',
+        turn_id: 'turn-limit',
+        model_context_window: 237500,
+      },
+    }))
+    ;(manager as any).handleCodexExecLine(run, JSON.stringify({
+      type: 'event_msg',
+      payload: {
+        type: 'token_count',
+        info: {
+          total_token_usage: {
+            input_tokens: 2748262,
+            output_tokens: 19105,
+            total_tokens: 2767367,
+          },
+          last_token_usage: {
+            input_tokens: 151517,
+            output_tokens: 591,
+            total_tokens: 152108,
+          },
+        },
+      },
+    }))
+
+    expect(state.contextTokens).toBe(152108)
+    expect(state.contextLimit).toBe(237500)
+    expect(emitted.filter(event => event.event === 'usage.updated').at(-1)?.payload).toMatchObject({
+      contextTokens: 152108,
+      contextLimit: 237500,
+    })
+    expect(getSession(chatSessionId)).toMatchObject({
+      input_tokens: 2748262,
+      output_tokens: 19105,
+      context_tokens: 152108,
+      context_limit: 237500,
+    })
+    manager.shutdown()
+  })
+
   it('prioritizes Codex steer instructions after the active exec turn completes', async () => {
     initAllHermesTables()
     const manager = new CodingAgentRunManager()
