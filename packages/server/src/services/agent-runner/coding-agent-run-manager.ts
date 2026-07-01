@@ -151,15 +151,20 @@ function codexUsageInfo(usage: any): any {
   return usage?.info && typeof usage.info === 'object' ? usage.info : usage
 }
 
+function codexLastUsage(usage: any): any {
+  const info = codexUsageInfo(usage)
+  const last = info?.last_token_usage || info?.lastTokenUsage || info?.last
+  return last && typeof last === 'object' ? last : null
+}
+
 function codexContextUsage(usage: any): any {
   if (!usage || typeof usage !== 'object') return usage
-  const info = codexUsageInfo(usage)
-  const last = info?.last_token_usage || info?.lastTokenUsage
   // Codex exposes both a cumulative billing counter (`total_token_usage`) and
   // the prompt/context size of the most recent request (`last_token_usage`).
   // The context meter must use the latter; otherwise long sessions show
-  // impossible values such as 731k / 256k.
-  return last && typeof last === 'object' ? last : usage
+  // impossible values such as 731k / 256k. Codex app-server/Paseo normalizes
+  // the same field as `last`.
+  return codexLastUsage(usage) || usage
 }
 
 function codexAccountingUsage(usage: any): any {
@@ -181,17 +186,25 @@ function codexModelContextWindow(usage: any): number | undefined {
 }
 
 function codexUsageHasLastTokenUsage(usage: any): boolean {
-  if (!usage || typeof usage !== 'object') return false
-  const info = codexUsageInfo(usage)
-  const last = info?.last_token_usage || info?.lastTokenUsage
-  return !!last && typeof last === 'object'
+  return !!codexLastUsage(usage)
+}
+
+function copyCodexContextWindow(next: any, current: any): any {
+  const existing = codexModelContextWindow(next)
+  const fallback = codexModelContextWindow(current)
+  if (existing || !fallback || !next || typeof next !== 'object') return next
+  const info = codexUsageInfo(next)
+  if (info !== next && info && typeof info === 'object') {
+    return { ...next, info: { ...info, model_context_window: fallback } }
+  }
+  return { ...next, model_context_window: fallback }
 }
 
 function preferCodexUsage(current: any, next: any): any {
   if (!next || typeof next !== 'object') return current
   if (!current || typeof current !== 'object') return next
   if (codexUsageHasLastTokenUsage(current) && !codexUsageHasLastTokenUsage(next)) return current
-  return next
+  return copyCodexContextWindow(next, current)
 }
 
 function normalizeCodingAgentUsageFrom(usage: any, usageSelector: (usage: any) => any): NormalizedCodingAgentUsage | null {

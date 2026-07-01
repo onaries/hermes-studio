@@ -710,6 +710,51 @@ describe('coding agent run state', () => {
     manager.shutdown()
   })
 
+  it('accepts Codex app-server last usage payloads', () => {
+    initAllHermesTables()
+    const manager = new CodingAgentRunManager()
+    const state: any = { messages: [], isWorking: false, events: [], queue: [] }
+    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const agentSessionId = `agent-session-codex-app-usage-${suffix}`
+    const chatSessionId = `chat-session-codex-app-usage-${suffix}`
+    manager.start({
+      agentSessionId,
+      agentId: 'codex',
+      profile: 'default',
+      provider: 'test-provider',
+      model: 'gpt-5-codex',
+      sessionId: chatSessionId,
+      command: 'codex',
+      args: ['--model', 'gpt-5-codex'],
+      shellCommand: 'codex --model gpt-5-codex',
+      workspaceDir: process.cwd(),
+      state,
+    })
+    const run = (manager as any).runs.get(agentSessionId)
+
+    ;(manager as any).handleCodexExecLine(run, JSON.stringify({
+      type: 'event_msg',
+      payload: {
+        type: 'token_count',
+        info: {
+          modelContextWindow: 200000,
+          totalTokenUsage: { inputTokens: 900000, outputTokens: 1000, totalTokens: 901000 },
+          last: { inputTokens: 50000, outputTokens: 500, totalTokens: 50500 },
+        },
+      },
+    }))
+
+    expect(state.contextTokens).toBe(50500)
+    expect(state.contextLimit).toBe(200000)
+    expect(getSession(chatSessionId)).toMatchObject({
+      input_tokens: 900000,
+      output_tokens: 1000,
+      context_tokens: 50500,
+      context_limit: 200000,
+    })
+    manager.shutdown()
+  })
+
   it('uses Codex task_started context window when token_count omits the limit', async () => {
     initAllHermesTables()
     const manager = new CodingAgentRunManager()
