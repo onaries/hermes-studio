@@ -581,6 +581,8 @@ function mapHermesSession(s: SessionSummary): Session {
     hasMoreBefore: false,
     inputTokens: s.input_tokens,
     outputTokens: s.output_tokens,
+    contextTokens: s.context_tokens && s.context_tokens > 0 ? s.context_tokens : undefined,
+    contextLimit: s.context_limit && s.context_limit > 0 ? s.context_limit : undefined,
     endedAt: s.ended_at != null ? Math.round(s.ended_at * 1000) : null,
     parentSessionId: s.parent_session_id || null,
     forkPointMessageId: (s as any).fork_point_message_id != null ? String((s as any).fork_point_message_id) : null,

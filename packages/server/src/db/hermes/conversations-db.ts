@@ -49,6 +49,8 @@ interface ConversationSessionRow {
   tool_call_count: number
   input_tokens: number
   output_tokens: number
+  context_tokens: number
+  context_limit: number
   cache_read_tokens: number
   cache_write_tokens: number
   reasoning_tokens: number
@@ -179,6 +181,8 @@ function mapSessionRow(row: Record<string, unknown>, nowSeconds: number): Conver
     tool_call_count: normalizeNumber(row.tool_call_count),
     input_tokens: normalizeNumber(row.input_tokens),
     output_tokens: normalizeNumber(row.output_tokens),
+    context_tokens: normalizeNumber(row.context_tokens),
+    context_limit: normalizeNumber(row.context_limit),
     cache_read_tokens: normalizeNumber(row.cache_read_tokens),
     cache_write_tokens: normalizeNumber(row.cache_write_tokens),
     reasoning_tokens: normalizeNumber(row.reasoning_tokens),
@@ -293,6 +297,8 @@ function toSummary(session: ConversationSessionRow): ConversationSummary {
     tool_call_count: Number(session.tool_call_count || 0),
     input_tokens: Number(session.input_tokens || 0),
     output_tokens: Number(session.output_tokens || 0),
+    context_tokens: Number(session.context_tokens || 0),
+    context_limit: Number(session.context_limit || 0),
     cache_read_tokens: Number(session.cache_read_tokens || 0),
     cache_write_tokens: Number(session.cache_write_tokens || 0),
     reasoning_tokens: Number(session.reasoning_tokens || 0),
@@ -329,6 +335,8 @@ function aggregateSummary(rootId: string, byId: Map<string, ConversationSessionR
     tool_call_count: chain.reduce((sum, session) => sum + Number(session.tool_call_count || 0), 0),
     input_tokens: chain.reduce((sum, session) => sum + Number(session.input_tokens || 0), 0),
     output_tokens: chain.reduce((sum, session) => sum + Number(session.output_tokens || 0), 0),
+    context_tokens: Number(last.context_tokens || 0),
+    context_limit: Number(last.context_limit || 0),
     cache_read_tokens: chain.reduce((sum, session) => sum + Number(session.cache_read_tokens || 0), 0),
     cache_write_tokens: chain.reduce((sum, session) => sum + Number(session.cache_write_tokens || 0), 0),
     reasoning_tokens: chain.reduce((sum, session) => sum + Number(session.reasoning_tokens || 0), 0),
@@ -384,6 +392,8 @@ function buildConversationSessionSql(source?: string): { sql: string, params: an
       COALESCE(s.tool_call_count, 0) AS tool_call_count,
       COALESCE(s.input_tokens, 0) AS input_tokens,
       COALESCE(s.output_tokens, 0) AS output_tokens,
+      COALESCE(s.context_tokens, 0) AS context_tokens,
+      COALESCE(s.context_limit, 0) AS context_limit,
       COALESCE(s.cache_read_tokens, 0) AS cache_read_tokens,
       COALESCE(s.cache_write_tokens, 0) AS cache_write_tokens,
       COALESCE(s.reasoning_tokens, 0) AS reasoning_tokens,

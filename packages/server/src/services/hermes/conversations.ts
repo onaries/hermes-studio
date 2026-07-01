@@ -50,6 +50,8 @@ export interface ConversationSummary {
   tool_call_count: number
   input_tokens: number
   output_tokens: number
+  context_tokens?: number
+  context_limit?: number
   cache_read_tokens: number
   cache_write_tokens: number
   reasoning_tokens: number

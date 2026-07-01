@@ -30,8 +30,8 @@ export const SESSIONS_TABLE = 'sessions'
 
 export const SESSIONS_SCHEMA: Record<string, string> = {
   id: 'TEXT PRIMARY KEY',
-  profile: 'TEXT NOT NULL DEFAULT \'default\'',
-  source: 'TEXT NOT NULL DEFAULT \'api_server\'',
+  profile: "TEXT NOT NULL DEFAULT 'default'",
+  source: "TEXT NOT NULL DEFAULT 'api_server'",
   agent: 'TEXT NOT NULL DEFAULT \'\'',
   agent_mode: 'TEXT NOT NULL DEFAULT \'\'',
   agent_session_id: 'TEXT NOT NULL DEFAULT \'\'',
@@ -50,6 +50,8 @@ export const SESSIONS_SCHEMA: Record<string, string> = {
   tool_call_count: 'INTEGER NOT NULL DEFAULT 0',
   input_tokens: 'INTEGER NOT NULL DEFAULT 0',
   output_tokens: 'INTEGER NOT NULL DEFAULT 0',
+  context_tokens: 'INTEGER NOT NULL DEFAULT 0',
+  context_limit: 'INTEGER NOT NULL DEFAULT 0',
   cache_read_tokens: 'INTEGER NOT NULL DEFAULT 0',
   cache_write_tokens: 'INTEGER NOT NULL DEFAULT 0',
   reasoning_tokens: 'INTEGER NOT NULL DEFAULT 0',

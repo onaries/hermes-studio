@@ -701,6 +701,12 @@ describe('coding agent run state', () => {
       contextTokens: 187985,
       contextLimit: 237500,
     })
+    expect(getSession(chatSessionId)).toMatchObject({
+      input_tokens: 8787567,
+      output_tokens: 31809,
+      context_tokens: 187985,
+      context_limit: 237500,
+    })
     manager.shutdown()
   })
 

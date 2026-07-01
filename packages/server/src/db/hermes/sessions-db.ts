@@ -25,6 +25,8 @@ export interface HermesSessionRow {
   tool_call_count: number
   input_tokens: number
   output_tokens: number
+  context_tokens: number
+  context_limit: number
   cache_read_tokens: number
   cache_write_tokens: number
   reasoning_tokens: number
@@ -119,6 +121,8 @@ function mapRow(row: Record<string, unknown>): HermesSessionRow {
     tool_call_count: normalizeNumber(row.tool_call_count),
     input_tokens: normalizeNumber(row.input_tokens),
     output_tokens: normalizeNumber(row.output_tokens),
+    context_tokens: normalizeNumber(row.context_tokens),
+    context_limit: normalizeNumber(row.context_limit),
     cache_read_tokens: normalizeNumber(row.cache_read_tokens),
     cache_write_tokens: normalizeNumber(row.cache_write_tokens),
     reasoning_tokens: normalizeNumber(row.reasoning_tokens),
@@ -144,6 +148,8 @@ const SESSION_SELECT = `
   COALESCE(s.tool_call_count, 0) AS tool_call_count,
   COALESCE(s.input_tokens, 0) AS input_tokens,
   COALESCE(s.output_tokens, 0) AS output_tokens,
+  COALESCE(s.context_tokens, 0) AS context_tokens,
+  COALESCE(s.context_limit, 0) AS context_limit,
   COALESCE(s.cache_read_tokens, 0) AS cache_read_tokens,
   COALESCE(s.cache_write_tokens, 0) AS cache_write_tokens,
   COALESCE(s.reasoning_tokens, 0) AS reasoning_tokens,
@@ -402,6 +408,8 @@ function projectSessionSummary(root: HermesSessionInternalRow, chain: HermesSess
     tool_call_count: latest.tool_call_count,
     input_tokens: latest.input_tokens,
     output_tokens: latest.output_tokens,
+    context_tokens: latest.context_tokens,
+    context_limit: latest.context_limit,
     cache_read_tokens: latest.cache_read_tokens,
     cache_write_tokens: latest.cache_write_tokens,
     reasoning_tokens: latest.reasoning_tokens,
@@ -570,6 +578,8 @@ function aggregateSessionDetail(
     tool_call_count: chain.reduce((sum, session) => sum + Number(session.tool_call_count || 0), 0),
     input_tokens: chain.reduce((sum, session) => sum + Number(session.input_tokens || 0), 0),
     output_tokens: chain.reduce((sum, session) => sum + Number(session.output_tokens || 0), 0),
+    context_tokens: Number(latest.context_tokens || 0),
+    context_limit: Number(latest.context_limit || 0),
     cache_read_tokens: chain.reduce((sum, session) => sum + Number(session.cache_read_tokens || 0), 0),
     cache_write_tokens: chain.reduce((sum, session) => sum + Number(session.cache_write_tokens || 0), 0),
     reasoning_tokens: chain.reduce((sum, session) => sum + Number(session.reasoning_tokens || 0), 0),

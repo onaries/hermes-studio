@@ -563,13 +563,16 @@ export class CodingAgentRunManager {
 
   private persistCodingAgentTokenUsage(run: ManagedCodingAgentRun, usage: any): void {
     const normalizedUsage = normalizeCodingAgentAccountingUsage(usage)
-    if (!normalizedUsage) return
+    const normalizedContextUsage = normalizeCodingAgentUsage(usage)
+    if (!normalizedUsage && !normalizedContextUsage) return
     try {
       updateSession(run.launch.sessionId, {
-        input_tokens: normalizedUsage.inputTokens,
-        output_tokens: normalizedUsage.outputTokens,
-        cache_read_tokens: normalizedUsage.cacheReadTokens ?? 0,
-        reasoning_tokens: normalizedUsage.reasoningTokens ?? 0,
+        input_tokens: normalizedUsage?.inputTokens ?? 0,
+        output_tokens: normalizedUsage?.outputTokens ?? 0,
+        context_tokens: normalizedContextUsage?.contextTokens ?? 0,
+        context_limit: normalizedContextUsage?.contextLimit ?? 0,
+        cache_read_tokens: normalizedUsage?.cacheReadTokens ?? 0,
+        reasoning_tokens: normalizedUsage?.reasoningTokens ?? 0,
         ...(run.launch.model ? { model: run.launch.model } : {}),
         ...(run.launch.provider ? { provider: run.launch.provider } : {}),
       })

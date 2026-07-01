@@ -136,4 +136,30 @@ describe('chat session ordering', () => {
     expect(store.activeSessionId).toBeNull()
     expect(store.activeSession).toBeNull()
   })
+
+  it('keeps coding-agent context usage separate from cumulative token accounting', async () => {
+    vi.mocked(fetchSessions)
+      .mockResolvedValueOnce([
+        {
+          ...makeSession('codex-session', { started_at: 1000, last_active: 1000 }),
+          source: 'coding_agent',
+          agent: 'codex',
+          input_tokens: 8_787_567,
+          output_tokens: 31_809,
+          context_tokens: 187_985,
+          context_limit: 237_500,
+        },
+      ] as any)
+      .mockResolvedValueOnce([])
+
+    const store = useChatStore()
+    await store.loadSessions()
+
+    expect(store.sessions[0]).toMatchObject({
+      inputTokens: 8_787_567,
+      outputTokens: 31_809,
+      contextTokens: 187_985,
+      contextLimit: 237_500,
+    })
+  })
 })
