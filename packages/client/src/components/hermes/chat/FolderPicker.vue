@@ -327,7 +327,7 @@ const flatNodes = computed<FlatNode[]>(() => {
         @contextmenu="showContextMenu($event, null)"
       >
         <FileGlyph class="folder-icon" name="workspace" is-dir size="sm" />
-        <span class="folder-name">{{ basePath || '/' }}</span>
+        <span class="folder-name" :title="basePath || '/'">{{ basePath || '/' }}</span>
       </div>
 
       <!-- Flat rendered tree -->
@@ -345,7 +345,7 @@ const flatNodes = computed<FlatNode[]>(() => {
           <template v-else>{{ node.isExpanded ? '▼' : '▶' }}</template>
         </span>
         <FileGlyph class="folder-icon" :name="node.folder.name" is-dir size="sm" />
-        <span class="folder-name">{{ node.folder.name }}</span>
+        <span class="folder-name" :title="node.folder.fullPath">{{ node.folder.name }}</span>
       </div>
 
       <!-- Empty children indicator for expanded folders with no children -->
@@ -367,7 +367,7 @@ const flatNodes = computed<FlatNode[]>(() => {
     <!-- Selected path display -->
     <div v-if="selectedPath" class="folder-selected">
       <span class="folder-selected-label">{{ t('chat.folderPickerSelected') }}</span>
-      <span class="folder-selected-path">{{ selectedPath }}</span>
+      <span class="folder-selected-path" :title="selectedPath">{{ selectedPath }}</span>
     </div>
 
     <NDropdown
@@ -513,13 +513,14 @@ const flatNodes = computed<FlatNode[]>(() => {
 
 .folder-selected {
   margin-top: 8px;
-  padding: 6px 8px;
+  padding: 8px 10px;
   background: rgba(64, 158, 255, 0.08);
   border-radius: 4px;
   font-size: 12px;
   display: flex;
-  gap: 4px;
-  align-items: center;
+  flex-direction: column;
+  gap: 3px;
+  align-items: stretch;
   min-width: 0;
   flex-shrink: 0;
 }
@@ -531,9 +532,14 @@ const flatNodes = computed<FlatNode[]>(() => {
 
 .folder-selected-path {
   font-family: monospace;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+  line-height: 1.35;
+  max-height: 5.4em;
+  overflow-y: auto;
   min-width: 0;
+  user-select: text;
 }
 </style>

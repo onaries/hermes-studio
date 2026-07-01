@@ -121,4 +121,15 @@ describe('FolderPicker Windows drives', () => {
     expect(requestMock).toHaveBeenCalledWith('/api/hermes/workspace/folders?path=D%3A%5C')
     expect(wrapper.text()).toContain('Projects')
   })
+
+  it('keeps the full selected workspace path available in the selected summary', async () => {
+    const longPath = '/Users/safemotion/Documents/projects/safemotion/safemotion-docsearch'
+    const wrapper = mount(FolderPicker, { props: { modelValue: longPath } })
+
+    await flushPromises()
+
+    const selectedPath = wrapper.get('.folder-selected-path')
+    expect(selectedPath.text()).toBe(longPath)
+    expect(selectedPath.attributes('title')).toBe(longPath)
+  })
 })
