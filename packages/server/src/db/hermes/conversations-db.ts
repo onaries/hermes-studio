@@ -376,7 +376,29 @@ async function openConversationDb() {
   return new DatabaseSync(conversationDbPath(), { open: true, readOnly: true })
 }
 
-function buildConversationSessionSql(source?: string): { sql: string, params: any[] } {
+function tableHasColumn(
+  db: { prepare: (sql: string) => { all: (...params: any[]) => Record<string, unknown>[] } },
+  tableName: string,
+  columnName: string,
+): boolean {
+  try {
+    const columns = db.prepare(`PRAGMA table_info(${tableName})`).all()
+    return columns.some(column => String(column.name || '') === columnName)
+  } catch {
+    return false
+  }
+}
+
+function buildConversationSessionSql(
+  db: { prepare: (sql: string) => { all: (...params: any[]) => Record<string, unknown>[] } },
+  source?: string,
+): { sql: string, params: any[] } {
+  const contextTokensExpr = tableHasColumn(db, 'sessions', 'context_tokens')
+    ? 'COALESCE(s.context_tokens, 0) AS context_tokens,'
+    : '0 AS context_tokens,'
+  const contextLimitExpr = tableHasColumn(db, 'sessions', 'context_limit')
+    ? 'COALESCE(s.context_limit, 0) AS context_limit,'
+    : '0 AS context_limit,'
   const sql = `
     SELECT
       s.id,
@@ -392,8 +414,8 @@ function buildConversationSessionSql(source?: string): { sql: string, params: an
       COALESCE(s.tool_call_count, 0) AS tool_call_count,
       COALESCE(s.input_tokens, 0) AS input_tokens,
       COALESCE(s.output_tokens, 0) AS output_tokens,
-      COALESCE(s.context_tokens, 0) AS context_tokens,
-      COALESCE(s.context_limit, 0) AS context_limit,
+      ${contextTokensExpr}
+      ${contextLimitExpr}
       COALESCE(s.cache_read_tokens, 0) AS cache_read_tokens,
       COALESCE(s.cache_write_tokens, 0) AS cache_write_tokens,
       COALESCE(s.reasoning_tokens, 0) AS reasoning_tokens,
@@ -431,7 +453,7 @@ function buildConversationSessionSql(source?: string): { sql: string, params: an
 async function loadConversationSessions(source?: string): Promise<ConversationSessionRow[]> {
   const db = await openConversationDb()
   try {
-    const { sql, params } = buildConversationSessionSql(source)
+    const { sql, params } = buildConversationSessionSql(db, source)
     const rows = db.prepare(sql).all(...params) as Record<string, unknown>[]
     const nowSeconds = Date.now() / 1000
     return rows.map(row => mapSessionRow(row, nowSeconds))

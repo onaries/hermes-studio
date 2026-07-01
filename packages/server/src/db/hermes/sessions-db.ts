@@ -170,6 +170,18 @@ const SESSION_SELECT = `
   COALESCE((SELECT MAX(m2.timestamp) FROM messages m2 WHERE m2.session_id = s.id), s.started_at) AS last_active
 `
 
+function sessionSelect(db: { prepare: (sql: string) => { all: (...params: any[]) => Record<string, unknown>[] } }): string {
+  const contextTokensExpr = tableHasColumn(db, 'sessions', 'context_tokens')
+    ? 'COALESCE(s.context_tokens, 0) AS context_tokens,'
+    : '0 AS context_tokens,'
+  const contextLimitExpr = tableHasColumn(db, 'sessions', 'context_limit')
+    ? 'COALESCE(s.context_limit, 0) AS context_limit,'
+    : '0 AS context_limit,'
+  return SESSION_SELECT
+    .replace('COALESCE(s.context_tokens, 0) AS context_tokens,', contextTokensExpr)
+    .replace('COALESCE(s.context_limit, 0) AS context_limit,', contextLimitExpr)
+}
+
 function containsCjk(text: string): boolean {
   for (const ch of text) {
     const cp = ch.codePointAt(0) ?? 0
@@ -259,7 +271,7 @@ function runLiteralContentSearch(
   const likeSql = `
     WITH base AS (
       SELECT
-        ${SESSION_SELECT},
+        ${sessionSelect(db)},
         s.parent_session_id AS parent_session_id
       FROM sessions s
       WHERE s.source != 'tool' AND s.id NOT LIKE 'compress_%'
@@ -432,7 +444,7 @@ interface SessionIndex {
 function loadAllSessions(db: { prepare: (sql: string) => { all: (...params: any[]) => Record<string, unknown>[] } }): SessionIndex {
   const rows = db.prepare(`
     SELECT
-      ${SESSION_SELECT},
+      ${sessionSelect(db)},
       s.parent_session_id AS parent_session_id
     FROM sessions s
     WHERE s.source != 'tool' AND s.id NOT LIKE 'compress_%'
@@ -621,7 +633,7 @@ export async function getSessionMessagesFromDb(sessionId: string): Promise<{
   const db = await openSessionDb()
   try {
     const sessionRow = db.prepare(`
-      SELECT ${SESSION_SELECT}
+      SELECT ${sessionSelect(db)}
       FROM sessions s
       WHERE s.id = ?
     `).get(sessionId) as Record<string, unknown> | undefined
@@ -786,7 +798,7 @@ export async function findLatestExactSessionIdWithProfile(
     const exactPromptSql = `
       WITH base AS (
         SELECT
-          ${SESSION_SELECT},
+          ${sessionSelect(db)},
           s.parent_session_id AS parent_session_id
         FROM sessions s
         WHERE s.source != 'tool' AND s.id NOT LIKE 'compress_%'
@@ -806,7 +818,7 @@ export async function findLatestExactSessionIdWithProfile(
     const taskJsonSql = `
       WITH base AS (
         SELECT
-          ${SESSION_SELECT},
+          ${sessionSelect(db)},
           s.parent_session_id AS parent_session_id
         FROM sessions s
         WHERE s.source != 'tool' AND s.id NOT LIKE 'compress_%'
@@ -825,7 +837,7 @@ export async function findLatestExactSessionIdWithProfile(
     const contentSql = `
       WITH base AS (
         SELECT
-          ${SESSION_SELECT},
+          ${sessionSelect(db)},
           s.parent_session_id AS parent_session_id
         FROM sessions s
         WHERE s.source != 'tool' AND s.id NOT LIKE 'compress_%'
@@ -903,8 +915,12 @@ function tableHasColumn(
   tableName: string,
   columnName: string,
 ): boolean {
-  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all()
-  return columns.some(column => String(column.name || '') === columnName)
+  try {
+    const columns = db.prepare(`PRAGMA table_info(${tableName})`).all()
+    return columns.some(column => String(column.name || '') === columnName)
+  } catch {
+    return false
+  }
 }
 
 function parseJsonObject(value: unknown): Record<string, unknown> | null {
@@ -1304,7 +1320,7 @@ export async function listSessionSummaries(source?: string, limit = 2000, profil
 
     const rawRows = db.prepare(`
       SELECT
-        ${SESSION_SELECT},
+        ${sessionSelect(db)},
         s.parent_session_id AS parent_session_id
       FROM sessions s
       WHERE ${clauses.join(' AND ')}
@@ -1351,7 +1367,7 @@ export async function searchSessionSummariesWithProfile(
     const titleSql = `
       WITH base AS (
         SELECT
-          ${SESSION_SELECT},
+          ${sessionSelect(db)},
           s.parent_session_id AS parent_session_id
         FROM sessions s
         WHERE s.source != 'tool' AND s.id NOT LIKE 'compress_%'
@@ -1375,7 +1391,7 @@ export async function searchSessionSummariesWithProfile(
     const contentSql = `
       WITH base AS (
         SELECT
-          ${SESSION_SELECT},
+          ${sessionSelect(db)},
           s.parent_session_id AS parent_session_id
         FROM sessions s
         WHERE s.source != 'tool' AND s.id NOT LIKE 'compress_%'
@@ -1458,7 +1474,7 @@ export async function searchSessionSummaries(
     const sourceParams = source ? [source] : []
     const allSessionsBaseSql = `
       SELECT
-        ${SESSION_SELECT},
+        ${sessionSelect(db)},
         s.parent_session_id AS parent_session_id
       FROM sessions s
       WHERE s.source != 'tool' AND s.id NOT LIKE 'compress_%'
