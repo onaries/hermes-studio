@@ -8,8 +8,17 @@ describe('chat artifact references', () => {
       role: 'assistant',
       content: 'Created [report.md](/tmp/report.md) and <a href="/tmp/chart.png">chart.png</a>',
     })).toEqual([
-      { path: '/tmp/report.md', name: 'report.md' },
-      { path: '/tmp/chart.png', name: 'chart.png' },
+      { path: '/tmp/report.md', name: 'report.md', workspace: null },
+      { path: '/tmp/chart.png', name: 'chart.png', workspace: null },
+    ])
+  })
+
+  it('extracts relative assistant links against the active workspace', () => {
+    expect(extractGeneratedMessageArtifacts({
+      role: 'assistant',
+      content: 'Updated [config.ts](src/config.ts)',
+    }, '/repo/app')).toEqual([
+      { path: 'src/config.ts', name: 'config.ts', workspace: '/repo/app' },
     ])
   })
 

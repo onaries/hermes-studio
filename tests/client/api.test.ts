@@ -224,6 +224,14 @@ describe('API Client', () => {
       expect(url.searchParams.get('path')).toBe('/tmp/100% ready.txt')
       expect(url.searchParams.get('name')).toBe('100% ready.txt')
     })
+
+    it('adds workspace for relative artifact downloads', () => {
+      const url = new URL(getDownloadUrl('src/config.ts', 'config.ts', undefined, '/repo/app'), 'http://localhost')
+
+      expect(url.pathname).toBe('/api/hermes/download')
+      expect(url.searchParams.get('path')).toBe('src/config.ts')
+      expect(url.searchParams.get('workspace')).toBe('/repo/app')
+    })
   })
 
   describe('file upload', () => {

@@ -18,6 +18,7 @@ import {
 } from './mermaidRenderer'
 import { downloadFile, getDownloadUrl } from '@/api/hermes/download'
 import { useArtifactsStore } from '@/stores/hermes/artifacts'
+import { useChatStore } from '@/stores/hermes/chat'
 import { copyToClipboard } from '@/utils/clipboard'
 
 const LATEX_FENCE_LANGS = new Set(['latex', 'tex', 'math', 'katex'])
@@ -72,6 +73,8 @@ const props = withDefaults(defineProps<{
 
 const { t } = useI18n()
 const message = useMessage()
+const chatStore = useChatStore()
+const activeWorkspace = computed(() => chatStore.activeSession?.workspace || null)
 
 function diffFoldLabel(hiddenCount: number): string {
   return t('chat.unchangedLines', { count: hiddenCount })
@@ -149,7 +152,9 @@ let renderGeneration = 0
 let unmounted = false
 
 function isLocalFilePath(path: string): boolean {
-  return path.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(path)
+  return path.startsWith('/')
+    || /^[a-zA-Z]:[\\/]/.test(path)
+    || (!!activeWorkspace.value && !!path && !path.startsWith('#') && !path.startsWith('?') && !path.startsWith('//') && !/^[a-z][a-z0-9+.-]*:/i.test(path))
 }
 
 function normalizeLocalFilePath(path: string): string {
@@ -192,7 +197,7 @@ const renderedHtml = computed(() => {
   // Replace image src paths with download URLs
   html = html.replace(/\bsrc=(["'])([^"']+)\1/g, (match, quote, path) => {
     if (!isLocalFilePath(path)) return match
-    const downloadUrl = getDownloadUrl(normalizeLocalFilePath(path))
+    const downloadUrl = getDownloadUrl(normalizeLocalFilePath(path), undefined, undefined, activeWorkspace.value)
     return `src=${quote}${downloadUrl}${quote}`
   })
 
@@ -206,7 +211,7 @@ const renderedHtml = computed(() => {
 
     // Video files: render as video player
     if (hasExtension(path, VIDEO_EXTENSIONS)) {
-      const downloadUrl = getDownloadUrl(path)
+      const downloadUrl = getDownloadUrl(path, undefined, undefined, activeWorkspace.value)
       return `<div class="markdown-video-container">
         <video class="markdown-video" controls preload="metadata" src="${downloadUrl}"></video>
         <div class="markdown-video-footer">
@@ -220,7 +225,7 @@ const renderedHtml = computed(() => {
 
     // Audio files: render as inline audio player
     if (hasExtension(path, AUDIO_EXTENSIONS)) {
-      const downloadUrl = getDownloadUrl(path)
+      const downloadUrl = getDownloadUrl(path, undefined, undefined, activeWorkspace.value)
       return `<div class="markdown-audio-container">
         <audio class="markdown-audio" controls preload="metadata" src="${downloadUrl}"></audio>
         <div class="markdown-audio-footer">
@@ -495,7 +500,7 @@ async function handleMarkdownClick(event: MouseEvent): Promise<void> {
         previewTextFile(path, fileName || '')
       } else {
         message.info(t('download.downloading'))
-        downloadFile(path, fileName).catch((err: Error) => {
+        downloadFile(path, fileName, undefined, activeWorkspace.value).catch((err: Error) => {
           message.error(err.message || t('download.downloadFailed'))
         })
       }
@@ -528,7 +533,7 @@ async function handleMarkdownClick(event: MouseEvent): Promise<void> {
     // Parse the real file path from the existing query param
     const url = new URL(href, window.location.origin)
     const realPath = url.searchParams.get('path') || href
-    downloadFile(realPath, fileName || undefined).catch((err: Error) => {
+    downloadFile(realPath, fileName || undefined, undefined, url.searchParams.get('workspace') || activeWorkspace.value).catch((err: Error) => {
       message.error(err.message || t('download.downloadFailed'))
     })
     return
@@ -541,7 +546,7 @@ async function handleMarkdownClick(event: MouseEvent): Promise<void> {
     const linkText = link.textContent || ''
     const fileName = linkText.startsWith('File: ') ? linkText.slice(6).trim() : linkText.trim()
     message.info(t('download.downloading'))
-    downloadFile(normalizeLocalFilePath(href), fileName || undefined).catch((err: Error) => {
+    downloadFile(normalizeLocalFilePath(href), fileName || undefined, undefined, activeWorkspace.value).catch((err: Error) => {
       message.error(err.message || t('download.downloadFailed'))
     })
   }
@@ -550,7 +555,7 @@ async function handleMarkdownClick(event: MouseEvent): Promise<void> {
 // Get file content and show preview area.
 async function previewTextFile(path: string, fileName: string): Promise<void> {
   const artifactsStore = useArtifactsStore()
-  await artifactsStore.openFileArtifact({ path, name: fileName })
+  await artifactsStore.openFileArtifact({ path, name: fileName, workspace: activeWorkspace.value })
 }
 </script>
 

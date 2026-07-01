@@ -3850,6 +3850,17 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "string"
+              ]
+            }
           }
         ]
       }

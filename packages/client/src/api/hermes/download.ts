@@ -17,7 +17,7 @@ function normalizeProfile(profile?: string | null): string | null {
  * Construct a download URL with auth token as query parameter.
  * Token is passed via query param because <a> tags cannot set headers.
  */
-export function getDownloadUrl(filePath: string, fileName?: string, profile?: string | null): string {
+export function getDownloadUrl(filePath: string, fileName?: string, profile?: string | null, workspace?: string | null): string {
   const base = getBaseUrlValue()
 
   // Guard: if filePath is already a full download URL, extract the real path
@@ -43,6 +43,7 @@ export function getDownloadUrl(filePath: string, fileName?: string, profile?: st
   const explicitProfile = normalizeProfile(profile)
   const profileName = profile === undefined ? getActiveProfileName() : explicitProfile
   if (profileName) params.set('profile', profileName)
+  if (workspace) params.set('workspace', workspace)
   const token = getApiKey()
   if (token) params.set('token', token)
   return `${base}/api/hermes/download?${params.toString()}`
@@ -59,8 +60,8 @@ function throwDownloadError(res: Response, body: { error?: string; code?: string
  * Download a file. Uses fetch to detect errors, then creates a blob URL
  * for the browser download. Throws with error message on failure.
  */
-export async function downloadFile(filePath: string, fileName?: string, profile?: string | null): Promise<void> {
-  const url = getDownloadUrl(filePath, fileName, profile)
+export async function downloadFile(filePath: string, fileName?: string, profile?: string | null, workspace?: string | null): Promise<void> {
+  const url = getDownloadUrl(filePath, fileName, profile, workspace)
   const res = await fetch(url)
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
@@ -81,8 +82,8 @@ export async function downloadFile(filePath: string, fileName?: string, profile?
  * Get preview file content.
  * Throws with error message on failure.
  */
-export async function fetchFileText(filePath: string, fileName?: string, profile?: string | null): Promise<string> {
-  const url = getDownloadUrl(filePath, fileName, profile)
+export async function fetchFileText(filePath: string, fileName?: string, profile?: string | null, workspace?: string | null): Promise<string> {
+  const url = getDownloadUrl(filePath, fileName, profile, workspace)
   const res = await fetch(url)
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))

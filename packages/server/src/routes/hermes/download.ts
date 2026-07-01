@@ -1,5 +1,5 @@
 import Router from '@koa/router'
-import { basename, extname, isAbsolute } from 'path'
+import { basename, extname, isAbsolute, resolve } from 'path'
 import {
   createFileProvider,
   localProvider,
@@ -8,6 +8,7 @@ import {
   resolveHermesPath,
 } from '../../services/hermes/file-provider'
 import { getActiveProfileName } from '../../services/hermes/hermes-profile'
+import { isPathWithin } from '../../services/hermes/hermes-path'
 
 export const downloadRoutes = new Router()
 
@@ -67,9 +68,23 @@ function requestedProfile(ctx: any): string {
   return ctx.state?.profile?.name || getActiveProfileName() || 'default'
 }
 
+function resolveDownloadPath(filePath: string, profile: string, workspace?: string): string {
+  if (isAbsolute(filePath)) return validatePath(filePath)
+  if (workspace) {
+    const workspaceRoot = validatePath(workspace)
+    const resolved = resolve(workspaceRoot, filePath)
+    if (!isPathWithin(resolved, workspaceRoot)) {
+      throw Object.assign(new Error('Invalid file path'), { code: 'invalid_path' })
+    }
+    return resolved
+  }
+  return resolveHermesPath(filePath, profile)
+}
+
 downloadRoutes.get('/api/hermes/download', async (ctx) => {
   const filePath = ctx.query.path as string | undefined
   const fileName = ctx.query.name as string | undefined
+  const workspace = typeof ctx.query.workspace === 'string' ? ctx.query.workspace : undefined
 
   if (!filePath) {
     ctx.status = 400
@@ -79,9 +94,7 @@ downloadRoutes.get('/api/hermes/download', async (ctx) => {
 
   try {
     const profile = requestedProfile(ctx)
-    // Validate the path first
-    // Support both absolute and relative paths
-    const validPath = isAbsolute(filePath) ? validatePath(filePath) : resolveHermesPath(filePath, profile)
+    const validPath = resolveDownloadPath(filePath, profile, workspace)
 
     // Choose provider: always use local for upload directory files
     let data: Buffer

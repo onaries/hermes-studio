@@ -246,9 +246,10 @@ function nudgeDrawerButtonPosition(direction: "up" | "down"): void {
 
 const activeChatArtifactFiles = computed<ArtifactFileReference[]>(() => {
   const messages = chatStore.activeSession?.messages || chatStore.messages || [];
+  const workspace = chatStore.activeSession?.workspace || null;
   const refs: ArtifactFileReference[] = [];
   for (let i = messages.length - 1; i >= 0; i -= 1) {
-    for (const file of extractGeneratedMessageArtifacts(messages[i])) {
+    for (const file of extractGeneratedMessageArtifacts(messages[i], workspace)) {
       refs.push(file);
     }
   }

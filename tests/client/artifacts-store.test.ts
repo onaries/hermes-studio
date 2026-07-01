@@ -6,7 +6,7 @@ import { fetchFileText } from '@/api/hermes/download'
 vi.mock('@/api/hermes/download', () => ({
   fetchFileText: vi.fn(),
   downloadFile: vi.fn(),
-  getDownloadUrl: (path: string, name?: string) => `/api/hermes/download?path=${encodeURIComponent(path)}&name=${encodeURIComponent(name || '')}`,
+  getDownloadUrl: (path: string, name?: string, _profile?: string | null, workspace?: string | null) => `/api/hermes/download?path=${encodeURIComponent(path)}&name=${encodeURIComponent(name || '')}${workspace ? `&workspace=${encodeURIComponent(workspace)}` : ''}`,
 }))
 
 describe('artifacts store', () => {
@@ -21,7 +21,7 @@ describe('artifacts store', () => {
 
     await store.openFileArtifact({ path: '/tmp/report.md', name: 'report.md' })
 
-    expect(fetchFileText).toHaveBeenCalledWith('/tmp/report.md', 'report.md')
+    expect(fetchFileText).toHaveBeenCalledWith('/tmp/report.md', 'report.md', undefined, null)
     expect(store.openSequence).toBe(1)
     expect(store.selectedArtifact?.kind).toBe('markdown')
     expect(store.selectedArtifact?.status).toBe('ready')
@@ -34,7 +34,7 @@ describe('artifacts store', () => {
 
     await store.openFileArtifact({ path: '/tmp/archive.zip', name: 'archive.zip' })
 
-    expect(fetchFileText).toHaveBeenCalledWith('/tmp/archive.zip', 'archive.zip')
+    expect(fetchFileText).toHaveBeenCalledWith('/tmp/archive.zip', 'archive.zip', undefined, null)
     expect(store.selectedArtifact?.kind).toBe('file')
     expect(store.selectedArtifact?.status).toBe('ready')
     expect(store.selectedArtifact?.content).toBe('zip-ish but readable')
@@ -68,6 +68,17 @@ describe('artifacts store', () => {
     expect(store.artifacts).toHaveLength(1)
     expect(store.selectedArtifact?.content).toBe('# Chat report')
     expect(store.openSequence).toBe(1)
+  })
+
+  it('loads relative chat artifacts from the session workspace', async () => {
+    vi.mocked(fetchFileText).mockResolvedValue('export const ok = true')
+    const store = useArtifactsStore()
+    store.syncChatFileArtifacts('session-1', [{ path: 'src/config.ts', name: 'config.ts', workspace: '/repo/app' }])
+
+    await store.ensureArtifactContent(store.selectedArtifactId!)
+
+    expect(fetchFileText).toHaveBeenCalledWith('src/config.ts', 'config.ts', undefined, '/repo/app')
+    expect(store.selectedArtifact?.content).toBe('export const ok = true')
   })
 
   it('drops missing chat artifacts instead of showing raw ENOENT errors', async () => {

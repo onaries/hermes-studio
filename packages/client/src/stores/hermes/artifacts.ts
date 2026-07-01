@@ -9,6 +9,7 @@ export interface ArtifactItem {
   id: string
   name: string
   path?: string
+  workspace?: string | null
   content?: string
   kind: ArtifactKind
   status: ArtifactStatus
@@ -21,6 +22,7 @@ export interface ArtifactItem {
 export interface ArtifactFileReference {
   path: string
   name?: string
+  workspace?: string | null
 }
 
 const MARKDOWN_EXTENSIONS = new Set(['md', 'markdown'])
@@ -66,8 +68,8 @@ function artifactId(pathOrName: string): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${pathOrName}`
 }
 
-function fileArtifactId(path: string, name?: string): string {
-  return `file:${path}::${name || ''}`
+function fileArtifactId(path: string, name?: string, workspace?: string | null): string {
+  return `file:${workspace || ''}::${path}::${name || ''}`
 }
 
 function fileStatusForKind(kind: ArtifactKind): ArtifactStatus {
@@ -127,9 +129,9 @@ export const useArtifactsStore = defineStore('artifacts', () => {
     return item
   }
 
-  function createFileArtifact(options: { path: string; name?: string; source?: 'manual' | 'chat'; sourceSessionId?: string }): ArtifactItem {
+  function createFileArtifact(options: { path: string; name?: string; workspace?: string | null; source?: 'manual' | 'chat'; sourceSessionId?: string }): ArtifactItem {
     const name = options.name || options.path.split('/').pop() || options.path
-    const id = fileArtifactId(options.path, name)
+    const id = fileArtifactId(options.path, name, options.workspace)
     const existing = artifacts.value.find(item => item.id === id)
     const kind = inferKind(name || options.path)
     return {
@@ -137,6 +139,7 @@ export const useArtifactsStore = defineStore('artifacts', () => {
       id,
       name,
       path: options.path,
+      workspace: options.workspace ?? existing?.workspace ?? null,
       kind,
       status: existing?.content !== undefined ? 'ready' : existing?.status || fileStatusForKind(kind),
       createdAt: existing?.createdAt || Date.now(),
@@ -145,7 +148,7 @@ export const useArtifactsStore = defineStore('artifacts', () => {
     }
   }
 
-  function registerFileArtifact(options: { path: string; name?: string; sourceSessionId?: string }): ArtifactItem {
+  function registerFileArtifact(options: { path: string; name?: string; workspace?: string | null; sourceSessionId?: string }): ArtifactItem {
     const item = createFileArtifact({ ...options, source: 'chat' })
     dismissedChatArtifactIds.delete(item.id)
     upsertArtifact(item, { select: selectedArtifactId.value === null, open: false })
@@ -189,7 +192,7 @@ export const useArtifactsStore = defineStore('artifacts', () => {
     updateArtifact(item.id, { status: 'loading' })
 
     try {
-      const content = await fetchFileText(item.path, item.name)
+      const content = await fetchFileText(item.path, item.name, undefined, item.workspace)
       return updateArtifact(item.id, { content, status: 'ready' }) || item
     } catch (err: any) {
       if (item.source === 'chat' && isMissingFileError(err)) {
@@ -203,7 +206,7 @@ export const useArtifactsStore = defineStore('artifacts', () => {
     }
   }
 
-  async function openFileArtifact(options: { path: string; name?: string; sourceSessionId?: string }): Promise<ArtifactItem> {
+  async function openFileArtifact(options: { path: string; name?: string; workspace?: string | null; sourceSessionId?: string }): Promise<ArtifactItem> {
     const item = createFileArtifact({
       ...options,
       source: 'manual',
@@ -230,12 +233,12 @@ export const useArtifactsStore = defineStore('artifacts', () => {
 
   async function downloadArtifact(item: ArtifactItem): Promise<void> {
     if (item.path) {
-      await downloadFile(item.path, item.name)
+      await downloadFile(item.path, item.name, undefined, item.workspace)
     }
   }
 
   function artifactUrl(item: ArtifactItem): string {
-    return item.path ? getDownloadUrl(item.path, item.name) : ''
+    return item.path ? getDownloadUrl(item.path, item.name, undefined, item.workspace) : ''
   }
 
   return {
