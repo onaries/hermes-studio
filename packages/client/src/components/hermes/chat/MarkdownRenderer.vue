@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage } from 'naive-ui'
+import { getActivePinia } from 'pinia'
 import type MarkdownIt from 'markdown-it'
 import MarkdownItConstructor from 'markdown-it'
 import katex from 'katex'
@@ -73,8 +74,11 @@ const props = withDefaults(defineProps<{
 
 const { t } = useI18n()
 const message = useMessage()
-const chatStore = useChatStore()
-const activeWorkspace = computed(() => chatStore.activeSession?.workspace || null)
+const activeWorkspace = computed(() => {
+  const pinia = getActivePinia()
+  if (!pinia) return null
+  return useChatStore(pinia).activeSession?.workspace || null
+})
 
 function diffFoldLabel(hiddenCount: number): string {
   return t('chat.unchangedLines', { count: hiddenCount })

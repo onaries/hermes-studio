@@ -323,7 +323,7 @@ describe('MarkdownRenderer', () => {
     await wrapper.find('.att-download-btn').trigger('click')
     await Promise.resolve()
 
-    expect(artifactsStoreMock.openFileArtifact).toHaveBeenCalledWith({ path: '/tmp/notes.txt', name: 'notes.txt' })
+    expect(artifactsStoreMock.openFileArtifact).toHaveBeenCalledWith({ path: '/tmp/notes.txt', name: 'notes.txt', workspace: null })
     expect(downloadApiMock.downloadFile).not.toHaveBeenCalled()
     expect(downloadApiMock.fetchFileText).not.toHaveBeenCalled()
     expect(wrapper.find('.n-drawer-stub').exists()).toBe(false)
@@ -340,7 +340,7 @@ describe('MarkdownRenderer', () => {
     await Promise.resolve()
     await nextTick()
 
-    expect(artifactsStoreMock.openFileArtifact).toHaveBeenCalledWith({ path: '/tmp/notes.txt', name: 'notes.txt' })
+    expect(artifactsStoreMock.openFileArtifact).toHaveBeenCalledWith({ path: '/tmp/notes.txt', name: 'notes.txt', workspace: null })
     expect(downloadApiMock.fetchFileText).not.toHaveBeenCalled()
     expect(wrapper.find('.n-drawer-stub').exists()).toBe(false)
   })
@@ -358,7 +358,7 @@ describe('MarkdownRenderer', () => {
     await nextTick()
 
     expect(artifactsStoreMock.openFileArtifact).not.toHaveBeenCalled()
-    expect(downloadApiMock.downloadFile).toHaveBeenCalledWith('/tmp/notes.txt', 'notes.txt')
+    expect(downloadApiMock.downloadFile).toHaveBeenCalledWith('/tmp/notes.txt', 'notes.txt', undefined, null)
   })
 
   it('opens markdown file previews as artifacts', async () => {
@@ -373,7 +373,7 @@ describe('MarkdownRenderer', () => {
     await Promise.resolve()
     await nextTick()
 
-    expect(artifactsStoreMock.openFileArtifact).toHaveBeenCalledWith({ path: '/tmp/notes.md', name: 'notes.md' })
+    expect(artifactsStoreMock.openFileArtifact).toHaveBeenCalledWith({ path: '/tmp/notes.md', name: 'notes.md', workspace: null })
     expect(downloadApiMock.fetchFileText).not.toHaveBeenCalled()
     expect(wrapper.find('.n-drawer-stub').exists()).toBe(false)
   })

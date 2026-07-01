@@ -130,6 +130,6 @@ describe('FilesPanel workspace tree visibility', () => {
   it('resets the drawer file path when the active chat session changes', () => {
     expect(filesPanelSource).toContain('[() => chatStore.activeSessionId, workspaceRoot]')
     expect(filesPanelSource).toContain('filesStore.closeEditor()')
-    expect(filesPanelSource).toContain('filesStore.fetchEntries(root)')
+    expect(filesPanelSource).toContain('filesStore.fetchEntries(root, { profile: null })')
   })
 })

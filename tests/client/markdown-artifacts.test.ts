@@ -48,7 +48,7 @@ describe('MarkdownRenderer artifacts', () => {
 
     await wrapper.find('.markdown-file-card').trigger('click')
 
-    expect(fetchFileText).toHaveBeenCalledWith('/tmp/report.md', 'report.md')
+    expect(fetchFileText).toHaveBeenCalledWith('/tmp/report.md', 'report.md', undefined, null)
     expect(store.selectedArtifact?.name).toBe('report.md')
     expect(store.openSequence).toBe(1)
   })
@@ -68,7 +68,7 @@ describe('MarkdownRenderer artifacts', () => {
     await action.trigger('click')
 
     expect(downloadFile).not.toHaveBeenCalled()
-    expect(fetchFileText).toHaveBeenCalledWith('/tmp/report.md', 'report.md')
+    expect(fetchFileText).toHaveBeenCalledWith('/tmp/report.md', 'report.md', undefined, null)
     expect(store.selectedArtifact?.name).toBe('report.md')
     expect(store.openSequence).toBe(1)
   })

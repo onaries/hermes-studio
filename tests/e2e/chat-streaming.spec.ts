@@ -545,11 +545,11 @@ test('closes the new chat modal after confirming while a pending interaction exi
   await expect(page.locator('.approval-bar')).toBeVisible()
 
   await page.getByRole('button', { name: 'New Chat' }).click()
-  const modal = page.locator('[role="dialog"]').filter({ hasText: 'New Chat' })
-  await expect(modal).toBeVisible()
-  await modal.getByRole('button', { name: 'New Chat' }).click()
+  const drawer = page.locator('.new-chat-drawer')
+  await expect(drawer).toBeVisible()
+  await drawer.getByRole('button', { name: 'Create' }).click()
 
-  await expect(modal).toHaveCount(0)
+  await expect(drawer).toBeHidden()
   await expect(page.locator('.approval-bar')).toHaveCount(0)
   await expect(page.locator('.session-interaction-badge--approval')).toBeVisible()
   expect(api.unexpectedRequests).toEqual([])
