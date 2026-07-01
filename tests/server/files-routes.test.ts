@@ -1,5 +1,12 @@
+import { execFile } from 'child_process'
+import { mkdtemp, rm, writeFile } from 'fs/promises'
+import { tmpdir } from 'os'
+import { join } from 'path'
 import { Readable } from 'stream'
+import { promisify } from 'util'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const execFileAsync = promisify(execFile)
 
 const provider = {
   listDir: vi.fn(),
@@ -267,4 +274,49 @@ describe('file routes path metadata', () => {
     expect(writeCtx.body).toEqual({ error: 'Super administrator privileges are required' })
     expect(provider.writeFile).not.toHaveBeenCalled()
   })
+
+  it('keeps full git diff file stats when loading a selected file diff', async () => {
+    const originalWorkspaceBase = process.env.WORKSPACE_BASE
+    const tempRoot = await mkdtemp(join(tmpdir(), 'hermes-git-diff-'))
+    const repo = join(tempRoot, 'repo')
+    process.env.WORKSPACE_BASE = tempRoot
+
+    try {
+      await execFileAsync('git', ['init', repo])
+      await execFileAsync('git', ['-C', repo, 'config', 'user.email', 'hermes@example.com'])
+      await execFileAsync('git', ['-C', repo, 'config', 'user.name', 'Hermes Test'])
+      await writeFile(join(repo, 'a.txt'), 'a1\n')
+      await writeFile(join(repo, 'b.txt'), 'b1\n')
+      await execFileAsync('git', ['-C', repo, 'add', '.'])
+      await execFileAsync('git', ['-C', repo, 'commit', '-m', 'initial'])
+      await writeFile(join(repo, 'a.txt'), 'a1\na2\n')
+      await writeFile(join(repo, 'b.txt'), 'b1\nb2\n')
+
+      const ctx: any = {
+        query: { workspace: repo, path: 'a.txt' },
+        state: superAdminState(),
+        body: null,
+      }
+
+      await runFileRoute('/api/hermes/files/git-diff', ctx)
+
+      expect(ctx.body.selectedPath).toBe('a.txt')
+      expect(ctx.body.diff).toContain('diff --git a/a.txt b/a.txt')
+      expect(ctx.body.diff).not.toContain('diff --git a/b.txt b/b.txt')
+      expect(ctx.body.files).toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: 'a.txt', additions: 1, deletions: 0 }),
+        expect.objectContaining({ path: 'b.txt', additions: 1, deletions: 0 }),
+      ]))
+      const totals = ctx.body.files.reduce((acc: { additions: number; deletions: number }, file: any) => ({
+        additions: acc.additions + (file.additions || 0),
+        deletions: acc.deletions + (file.deletions || 0),
+      }), { additions: 0, deletions: 0 })
+      expect(totals).toEqual({ additions: 2, deletions: 0 })
+    } finally {
+      if (originalWorkspaceBase === undefined) delete process.env.WORKSPACE_BASE
+      else process.env.WORKSPACE_BASE = originalWorkspaceBase
+      await rm(tempRoot, { recursive: true, force: true })
+    }
+  })
+
 })

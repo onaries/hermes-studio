@@ -276,11 +276,11 @@ fileRoutes.get('/api/hermes/files/git-diff', requireSuperAdmin, async (ctx) => {
       return
     }
 
-    const [branch, upstream, statusRaw, numstatRaw, trackedDiff] = await Promise.all([
+    const [branch, upstream, statusRaw, fullNumstatRaw, trackedDiff] = await Promise.all([
       runGit(repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD'], 64 * 1024).then(value => value.trim()).catch(() => ''),
       runGit(repoRoot, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'], 64 * 1024).then(value => value.trim()).catch(() => ''),
       tryRunGit(repoRoot, ['status', '--porcelain=v1', '-z'], MAX_GIT_DIFF_BYTES),
-      tryRunGit(repoRoot, ['diff', '--numstat', 'HEAD', '--', ...(selectedPath ? [selectedPath] : [])], MAX_GIT_DIFF_BYTES).catch(() => ''),
+      tryRunGit(repoRoot, ['diff', '--numstat', 'HEAD'], MAX_GIT_DIFF_BYTES).catch(() => ''),
       tryRunGit(repoRoot, ['diff', '--no-color', '--no-ext-diff', '--unified=80', 'HEAD', '--', ...(selectedPath ? [selectedPath] : [])], MAX_GIT_DIFF_BYTES).catch((error) => {
         if (error?.code === 'file_too_large') throw error
         return ''
@@ -288,7 +288,7 @@ fileRoutes.get('/api/hermes/files/git-diff', requireSuperAdmin, async (ctx) => {
     ])
 
     const files = parseGitStatusPorcelain(statusRaw)
-    const statMap = parseGitNumstat(numstatRaw)
+    const statMap = parseGitNumstat(fullNumstatRaw)
     for (const file of files) {
       const stats = statMap.get(file.path)
       if (stats) {
