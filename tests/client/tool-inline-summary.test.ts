@@ -60,6 +60,24 @@ describe('buildToolInlineSummary', () => {
     expect(summary).toBe('npm run harness:check')
   })
 
+  it('summarizes Codex Command tools as commands, never output previews', () => {
+    expect(buildToolInlineSummary(
+      'Command',
+      { command: '/bin/zsh -lc "nl -ba generate_pkl_data_mtml.py"' },
+      '     1\timport pickle\n     2\timport numpy as np',
+      '     1 import pickle 2 import numpy',
+      t,
+    )).toBe('/bin/zsh -lc "nl -ba generate_pkl_data_mtml.py"')
+
+    expect(buildToolInlineSummary(
+      'Command',
+      undefined,
+      '     1\timport pickle\n     2\timport numpy as np',
+      '     1 import pickle 2 import numpy',
+      t,
+    )).toBe('')
+  })
+
   it('shows read/write/patch file paths without labels', () => {
     expect(buildToolInlineSummary(
       'read_file',

@@ -154,7 +154,7 @@ function toolSpecificArgsSummary(t: Translator, toolName: string, args: unknown)
   if (name.includes('skill_view')) return [rawValue(firstString(args, ['name']))].filter(Boolean) as string[]
   if (name.includes('read_file')) return [rawValue(firstString(args, ['path']))].filter(Boolean) as string[]
   if (name.includes('search_files')) return [keyValue(t, 'pattern', firstString(args, ['pattern'])), keyValue(t, 'path', firstString(args, ['path']))].filter(Boolean) as string[]
-  if (name.includes('terminal')) return [rawValue(firstString(args, ['command']))].filter(Boolean) as string[]
+  if (name.includes('terminal') || name === 'command') return [rawValue(firstString(args, ['command', 'cmd']))].filter(Boolean) as string[]
   if (name.includes('file change') || name.includes('file_change')) return [fileChangeSummary(args)].filter(Boolean) as string[]
   if (name.includes('execute_code')) return [keyValue(t, 'code', firstString(args, ['code']))].filter(Boolean) as string[]
   if (name.includes('patch')) return [rawValue(firstString(args, ['path']))].filter(Boolean) as string[]
@@ -179,7 +179,7 @@ function compactParts(parts: string[]): string {
 
 function usesArgsOnlyInlineSummary(toolName: string | undefined): boolean {
   const name = (toolName || '').toLowerCase()
-  return ['web_search', 'skill_view', 'read_file', 'write_file', 'patch', 'terminal', 'file_change'].some(tool => name.includes(tool)) || name.includes('file change')
+  return ['web_search', 'skill_view', 'read_file', 'write_file', 'patch', 'terminal', 'file_change'].some(tool => name.includes(tool)) || name === 'command' || name.includes('file change')
 }
 
 export function buildToolInlineSummary(
@@ -206,6 +206,7 @@ export function buildToolInlineSummary(
   const deduped = [...new Set(parts)]
   if (deduped.length) return compactParts(deduped)
 
+  if (usesArgsOnlyInlineSummary(toolName)) return ''
   if (existingPreview) return truncate(existingPreview, MAX_SUMMARY_LENGTH)
   if (typeof result === 'string' && result.trim()) return truncate(result, MAX_SUMMARY_LENGTH)
   if (typeof args === 'string' && args.trim()) return truncate(args, MAX_SUMMARY_LENGTH)

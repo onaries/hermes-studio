@@ -417,6 +417,24 @@ function mapHermesMessages(msgs: HermesMessage[]): Message[] {
   const toolNameMap = new Map<string, string>()
   const toolArgsMap = new Map<string, unknown>()
   const completedToolCallIds = new Set<string>()
+  const pendingToolCallsById = new Map<string, Array<{ name?: string; args?: unknown; placeholderId: string }>>()
+  const enqueuePendingToolCall = (tc: any, placeholderId: string) => {
+    if (!tc?.id) return
+    const queue = pendingToolCallsById.get(tc.id) || []
+    queue.push({
+      name: tc.function?.name || undefined,
+      args: runtimeToolPayloadOrUndefined(tc.function?.arguments),
+      placeholderId,
+    })
+    pendingToolCallsById.set(tc.id, queue)
+  }
+  const takePendingToolCall = (toolCallId: string) => {
+    const queue = pendingToolCallsById.get(toolCallId)
+    if (!queue?.length) return null
+    const next = queue.shift() || null
+    if (!queue.length) pendingToolCallsById.delete(toolCallId)
+    return next
+  }
   for (const msg of filteredMsgs) {
     if (msg.role === 'assistant' && msg.tool_calls) {
       for (const tc of msg.tool_calls) {
@@ -436,7 +454,7 @@ function mapHermesMessages(msgs: HermesMessage[]): Message[] {
     if (msg.role === 'assistant' && msg.tool_calls?.length && !runtimePayloadText((msg as any).content).trim()) {
       // Emit a tool.started message for each tool call
       for (const tc of msg.tool_calls) {
-        result.push({
+        const placeholder: Message = {
           id: String(msg.id) + '_' + tc.id,
           role: 'tool',
           content: '',
@@ -447,7 +465,9 @@ function mapHermesMessages(msgs: HermesMessage[]): Message[] {
           toolStatus: tc.id && completedToolCallIds.has(tc.id) ? 'done' : 'running',
           finishReason: readFinishReason(msg),
           runMarker: readRunMarker(msg),
-        })
+        }
+        result.push(placeholder)
+        enqueuePendingToolCall(tc, placeholder.id)
       }
       continue
     }
@@ -456,8 +476,11 @@ function mapHermesMessages(msgs: HermesMessage[]): Message[] {
     // so they can render as tool lines without becoming model-context tool results.
     if (msg.role === 'tool' || isPersistedMoaToolDisplay(msg)) {
       const tcId = msg.tool_call_id || ''
-      const toolName = msg.tool_name || toolNameMap.get(tcId) || undefined
-      const toolArgs = toolArgsMap.has(tcId) ? toolArgsMap.get(tcId) : undefined
+      const pendingToolCall = tcId ? takePendingToolCall(tcId) : null
+      const toolName = msg.tool_name || pendingToolCall?.name || toolNameMap.get(tcId) || undefined
+      const toolArgs = pendingToolCall?.args !== undefined
+        ? pendingToolCall.args
+        : toolArgsMap.has(tcId) ? toolArgsMap.get(tcId) : undefined
       const moaPayload = parsePersistedMoaToolPayload(toolName, (msg as any).content)
       // Extract a short preview from the content
       let preview = moaPayload?.preview || ''
@@ -473,9 +496,11 @@ function mapHermesMessages(msgs: HermesMessage[]): Message[] {
         }
       }
       // Find and remove the matching placeholder from tool_calls above
-      const placeholderIdx = result.findIndex(
-        m => m.role === 'tool' && m.toolName === toolName && !m.toolResult && m.id.includes('_' + tcId)
-      )
+      const placeholderIdx = pendingToolCall?.placeholderId
+        ? result.findIndex(m => m.id === pendingToolCall.placeholderId)
+        : result.findIndex(
+          m => m.role === 'tool' && m.toolName === toolName && !m.toolResult && m.id.includes('_' + tcId)
+        )
       const placeholder = placeholderIdx !== -1 ? result[placeholderIdx] : null
       const completedAt = Math.round(msg.timestamp * 1000)
       const restoredDuration = placeholder?.timestamp

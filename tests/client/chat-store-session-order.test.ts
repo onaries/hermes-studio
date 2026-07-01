@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useChatStore } from '@/stores/hermes/chat'
 import { archiveSession, fetchSessions } from '@/api/hermes/sessions'
+import { resumeSession } from '@/api/hermes/chat'
 
 vi.mock('@/api/hermes/sessions', () => ({
   archiveSession: vi.fn(),
@@ -161,5 +162,82 @@ describe('chat session ordering', () => {
       contextTokens: 187_985,
       contextLimit: 237_500,
     })
+  })
+
+  it('pairs repeated Codex Command item ids with the nearest assistant tool call', async () => {
+    vi.mocked(fetchSessions)
+      .mockResolvedValueOnce([
+        {
+          ...makeSession('codex-session', { started_at: 1000, last_active: 1000 }),
+          source: 'coding_agent',
+          agent: 'codex',
+          message_count: 4,
+        },
+      ] as any)
+      .mockResolvedValueOnce([])
+    vi.mocked(resumeSession).mockImplementationOnce((_sessionId: string, cb: (data: any) => void) => {
+      cb({
+        session_id: _sessionId,
+        isWorking: false,
+        messages: [
+          {
+            id: 1,
+            session_id: _sessionId,
+            role: 'assistant',
+            content: '',
+            timestamp: 1000,
+            tool_calls: [{
+              id: 'item_2',
+              type: 'function',
+              function: {
+                name: 'Command',
+                arguments: '{"command":"/bin/zsh -lc \\"nl -ba first.py\\""}',
+              },
+            }],
+          },
+          {
+            id: 2,
+            session_id: _sessionId,
+            role: 'tool',
+            content: '     1\timport copy\n     2\timport os',
+            timestamp: 1001,
+            tool_call_id: 'item_2',
+            tool_name: 'Command',
+          },
+          {
+            id: 3,
+            session_id: _sessionId,
+            role: 'assistant',
+            content: '',
+            timestamp: 1002,
+            tool_calls: [{
+              id: 'item_2',
+              type: 'function',
+              function: {
+                name: 'Command',
+                arguments: '{"command":"/bin/zsh -lc \\"git status --short\\""}',
+              },
+            }],
+          },
+          {
+            id: 4,
+            session_id: _sessionId,
+            role: 'tool',
+            content: ' M first.py',
+            timestamp: 1003,
+            tool_call_id: 'item_2',
+            tool_name: 'Command',
+          },
+        ],
+      })
+    })
+
+    const store = useChatStore()
+    await store.loadSessions()
+
+    const tools = store.activeSession?.messages.filter(message => message.role === 'tool') || []
+    expect(tools).toHaveLength(2)
+    expect(tools[0].toolArgs).toBe('{"command":"/bin/zsh -lc \\"nl -ba first.py\\""}')
+    expect(tools[1].toolArgs).toBe('{"command":"/bin/zsh -lc \\"git status --short\\""}')
   })
 })
