@@ -953,6 +953,23 @@ export class ChatRunSocket {
     }
   }
 
+  hasActiveRuns(): boolean {
+    return [...this.sessionMap.values()].some(state => (
+      state.isWorking || Boolean(state.abortController) || Boolean(state.runId) || Boolean(state.activeRunMarker)
+    ))
+  }
+
+  activeRunSummary(): Array<{ sessionId: string; source?: string; profile?: string; queueLength: number }> {
+    return [...this.sessionMap.entries()]
+      .filter(([, state]) => state.isWorking || Boolean(state.abortController) || Boolean(state.runId) || Boolean(state.activeRunMarker))
+      .map(([sessionId, state]) => ({
+        sessionId,
+        source: state.source,
+        profile: state.profile,
+        queueLength: state.queue.length,
+      }))
+  }
+
   clearSessionHistory(sessionId: string): { deleted: number; hadMemoryState: boolean } {
     const deleted = clearSessionMessages(sessionId)
     const state = this.sessionMap.get(sessionId)

@@ -40,7 +40,10 @@ export function shouldStopManagedGatewaysOnShutdown(env: NodeJS.ProcessEnv = pro
 }
 
 export function shouldForceRestartWithCodingAgents(env: NodeJS.ProcessEnv = process.env): boolean {
-  return ['1', 'true', 'yes', 'on'].includes(String(env.HERMES_WEB_UI_FORCE_RESTART_WITH_CODING_AGENTS || '').trim().toLowerCase())
+  return [
+    env.HERMES_WEB_UI_FORCE_RESTART_WITH_CODING_AGENTS,
+    env.HERMES_WEB_UI_FORCE_RESTART_WITH_ACTIVE_RUNS,
+  ].some(value => ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase()))
 }
 
 export type ShutdownHandler = (signal: string) => Promise<void>
@@ -49,10 +52,16 @@ export function createShutdownHandler(server: any, groupChatServer?: any, chatRu
   let isShuttingDown = false
 
   return async (signal: string) => {
-    if (signal === 'SIGUSR2' && codingAgentRunManager.hasActiveRuns() && !shouldForceRestartWithCodingAgents()) {
-      const activeRuns = codingAgentRunManager.activeRunSummary()
-      logger.warn({ activeRuns }, '[shutdown] restart skipped because coding-agent runs are active')
-      console.warn('[shutdown] Restart skipped because coding-agent runs are active. Set HERMES_WEB_UI_FORCE_RESTART_WITH_CODING_AGENTS=1 to force.')
+    const chatRunHasActiveRuns = typeof chatRunServer?.hasActiveRuns === 'function' && chatRunServer.hasActiveRuns()
+    if (signal === 'SIGUSR2' && (codingAgentRunManager.hasActiveRuns() || chatRunHasActiveRuns) && !shouldForceRestartWithCodingAgents()) {
+      const activeRuns = [
+        ...codingAgentRunManager.activeRunSummary().map(run => ({ ...run, type: 'coding_agent' })),
+        ...(typeof chatRunServer?.activeRunSummary === 'function'
+          ? chatRunServer.activeRunSummary().map((run: any) => ({ ...run, type: 'chat_run' }))
+          : []),
+      ]
+      logger.warn({ activeRuns }, '[shutdown] restart skipped because chat/coding-agent runs are active')
+      console.warn('[shutdown] Restart skipped because chat/coding-agent runs are active. Set HERMES_WEB_UI_FORCE_RESTART_WITH_ACTIVE_RUNS=1 to force.')
       return
     }
 

@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  createShutdownHandler,
   getShutdownForceExitMs,
   shouldForceRestartWithCodingAgents,
   shouldStopAgentBridgeOnShutdown,
@@ -13,6 +14,7 @@ describe('shutdown bridge policy', () => {
   const originalDesktop = process.env.HERMES_DESKTOP
   const originalForceExitMs = process.env.HERMES_WEB_UI_SHUTDOWN_FORCE_EXIT_MS
   const originalForceCodingAgentRestart = process.env.HERMES_WEB_UI_FORCE_RESTART_WITH_CODING_AGENTS
+  const originalForceActiveRunsRestart = process.env.HERMES_WEB_UI_FORCE_RESTART_WITH_ACTIVE_RUNS
 
   afterEach(() => {
     if (originalValue === undefined) delete process.env.HERMES_AGENT_BRIDGE_STOP_ON_SHUTDOWN
@@ -27,6 +29,8 @@ describe('shutdown bridge policy', () => {
     else process.env.HERMES_WEB_UI_SHUTDOWN_FORCE_EXIT_MS = originalForceExitMs
     if (originalForceCodingAgentRestart === undefined) delete process.env.HERMES_WEB_UI_FORCE_RESTART_WITH_CODING_AGENTS
     else process.env.HERMES_WEB_UI_FORCE_RESTART_WITH_CODING_AGENTS = originalForceCodingAgentRestart
+    if (originalForceActiveRunsRestart === undefined) delete process.env.HERMES_WEB_UI_FORCE_RESTART_WITH_ACTIVE_RUNS
+    else process.env.HERMES_WEB_UI_FORCE_RESTART_WITH_ACTIVE_RUNS = originalForceActiveRunsRestart
   })
 
   it('stops the bridge for restart and service shutdown signals by default', () => {
@@ -75,6 +79,27 @@ describe('shutdown bridge policy', () => {
 
     process.env.HERMES_WEB_UI_FORCE_RESTART_WITH_CODING_AGENTS = 'false'
     expect(shouldForceRestartWithCodingAgents()).toBe(false)
+
+    process.env.HERMES_WEB_UI_FORCE_RESTART_WITH_ACTIVE_RUNS = '1'
+    expect(shouldForceRestartWithCodingAgents()).toBe(true)
+  })
+
+  it('skips desktop restart while a normal chat run is active', async () => {
+    delete process.env.HERMES_WEB_UI_FORCE_RESTART_WITH_CODING_AGENTS
+    delete process.env.HERMES_WEB_UI_FORCE_RESTART_WITH_ACTIVE_RUNS
+    const close = vi.fn()
+    const handler = createShutdownHandler(
+      { close },
+      undefined,
+      {
+        hasActiveRuns: () => true,
+        activeRunSummary: () => [{ sessionId: 'chat-session-1', source: 'cli', profile: 'default', queueLength: 0 }],
+      },
+    )
+
+    await handler('SIGUSR2')
+
+    expect(close).not.toHaveBeenCalled()
   })
 
   it('keeps desktop shutdown force-exit timing long enough for runtime cleanup by default', () => {
