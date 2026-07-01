@@ -10,6 +10,7 @@ import type { SessionState } from '../hermes/run-chat/types'
 import type { CanonicalResponsesEvent } from './adapters/responses-stream'
 import { mapCodingAgentResponseEvent } from './coding-agent-event-mapper'
 import { normalizeWindowsCommandPath, windowsCmdShimExecution, windowsCommandNeedsShell } from '../windows-command'
+import { readCodexLatestContextUsageForNativeSession, type CodexTokenUsage } from '../codex-usage'
 
 const DEFAULT_IDLE_MS = 30 * 60 * 1000
 const TERMINAL_OUTPUT_FLUSH_MS = 120
@@ -171,7 +172,11 @@ function codexAccountingUsage(usage: any): any {
   if (!usage || typeof usage !== 'object') return usage
   const info = codexUsageInfo(usage)
   const total = info?.total_token_usage || info?.totalTokenUsage
-  return total && typeof total === 'object' ? total : codexContextUsage(usage)
+  if (total && typeof total === 'object') return total
+  const directAccountingTokens = finiteUsageNumber(
+    ...nestedUsageValue(usage, 'total_tokens', 'totalTokens', 'input_tokens', 'inputTokens', 'prompt_tokens', 'promptTokens'),
+  )
+  return directAccountingTokens != null ? usage : codexContextUsage(usage)
 }
 
 function codexModelContextWindow(usage: any): number | undefined {
@@ -205,6 +210,30 @@ function preferCodexUsage(current: any, next: any): any {
   if (!current || typeof current !== 'object') return next
   if (codexUsageHasLastTokenUsage(current) && !codexUsageHasLastTokenUsage(next)) return current
   return copyCodexContextWindow(next, current)
+}
+
+function tokenBucketToCodexUsage(bucket: CodexTokenUsage): Record<string, number> {
+  return {
+    input_tokens: bucket.inputTokens,
+    cached_input_tokens: bucket.cacheReadTokens,
+    output_tokens: bucket.outputTokens,
+    reasoning_output_tokens: bucket.reasoningTokens,
+    total_tokens: bucket.totalTokens,
+  }
+}
+
+function withCodexContextUsage(usage: any, contextUsage: CodexTokenUsage | null): any {
+  if (!contextUsage) return usage
+  const contextFields = {
+    last_token_usage: tokenBucketToCodexUsage(contextUsage),
+    ...(contextUsage.contextLimit ? { model_context_window: contextUsage.contextLimit } : {}),
+  }
+  if (!usage || typeof usage !== 'object') return contextFields
+  const info = codexUsageInfo(usage)
+  if (info !== usage && info && typeof info === 'object') {
+    return { ...usage, info: { ...info, ...contextFields } }
+  }
+  return { ...usage, ...contextFields }
 }
 
 function normalizeCodingAgentUsageFrom(usage: any, usageSelector: (usage: any) => any): NormalizedCodingAgentUsage | null {
@@ -584,6 +613,14 @@ export class CodingAgentRunManager {
     return childIsRunning(run?.currentChild)
   }
 
+  private enrichCodexUsageFromSessionLog(run: ManagedCodingAgentRun, usage: any): any {
+    if (run.launch.agentId !== 'codex') return usage
+    const nativeSessionId = String(run.launch.agentNativeSessionId || '').trim()
+    if (!nativeSessionId) return usage
+    const contextUsage = readCodexLatestContextUsageForNativeSession(nativeSessionId)
+    return withCodexContextUsage(usage, contextUsage)
+  }
+
   private persistCodingAgentTokenUsage(run: ManagedCodingAgentRun, usage: any): void {
     const normalizedUsage = normalizeCodingAgentAccountingUsage(usage)
     const normalizedContextUsage = applyRunContextLimit(normalizeCodingAgentUsage(usage), run)
@@ -809,7 +846,7 @@ export class CodingAgentRunManager {
       childIsRunning(run.currentChild)
     ) {
       const final = (storageSafeResponseEvent.data as any).response || storageSafeResponseEvent.data
-      run.codexPendingUsage = preferCodexUsage(run.codexPendingUsage, final?.usage)
+      run.codexPendingUsage = preferCodexUsage(run.codexPendingUsage, this.enrichCodexUsageFromSessionLog(run, final?.usage))
       return
     }
     if (isTerminalEvent) {
@@ -835,7 +872,7 @@ export class CodingAgentRunManager {
       const final = (storageSafeResponseEvent.data as any).response || storageSafeResponseEvent.data
       const finalText = extractResponseText(final)
       const usageForCompletion = run.launch.agentId === 'codex'
-        ? preferCodexUsage(run.codexPendingUsage, final?.usage)
+        ? preferCodexUsage(run.codexPendingUsage, this.enrichCodexUsageFromSessionLog(run, final?.usage))
         : final?.usage
       if (run.launch.agentId === 'codex') run.codexPendingUsage = usageForCompletion
       const normalizedUsage = applyRunContextLimit(normalizeCodingAgentUsage(usageForCompletion), run)
@@ -1625,7 +1662,7 @@ export class CodingAgentRunManager {
       return
     }
     if (type === 'turn.completed') {
-      run.codexPendingUsage = preferCodexUsage(run.codexPendingUsage, event.usage)
+      run.codexPendingUsage = preferCodexUsage(run.codexPendingUsage, this.enrichCodexUsageFromSessionLog(run, event.usage))
       return
     }
     if (type === 'turn.failed' || type === 'error') {
@@ -1669,7 +1706,7 @@ export class CodingAgentRunManager {
       return
     }
     if (method === 'turn/completed') {
-      run.codexPendingUsage = preferCodexUsage(run.codexPendingUsage, params.usage)
+      run.codexPendingUsage = preferCodexUsage(run.codexPendingUsage, this.enrichCodexUsageFromSessionLog(run, params.usage))
       return
     }
     if (method === 'turn/failed' || method === 'error') {
@@ -1689,7 +1726,8 @@ export class CodingAgentRunManager {
   }
 
   private handleCodexTokenCount(run: ManagedCodingAgentRun, usage: any) {
-    run.codexPendingUsage = preferCodexUsage(run.codexPendingUsage, usage)
+    const enrichedUsage = this.enrichCodexUsageFromSessionLog(run, usage)
+    run.codexPendingUsage = preferCodexUsage(run.codexPendingUsage, enrichedUsage)
     const normalizedUsage = applyRunContextLimit(normalizeCodingAgentUsage(run.codexPendingUsage), run)
     if (!normalizedUsage) return
     run.state.inputTokens = normalizedUsage.inputTokens
@@ -1982,7 +2020,7 @@ export class CodingAgentRunManager {
   }
 
   private completeCodexExecTurn(run: ManagedCodingAgentRun, usage?: any) {
-    this.completeClaudePrintTurn(run, usage)
+    this.completeClaudePrintTurn(run, this.enrichCodexUsageFromSessionLog(run, usage))
   }
 
   private emitAndMarkPrintChatRunCompleted(run: ManagedCodingAgentRun, event: 'run.completed' | 'run.failed', payload?: Record<string, unknown>) {

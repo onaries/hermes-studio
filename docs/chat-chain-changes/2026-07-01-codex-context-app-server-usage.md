@@ -9,6 +9,8 @@ impact: Codex context meter accepts app-server/Paseo-style latest usage payloads
 
 Changed files:
 - `packages/server/src/services/agent-runner/coding-agent-run-manager.ts`
+- `packages/server/src/services/codex-usage.ts`
 - `tests/server/agent-runner-utils.test.ts`
+- `tests/server/codex-usage.test.ts`
 
-Codex context metering accepts `last` as an alias for `last_token_usage` and preserves the previous context window when later usage events omit it.
+Codex context metering accepts `last` as an alias for `last_token_usage`, preserves the previous context window when later usage events omit it, and falls back to the native Codex JSONL session log when live stdout events contain only cumulative totals.

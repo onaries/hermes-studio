@@ -755,6 +755,66 @@ describe('coding agent run state', () => {
     manager.shutdown()
   })
 
+  it('enriches cumulative-only Codex events from the native JSONL context log', () => {
+    initAllHermesTables()
+    const oldCodexHome = process.env.CODEX_HOME
+    const tempDir = mkdtempSync(join(tmpdir(), 'codex-home-'))
+    process.env.CODEX_HOME = tempDir
+    try {
+      const nativeSessionId = `native-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const jsonlDir = join(tempDir, 'sessions', '2026', '07', '01')
+      const jsonlPath = join(jsonlDir, `rollout-2026-07-01T00-00-00-${nativeSessionId}.jsonl`)
+      rmSync(jsonlDir, { recursive: true, force: true })
+      require('fs').mkdirSync(jsonlDir, { recursive: true })
+      writeFileSync(jsonlPath, [
+        JSON.stringify({ type: 'event_msg', payload: { type: 'task_started', model_context_window: 237500 } }),
+        JSON.stringify({ type: 'event_msg', payload: { type: 'token_count', info: { model_context_window: 237500, total_token_usage: { input_tokens: 100, output_tokens: 1, total_tokens: 101 }, last_token_usage: { input_tokens: 100, output_tokens: 1, total_tokens: 101 } } } }),
+        JSON.stringify({ type: 'event_msg', payload: { type: 'token_count', info: { model_context_window: 237500, total_token_usage: { input_tokens: 150, output_tokens: 2, total_tokens: 152 }, last_token_usage: { input_tokens: 50, output_tokens: 1, total_tokens: 51 } } } }),
+      ].join('\n'))
+
+      const manager = new CodingAgentRunManager()
+      const state: any = { messages: [], isWorking: false, events: [], queue: [] }
+      const agentSessionId = `agent-session-codex-log-usage-${Date.now()}`
+      const chatSessionId = `chat-session-codex-log-usage-${Date.now()}`
+      manager.start({
+        agentSessionId,
+        agentId: 'codex',
+        mode: 'global',
+        profile: 'default',
+        provider: 'test-provider',
+        model: 'gpt-5-codex',
+        sessionId: chatSessionId,
+        command: 'codex',
+        args: ['--model', 'gpt-5-codex'],
+        shellCommand: 'codex --model gpt-5-codex',
+        workspaceDir: process.cwd(),
+        state,
+      })
+      const run = (manager as any).runs.get(agentSessionId)
+      ;(manager as any).recordCodexNativeSessionId(run, nativeSessionId)
+      ;(manager as any).handleCodexTokenCount(run, {
+        type: 'token_count',
+        input_tokens: 150,
+        output_tokens: 2,
+        total_tokens: 152,
+      })
+
+      expect(state.contextTokens).toBe(51)
+      expect(state.contextLimit).toBe(237500)
+      expect(getSession(chatSessionId)).toMatchObject({
+        input_tokens: 150,
+        output_tokens: 2,
+        context_tokens: 51,
+        context_limit: 237500,
+      })
+      manager.shutdown()
+    } finally {
+      if (oldCodexHome == null) delete process.env.CODEX_HOME
+      else process.env.CODEX_HOME = oldCodexHome
+      rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
   it('uses Codex task_started context window when token_count omits the limit', async () => {
     initAllHermesTables()
     const manager = new CodingAgentRunManager()

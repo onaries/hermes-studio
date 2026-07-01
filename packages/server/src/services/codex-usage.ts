@@ -161,6 +161,46 @@ function findCodexSessionJsonl(nativeSessionId: string): string | null {
   return null
 }
 
+export function parseCodexLatestContextUsageJsonl(content: string): CodexTokenUsage | null {
+  let latestLast: TokenBucket | null = null
+  let latestTotal: TokenBucket | null = null
+  let contextLimit: number | undefined
+  let model = ''
+
+  for (const line of content.split(/\r?\n/)) {
+    if (!line.trim()) continue
+    let item: any
+    try {
+      item = JSON.parse(line)
+    } catch {
+      continue
+    }
+
+    const payload = item?.payload
+    if (item?.type === 'turn_context' && payload && typeof payload === 'object') {
+      if (!model && typeof payload.model === 'string') model = payload.model.trim()
+    }
+
+    if (item?.type !== 'event_msg' || payload?.type !== 'token_count') continue
+    const info = payload.info && typeof payload.info === 'object' ? payload.info : payload
+    latestTotal = normalizeTokenBucket(info.total_token_usage ?? info.totalTokenUsage) || latestTotal
+    latestLast = normalizeTokenBucket(info.last_token_usage ?? info.lastTokenUsage ?? info.last) || latestLast
+    contextLimit = finiteToken(info.model_context_window ?? info.modelContextWindow) ?? contextLimit
+  }
+
+  const chosen = latestLast || latestTotal
+  if (!chosen) return null
+  return {
+    inputTokens: chosen.inputTokens,
+    outputTokens: chosen.outputTokens,
+    cacheReadTokens: chosen.cacheReadTokens,
+    reasoningTokens: chosen.reasoningTokens,
+    totalTokens: chosen.totalTokens,
+    ...(contextLimit ? { contextLimit } : {}),
+    ...(model ? { model } : {}),
+  }
+}
+
 export function readCodexTokenUsageForNativeSession(nativeSessionId: string): CodexTokenUsage | null {
   const file = findCodexSessionJsonl(nativeSessionId)
   if (!file) return null
@@ -168,6 +208,17 @@ export function readCodexTokenUsageForNativeSession(nativeSessionId: string): Co
     return parseCodexTokenUsageJsonl(readFileSync(file, 'utf-8'))
   } catch (err) {
     logger.warn({ err, nativeSessionId, file }, '[codex-usage] failed to read Codex usage log')
+    return null
+  }
+}
+
+export function readCodexLatestContextUsageForNativeSession(nativeSessionId: string): CodexTokenUsage | null {
+  const file = findCodexSessionJsonl(nativeSessionId)
+  if (!file) return null
+  try {
+    return parseCodexLatestContextUsageJsonl(readFileSync(file, 'utf-8'))
+  } catch (err) {
+    logger.warn({ err, nativeSessionId, file }, '[codex-usage] failed to read latest Codex context usage log')
     return null
   }
 }

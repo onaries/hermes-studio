@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseCodexTokenUsageJsonl } from '../../packages/server/src/services/codex-usage'
+import { parseCodexLatestContextUsageJsonl, parseCodexTokenUsageJsonl } from '../../packages/server/src/services/codex-usage'
 
 describe('Codex usage parsing', () => {
   it('sums Codex last_token_usage and keeps model/context metadata', () => {
@@ -81,6 +81,24 @@ describe('Codex usage parsing', () => {
       inputTokens: 150,
       outputTokens: 2,
       totalTokens: 152,
+    })
+  })
+
+  it('keeps latest last_token_usage for context metering', () => {
+    const content = [
+      JSON.stringify({ type: 'turn_context', payload: { model: 'gpt-5.5' } }),
+      JSON.stringify({ type: 'event_msg', payload: { type: 'token_count', info: { model_context_window: 237500, total_token_usage: { input_tokens: 100, output_tokens: 1, total_tokens: 101 }, last_token_usage: { input_tokens: 100, output_tokens: 1, total_tokens: 101 } } } }),
+      JSON.stringify({ type: 'event_msg', payload: { type: 'token_count', info: { model_context_window: 237500, total_token_usage: { input_tokens: 150, output_tokens: 2, total_tokens: 152 }, last_token_usage: { input_tokens: 50, output_tokens: 1, total_tokens: 51 } } } }),
+    ].join('\n')
+
+    expect(parseCodexLatestContextUsageJsonl(content)).toEqual({
+      inputTokens: 50,
+      outputTokens: 1,
+      cacheReadTokens: 0,
+      reasoningTokens: 0,
+      totalTokens: 51,
+      contextLimit: 237500,
+      model: 'gpt-5.5',
     })
   })
 })
