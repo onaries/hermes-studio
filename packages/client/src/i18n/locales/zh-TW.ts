@@ -80,6 +80,7 @@ export default {
     cancel: '取消',
     delete: '刪除',
     retry: '重試',
+    reset: '重置',
     edit: '編輯',
     save: '儲存',
     saved: '已儲存',
@@ -470,6 +471,7 @@ export default {
     outlineGoTop: '跳到頂部',
     outlineGoBottom: '跳到底部',
     inputPlaceholder: '輸入訊息... (Enter 發送，Shift+Enter 換行)',
+    inputHeightResizeHint: '拖曳調整聊天輸入框高度，雙擊可恢復自動高度。',
     slashCommandArgs: {
       message: '<訊息>',
       title: '<標題>',
@@ -639,6 +641,7 @@ export default {
     sessionLinkCopied: 'Session link copied',
     copySessionId: '複製工作階段 ID',
     export: '匯出',
+    editConfig: '編輯設定檔',
     exportFull: '完整匯出 (JSON)',
     exportCompressed: '壓縮匯出 (TXT)',
     exportCompressing: '正在壓縮上下文，請稍候...',
@@ -1664,8 +1667,8 @@ export default {
       notifyOnCompleteUnsupported: '目前瀏覽器不支援通知',
       notifyOnCompleteTest: '通知已開啟。',
       notifyOnCompleteTestButton: '測試',
-      notifyOnCompleteTesting: '正在傳送測試通知...',
-      notifyOnCompleteTestSent: '測試通知已傳送',
+      notifyOnCompleteTesting: '正在發送測試通知...',
+      notifyOnCompleteTestSent: '測試通知已送出',
       notifyOnCompleteTestFailed: '測試通知傳送失敗',
 
       busyInputMode: '忙碌輸入模式',
@@ -1675,6 +1678,8 @@ export default {
       themeLight: '淺色',
       themeDark: '暗色',
       themeSystem: '跟隨系統',
+      chatInputHeight: '聊天輸入框高度',
+      chatInputHeightHint: '桌面端聊天輸入框預設高度（像素）。行動端保持自動高度。'
     },
     agent: {
       maxTurns: '最大輪次',

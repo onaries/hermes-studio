@@ -84,6 +84,7 @@ describe('ChatInput draft persistence', () => {
         return 1
       },
     })
+    window.innerWidth = 1024
     fetchSkillsMock.mockReset()
     fetchSkillsMock.mockResolvedValue({ categories: [], archived: [] })
   })
@@ -152,6 +153,23 @@ describe('ChatInput draft persistence', () => {
     await nextTick()
 
     expect((textarea.element as HTMLTextAreaElement).style.height).toBe('64px')
+  })
+
+  it('applies the configured desktop input height from display settings', async () => {
+    const wrapper = mountForSession('session-a', {}, { chat_input_height: 180 })
+    await flushPromises()
+    await nextTick()
+
+    expect((wrapper.get('textarea').element as HTMLTextAreaElement).style.height).toBe('180px')
+  })
+
+  it('keeps mobile chat input behavior even when a desktop height is configured', async () => {
+    window.innerWidth = 640
+    const wrapper = mountForSession('session-mobile', {}, { chat_input_height: 180 })
+    await flushPromises()
+    await nextTick()
+
+    expect((wrapper.get('textarea').element as HTMLTextAreaElement).style.height).not.toBe('180px')
   })
 
   it('shows context usage for coding-agent sessions when usage is available', async () => {

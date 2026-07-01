@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+import { MAX_CHAT_INPUT_HEIGHT, MIN_CHAT_INPUT_HEIGHT } from '@/utils/chat-input-height'
 
 const mockSettingsStore = vi.hoisted(() => ({
   display: {
@@ -18,6 +19,7 @@ const mockSettingsStore = vi.hoisted(() => ({
     show_workspace_file_tree: undefined,
     show_terminal_session_list: undefined,
     inline_diffs: true,
+    chat_input_height: 160,
     bell_on_complete: false,
     notify_on_complete: false,
     mobile_enter_to_send: false,
@@ -101,6 +103,7 @@ vi.mock('naive-ui', async () => {
       emits: ['update:value'],
       setup: (props, { emit, attrs }) => () => h('input', {
         ...attrs,
+        class: ['number-stub', 'n-input-number', attrs.class].filter(Boolean).join(' '),
         type: 'number',
         value: props.value,
         onInput: (event: Event) => emit('update:value', Number((event.target as HTMLInputElement).value)),
@@ -113,7 +116,7 @@ import DisplaySettings from '@/components/hermes/settings/DisplaySettings.vue'
 
 describe('DisplaySettings', () => {
   beforeEach(() => {
-    mockSettingsStore.saveSection.mockReset()
+    vi.clearAllMocks()
     mockSettingsStore.display.show_live_tps = undefined
     mockSettingsStore.display.show_tool_mascot = undefined
     mockSettingsStore.display.show_tool_mascot_desktop = undefined
@@ -123,8 +126,10 @@ describe('DisplaySettings', () => {
     mockSettingsStore.display.auto_open_patch_drawer = false
     mockSettingsStore.display.show_workspace_file_tree = undefined
     mockSettingsStore.display.show_terminal_session_list = undefined
+    mockSettingsStore.display.chat_input_height = 160
     mockSettingsStore.display.terminal_font_size = 14
     mockSettingsStore.display.terminal_font_family = 'Menlo, Monaco, "Courier New", monospace'
+    mockSettingsStore.saveSection.mockResolvedValue(undefined)
     localStorage.clear()
   })
 
@@ -149,12 +154,12 @@ describe('DisplaySettings', () => {
           NInputNumber: {
             props: ['value'],
             emits: ['update:value'],
-            template: '<input class="number-stub" :value="value" @input="$emit(\'update:value\', Number($event.target.value))" />',
+            template: '<input class="number-stub n-input-number" :value="value" @input="$emit(\'update:value\', Number($event.target.value))" />',
           },
           'n-input-number': {
             props: ['value'],
             emits: ['update:value'],
-            template: '<input class="number-stub" :value="value" @input="$emit(\'update:value\', Number($event.target.value))" />',
+            template: '<input class="number-stub n-input-number" :value="value" @input="$emit(\'update:value\', Number($event.target.value))" />',
           },
           NInput: {
             props: ['value'],
@@ -199,7 +204,6 @@ describe('DisplaySettings', () => {
   })
 
   it('exposes a live TPS display toggle that defaults on and saves changes', async () => {
-    mockSettingsStore.saveSection.mockResolvedValue(undefined)
     const wrapper = mountDisplaySettings()
 
     const rows = wrapper.findAll('.setting-row')
@@ -214,7 +218,6 @@ describe('DisplaySettings', () => {
   })
 
   it('groups desktop and mobile tool mascot checkboxes in one setting row with legacy default fallback', async () => {
-    mockSettingsStore.saveSection.mockResolvedValue(undefined)
     const wrapper = mountDisplaySettings()
 
     const rows = wrapper.findAll('.setting-row')
@@ -240,7 +243,6 @@ describe('DisplaySettings', () => {
   })
 
   it('exposes a drawer rainbow glow toggle that defaults on and saves changes', async () => {
-    mockSettingsStore.saveSection.mockResolvedValue(undefined)
     const wrapper = mountDisplaySettings()
 
     const rows = wrapper.findAll('.setting-row')
@@ -255,7 +257,6 @@ describe('DisplaySettings', () => {
   })
 
   it('exposes a fixed right drawer toggle that defaults off and saves changes', async () => {
-    mockSettingsStore.saveSection.mockResolvedValue(undefined)
     const wrapper = mountDisplaySettings()
 
     const rows = wrapper.findAll('.setting-row')
@@ -270,7 +271,6 @@ describe('DisplaySettings', () => {
   })
 
   it('exposes a patch auto-expand toggle that defaults off and saves changes', async () => {
-    mockSettingsStore.saveSection.mockResolvedValue(undefined)
     const wrapper = mountDisplaySettings()
 
     const rows = wrapper.findAll('.setting-row')
@@ -285,7 +285,6 @@ describe('DisplaySettings', () => {
   })
 
   it('exposes a workspace file tree toggle that defaults on and saves changes', async () => {
-    mockSettingsStore.saveSection.mockResolvedValue(undefined)
     const wrapper = mountDisplaySettings()
 
     const rows = wrapper.findAll('.setting-row')
@@ -300,7 +299,6 @@ describe('DisplaySettings', () => {
   })
 
   it('exposes file icon theme in display settings and saves locally plus config', async () => {
-    mockSettingsStore.saveSection.mockResolvedValue(undefined)
     const wrapper = mountDisplaySettings()
 
     const rows = wrapper.findAll('.setting-row')
@@ -315,7 +313,6 @@ describe('DisplaySettings', () => {
   })
 
   it('exposes a terminal session list toggle that defaults on and saves changes', async () => {
-    mockSettingsStore.saveSection.mockResolvedValue(undefined)
     const wrapper = mountDisplaySettings()
 
     const rows = wrapper.findAll('.setting-row')
@@ -329,8 +326,29 @@ describe('DisplaySettings', () => {
     expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { show_terminal_session_list: false })
   })
 
+  it('saves a clamped chat input height and can reset back to automatic height', async () => {
+    const wrapper = mountDisplaySettings()
+    const rows = wrapper.findAll('.setting-row')
+    const heightRow = rows.find(row => row.text().includes('settings.display.chatInputHeight'))
+    expect(heightRow?.text()).toContain('settings.display.chatInputHeightHint')
+
+    const input = heightRow!.get('input')
+    await input.setValue(String(MAX_CHAT_INPUT_HEIGHT + 100))
+    await flushPromises()
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { chat_input_height: MAX_CHAT_INPUT_HEIGHT })
+
+    await input.setValue(String(MIN_CHAT_INPUT_HEIGHT - 100))
+    await flushPromises()
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { chat_input_height: MIN_CHAT_INPUT_HEIGHT })
+
+    const resetButton = heightRow!.findAll('button').find(button => button.text() === 'common.reset')
+    expect(resetButton).toBeTruthy()
+    await resetButton!.trigger('click')
+    await flushPromises()
+    expect(mockSettingsStore.saveSection).toHaveBeenCalledWith('display', { chat_input_height: null })
+  })
+
   it('exposes terminal font controls and saves changes', async () => {
-    mockSettingsStore.saveSection.mockResolvedValue(undefined)
     const wrapper = mountDisplaySettings()
 
     const rows = wrapper.findAll('.setting-row')

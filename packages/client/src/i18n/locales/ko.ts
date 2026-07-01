@@ -79,6 +79,7 @@ export default {
     loading: '로딩 중...',
     cancel: '취소',
     retry: '재시도',
+    reset: '초기화',
     delete: '삭제',
     edit: '편집',
     save: '저장',
@@ -466,6 +467,7 @@ export default {
     outlineGoTop: '맨 위로 이동',
     outlineGoBottom: '맨 아래로 이동',
     inputPlaceholder: '메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)',
+    inputHeightResizeHint: '드래그해서 채팅 입력창 높이를 바꾸고, 더블클릭하면 자동 높이로 돌아갑니다.',
     slashCommandArgs: {
       message: '<메시지>',
       title: '<제목>',
@@ -599,6 +601,7 @@ export default {
     sessionLinkCopied: 'Session link copied',
     copySessionId: '세션 ID 복사',
     export: '내보내기',
+    editConfig: '구성 편집',
     exportFull: '전체 내보내기 (JSON)',
     exportCompressed: '압축 내보내기 (TXT)',
     exportCompressing: '컨텍스트 압축 중, 잠시 기다려주세요...',
@@ -1402,6 +1405,8 @@ export default {
       themeLight: '라이트',
       themeDark: '다크',
       themeSystem: '시스템',
+      chatInputHeight: '채팅 입력 높이',
+      chatInputHeightHint: '데스크톱 채팅 입력창 기본 높이(px). 모바일은 자동 높이를 유지합니다.'
     },
     agent: {
       maxTurns: '최대 턴 수',

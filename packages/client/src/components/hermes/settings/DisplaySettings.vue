@@ -13,6 +13,7 @@ import {
   sanitizeTerminalFontFamily,
   sanitizeTerminalFontSize,
 } from '@/utils/terminal-font-options'
+import { clampChatInputHeight, MAX_CHAT_INPUT_HEIGHT, MIN_CHAT_INPUT_HEIGHT } from '@/utils/chat-input-height'
 import SettingRow from './SettingRow.vue'
 
 const settingsStore = useSettingsStore()
@@ -32,6 +33,7 @@ const themeOptions = [
   { label: t('settings.display.themeDark'), value: 'dark' },
   { label: t('settings.display.themeSystem'), value: 'system' },
 ]
+const chatInputHeight = computed(() => clampChatInputHeight(settingsStore.display.chat_input_height))
 
 async function save(values: Record<string, any>) {
   try {
@@ -61,6 +63,14 @@ function handleTerminalFontFamilyChange(value: string | null) {
 function handleTerminalFontSizeChange(value: number | null) {
   if (value == null) return
   save({ terminal_font_size: sanitizeTerminalFontSize(value) })
+}
+
+function handleChatInputHeightChange(value: number | null) {
+  return save({ chat_input_height: clampChatInputHeight(value) })
+}
+
+function resetChatInputHeight() {
+  return save({ chat_input_height: null })
 }
 
 function notificationPermissionErrorKey(result: CompletionNotificationPermissionResult): string {
@@ -192,6 +202,25 @@ async function testCompletionNotification() {
     <SettingRow :label="t('settings.display.mobileEnterToSend')" :hint="t('settings.display.mobileEnterToSendHint')">
       <NSwitch :value="settingsStore.display.mobile_enter_to_send === true" @update:value="v => save({ mobile_enter_to_send: v })" />
     </SettingRow>
+    <SettingRow :label="t('settings.display.chatInputHeight')" :hint="t('settings.display.chatInputHeightHint')">
+      <div class="chat-input-height-controls">
+        <NInputNumber
+          :value="chatInputHeight"
+          :min="MIN_CHAT_INPUT_HEIGHT"
+          :max="MAX_CHAT_INPUT_HEIGHT"
+          :step="8"
+          :show-button="false"
+          size="small"
+          class="input-sm"
+          @update:value="handleChatInputHeightChange"
+        >
+          <template #suffix>px</template>
+        </NInputNumber>
+        <NButton size="tiny" secondary @click="resetChatInputHeight">
+          {{ t('common.reset') }}
+        </NButton>
+      </div>
+    </SettingRow>
     <SettingRow :label="t('settings.display.terminalFontSize')" :hint="t('settings.display.terminalFontSizeHint')">
       <NInputNumber
         :value="settingsStore.display.terminal_font_size ?? DEFAULT_TERMINAL_FONT_SIZE"
@@ -228,12 +257,14 @@ async function testCompletionNotification() {
 }
 
 .notify-controls,
-.mascot-checkboxes {
+.mascot-checkboxes,
+.chat-input-height-controls {
   display: inline-flex;
   align-items: center;
 }
 
-.notify-controls {
+.notify-controls,
+.chat-input-height-controls {
   gap: 10px;
 }
 

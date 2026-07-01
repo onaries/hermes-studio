@@ -1863,7 +1863,7 @@ async function handleSessionModelCustomSubmit() {
               :disabled="!canConfirmNewChat"
               @click="confirmNewChat"
             >
-              {{ t("chat.newChat") }}
+              {{ t("common.create") }}
             </NButton>
           </div>
         </template>

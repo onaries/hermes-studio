@@ -79,6 +79,7 @@ export default {
     loading: 'Cargando...',
     cancel: 'Cancelar',
     retry: 'Reintentar',
+    reset: 'Restablecer',
     delete: 'Eliminar',
     edit: 'Editar',
     save: 'Guardar',
@@ -466,6 +467,7 @@ export default {
     outlineGoTop: 'Ir arriba',
     outlineGoBottom: 'Ir abajo',
     inputPlaceholder: 'Escribe un mensaje... (Enter para enviar, Shift+Enter para nueva linea)',
+    inputHeightResizeHint: 'Arrastra para cambiar la altura del cuadro de chat y haz doble clic para restablecerla.',
     slashCommandArgs: {
       message: '<mensaje>',
       title: '<titulo>',
@@ -599,6 +601,7 @@ export default {
     sessionLinkCopied: 'Session link copied',
     copySessionId: 'Copiar ID de sesión',
     export: 'Exportar',
+    editConfig: 'Editar configuración',
     exportFull: 'Exportación completa (JSON)',
     exportCompressed: 'Exportación comprimida (TXT)',
     exportCompressing: 'Comprimiendo contexto, espere...',
@@ -1402,6 +1405,8 @@ jobTriggered: 'Job ejecutado',
       themeLight: 'Claro',
       themeDark: 'Oscuro',
       themeSystem: 'Sistema',
+      chatInputHeight: 'Altura de entrada del chat',
+      chatInputHeightHint: 'Altura predeterminada de la entrada del chat en escritorio, en píxeles. En móvil se mantiene automática.'
     },
     agent: {
       maxTurns: 'Turnos maximos',

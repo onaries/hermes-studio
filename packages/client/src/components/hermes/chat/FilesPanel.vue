@@ -44,7 +44,7 @@ watch(
     filesStore.closeEditor()
     filesStore.closePreview()
     filesStore.setRootPath(root)
-    void filesStore.fetchEntries(root)
+    void filesStore.fetchEntries(root, { profile: null })
   },
   { immediate: true },
 )
@@ -102,7 +102,7 @@ function handleRename(entry: FileEntry) {
       class="files-tree-panel"
       :class="{ 'mobile-visible': showSidebar }"
     >
-      <FileTree :root-path="workspaceRoot" />
+      <FileTree :root-path="workspaceRoot" :profile="null" />
     </div>
     <div class="files-main-panel">
       <div class="main-toolbar">

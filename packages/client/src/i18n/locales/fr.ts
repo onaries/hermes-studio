@@ -79,6 +79,7 @@ export default {
     loading: 'Chargement...',
     cancel: 'Annuler',
     retry: 'Réessayer',
+    reset: 'Réinitialiser',
     delete: 'Supprimer',
     edit: 'Modifier',
     save: 'Enregistrer',
@@ -466,6 +467,7 @@ export default {
     outlineGoTop: 'Aller en haut',
     outlineGoBottom: 'Aller en bas',
     inputPlaceholder: 'Tapez un message... (Entree pour envoyer, Shift+Entree pour un saut de ligne)',
+    inputHeightResizeHint: 'Faites glisser pour changer la hauteur du champ de chat, double-cliquez pour reinitialiser.',
     slashCommandArgs: {
       message: '<message>',
       title: '<titre>',
@@ -599,6 +601,7 @@ export default {
     sessionLinkCopied: 'Session link copied',
     copySessionId: "Copier l'ID de session",
     export: 'Exporter',
+    editConfig: 'Modifier la configuration',
     exportFull: 'Export complet (JSON)',
     exportCompressed: 'Export compressé (TXT)',
     exportCompressing: 'Compression du contexte, veuillez patienter...',
@@ -1402,6 +1405,8 @@ jobTriggered: 'Job declenche',
       themeLight: 'Clair',
       themeDark: 'Sombre',
       themeSystem: 'Systeme',
+      chatInputHeight: 'Hauteur de saisie du chat',
+      chatInputHeightHint: 'Hauteur par défaut de la zone de saisie sur ordinateur, en pixels. Le mobile reste automatique.'
     },
     agent: {
       maxTurns: 'Tours maximum',
