@@ -2,7 +2,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createTestingPinia } from '@pinia/testing'
-import { defineComponent } from 'vue'
 import { useChatStore } from '@/stores/hermes/chat'
 import VoiceDialogueControls from '@/components/hermes/chat/VoiceDialogueControls.vue'
 import ChatInput from '@/components/hermes/chat/ChatInput.vue'
@@ -484,36 +483,12 @@ describe('VoiceDialogueControls', () => {
       markOutputDone: vi.fn(),
     })
 
-    const VoiceDialogueControlsStub = defineComponent({
-      props: {
-        debug: { type: Boolean, required: false },
-        events: { type: Array, required: false },
-      },
-      template: `
-        <div data-testid="voice-controls-props">
-          <span data-testid="voice-controls-debug">{{ String(debug ?? false) }}</span>
-          <span
-            v-for="event in (events ?? [])"
-            :key="event.id ?? event.type"
-            data-testid="voice-controls-event"
-          >
-            {{ event.type }}
-          </span>
-        </div>
-      `,
-    })
-
-    const { wrapper } = mountChatInput({
-      global: {
-        stubs: {
-          VoiceDialogueControls: VoiceDialogueControlsStub,
-        },
-      },
-    })
+    const { wrapper } = mountChatInput()
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="voice-controls-debug"]').text()).toBe('false')
-    expect(wrapper.findAll('[data-testid="voice-controls-event"]').map(item => item.text())).toEqual([
+    const controls = wrapper.getComponent(VoiceDialogueControls)
+    expect(controls.props('debug')).toBe(false)
+    expect((controls.props('events') as Array<{ type: string }>).map(event => event.type)).toEqual([
       'session.started',
       'capture.started',
       'capture.stopped',

@@ -2186,7 +2186,6 @@ async function handleSessionModelCustomSubmit() {
             @navigate="handleOutlineNavigate"
           />
         </div>
-        <ChatInput ref="chatInputRef" />
       </template>
       <ConversationMonitorPane
         v-else
@@ -3172,18 +3171,17 @@ async function handleSessionModelCustomSubmit() {
 }
 
 .pending-interaction-stack {
-  position: absolute;
-  left: 50%;
-  bottom: 16px;
+  position: relative;
   z-index: 140;
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
   gap: 10px;
   width: calc(100% - 48px);
   max-width: 960px;
-  max-height: calc(100% - 32px);
+  max-height: min(45vh, 360px);
+  margin: 0 auto 8px;
   overflow-y: auto;
-  transform: translateX(-50%);
   pointer-events: none;
 }
 
@@ -3427,8 +3425,8 @@ async function handleSessionModelCustomSubmit() {
 @media (max-width: 768px) {
   .pending-interaction-stack {
     width: calc(100% - 20px);
-    bottom: 10px;
-    max-height: calc(100% - 20px);
+    max-height: min(45vh, 320px);
+    margin-bottom: 8px;
   }
 
   .approval-bar {

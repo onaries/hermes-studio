@@ -33,7 +33,7 @@ test('chat input card toggles send state and clears after Enter submit', async (
     return emitted.find((item: any) => item.event === 'run')?.payload || null
   })
   await expect(input).toHaveValue('')
-  await expect(sendButton).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible()
   expect(await run.jsonValue()).toMatchObject({
     input: 'Draft line\nsecond line',
     source: 'cli',
