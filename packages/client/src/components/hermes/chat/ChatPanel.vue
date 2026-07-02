@@ -1972,37 +1972,6 @@ async function handleSessionModelCustomSubmit() {
               </template>
               {{ t("chat.copySessionId") }}
             </NTooltip>
-            <NButton
-              class="header-model-button"
-              size="small"
-              :circle="isMobile"
-              :title="activeSessionModelLabel"
-              @click="handleHeaderModelClick"
-            >
-              <template #icon>
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M12 1v4" />
-                  <path d="M12 19v4" />
-                  <path d="M1 12h4" />
-                  <path d="M19 12h4" />
-                  <path d="M4.22 4.22l2.83 2.83" />
-                  <path d="M16.95 16.95l2.83 2.83" />
-                  <path d="M4.22 19.78l2.83-2.83" />
-                  <path d="M16.95 7.05l2.83-2.83" />
-                </svg>
-              </template>
-              <template v-if="!isMobile">{{ activeSessionModelLabel }}</template>
-            </NButton>
             <NButton size="small" :circle="isMobile" @click="openNewChatModal">
               <template #icon>
                 <svg
@@ -2205,6 +2174,11 @@ async function handleSessionModelCustomSubmit() {
               </div>
             </div>
 
+            <ChatInput
+              ref="chatInputRef"
+              :model-label="activeSessionModelLabel"
+              @model-click="handleHeaderModelClick"
+            />
           </div>
           <OutlinePanel
             v-if="showOutline"
@@ -2946,6 +2920,18 @@ async function handleSessionModelCustomSubmit() {
   flex-direction: column;
   min-width: 0;
   position: relative;
+  background-color: $bg-card;
+  animation: chat-surface-fade-in 1.5s ease both;
+}
+
+@keyframes chat-surface-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .chat-header {
@@ -3008,17 +2994,6 @@ async function handleSessionModelCustomSubmit() {
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
-}
-
-.header-model-button {
-  max-width: 220px;
-}
-
-.header-model-button :deep(.n-button__content) {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .chat-mode-toggle {

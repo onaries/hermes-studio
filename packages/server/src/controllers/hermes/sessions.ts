@@ -1056,19 +1056,24 @@ async function listWindowsWorkspaceDrives() {
   return drives
 }
 
+async function isWorkspaceListPathAllowed(fullPath: string, basePath: string, statFn: any): Promise<boolean> {
+  try {
+    const info = await statFn(fullPath)
+    if (!info.isDirectory()) return false
+    if (process.platform === 'win32') return true
+    return await isRealPathWithin(fullPath, basePath)
+  } catch {
+    return false
+  }
+}
+
 async function isSafeWorkspaceFolderEntry(entry: any, fullPath: string, basePath: string, statFn: any): Promise<boolean> {
   if (entry.name.startsWith('.')) return false
   if (!entry.isDirectory() && !(typeof entry.isSymbolicLink === 'function' && entry.isSymbolicLink())) {
     return false
   }
 
-  try {
-    const info = await statFn(fullPath)
-    if (!info.isDirectory()) return false
-    return await isRealPathWithin(fullPath, basePath)
-  } catch {
-    return false
-  }
+  return isWorkspaceListPathAllowed(fullPath, basePath, statFn)
 }
 
 /**
@@ -1107,7 +1112,7 @@ export async function listWorkspaceFolders(ctx: any) {
       return
     }
 
-    if (!await isRealPathWithin(resolved.fullPath, resolved.base)) {
+    if (!await isWorkspaceListPathAllowed(resolved.fullPath, resolved.base, stat)) {
       ctx.status = 403
       ctx.body = { error: 'Access denied' }
       return
@@ -1151,7 +1156,7 @@ export async function listWorkspaceFolders(ctx: any) {
     return
   }
 
-  if (!await isRealPathWithin(fullPath, WORKSPACE_BASE)) {
+  if (!await isWorkspaceListPathAllowed(fullPath, WORKSPACE_BASE, stat)) {
     ctx.status = 403
     ctx.body = { error: 'Access denied' }
     return
