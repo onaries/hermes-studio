@@ -16,6 +16,7 @@ import {
   contextTokensWithCachedOverhead,
   estimateUsageTokensFromMessages,
   getCachedBridgeContextOverhead,
+  updateContextTokenUsage,
   updateMessageContextTokenUsage,
 } from './usage'
 import {
@@ -476,6 +477,7 @@ export async function handleBridgeRun(
       const contextTokens = fixedContextTokens == null
         ? localMessageTokens
         : fixedContextTokens + localMessageTokens
+      updateContextTokenUsage(session_id, state, emit, contextTokens)
       bridgeLogger.info({
         sessionId: session_id,
         profile,

@@ -189,6 +189,56 @@ describe('bridge run final context usage', () => {
     for (const home of homes.splice(0)) rmSync(home, { recursive: true, force: true })
   })
 
+  it('emits the preflight context estimate before bridge output starts', async () => {
+    const emit = vi.fn()
+    const nsp = makeNamespace(emit)
+    const socket = makeSocket()
+    const state = makeState()
+    const sessionMap = new Map([['session-1', state]])
+    buildCompressedHistoryMock.mockImplementationOnce(async (...args: any[]) => {
+      const estimateContext = args[7] as (_messages: any[], localMessageTokens: number) => Promise<number>
+      await estimateContext([], 200000)
+      return [{ role: 'user', content: 'previous' }]
+    })
+    const bridge = {
+      chat: vi.fn().mockResolvedValue({ run_id: 'run-1', status: 'started' }),
+      contextEstimate: vi.fn().mockResolvedValue({
+        token_count: 229000,
+        fixed_context_tokens: 29000,
+        message_count: 2,
+        tool_count: 4,
+        system_prompt_chars: 13,
+      }),
+      streamOutput: vi.fn(async function* () {
+        yield { run_id: 'run-1', done: true, status: 'completed', output: 'done' }
+      }),
+    } as any
+
+    const { handleBridgeRun } = await import('../../packages/server/src/services/hermes/run-chat/handle-bridge-run')
+    await handleBridgeRun(
+      nsp,
+      socket,
+      { input: 'hello', session_id: 'session-1' },
+      'default',
+      sessionMap,
+      bridge,
+      false,
+      vi.fn(),
+      vi.fn(),
+    )
+
+    expect(updateContextTokenUsageMock).toHaveBeenCalledWith(
+      'session-1',
+      state,
+      expect.any(Function),
+      229000,
+    )
+    expect(updateContextTokenUsageMock.mock.invocationCallOrder[0]).toBeLessThan(bridge.chat.mock.invocationCallOrder[0])
+    expect(emit).toHaveBeenCalledWith('usage.updated', expect.objectContaining({
+      contextTokens: 229000,
+    }))
+  })
+
   it('refreshes full context tokens when a bridge run completes', async () => {
     const emit = vi.fn()
     const nsp = makeNamespace(emit)
